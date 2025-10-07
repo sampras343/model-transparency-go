@@ -36,7 +36,8 @@ We support multiple PKI methods, specified as subcommands. By default, the signa
 to be generated via Sigstore (as if invoking 'sigstore' subcommand).
 
 Use each subcommand's --help option for details on each mode.`,
-		// If user doesn't specify a PKI subcommand, default to "sigstore".
+		DisableFlagParsing: true,
+		Args: cobra.ArbitraryArgs,
 		RunE: func(parent *cobra.Command, args []string) error {
 			sigCmd := sigstore.New()
 			// Match parent quieting behavior if desired:
