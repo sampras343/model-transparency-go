@@ -18,23 +18,14 @@ package sigstore
 import (
 	"context"
 	"time"
-
+	"github.com/sigstore/model-signing/cmd/model-signing/cli/options"
 	"github.com/spf13/cobra"
 )
 
-type options struct {
-	SignaturePath    string   // --signature SIGNATURE_PATH (required)
-	IgnorePaths      []string // --ignore-paths
-	IgnoreGitPaths   bool     // --ignore-git-paths (default true; users can pass --ignore-git-paths=false)
-	UseStaging       bool     // --use_staging
-	Identity         string   // --identity (required)
-	IdentityProvider string   // --identity_provider (required)
-}
+
 
 func New() *cobra.Command {
-	o := &options{
-		IgnoreGitPaths: true,
-	}
+	o := &options.SigstoreVerifyOptions{}
 
 	long := `Verify using Sigstore (DEFAULT verification method).
 
@@ -67,20 +58,6 @@ signature, verification would fail.`
 		},
 	}
 
-	// Flags — only on this subcommand.
-	cmd.Flags().StringVar(&o.SignaturePath, "signature", "", "Location of the signature file to verify.")
-	_ = cmd.MarkFlagRequired("signature")
-
-	cmd.Flags().StringSliceVar(&o.IgnorePaths, "ignore-paths", nil, "File paths to ignore when signing or verifying.")
-	cmd.Flags().BoolVar(&o.IgnoreGitPaths, "ignore-git-paths", true, "Ignore git-related files when signing or verifying.")
-	// Users can pass --ignore-git-paths=false. If you also want an explicit --no-ignore-git-paths alias:
-	// cmd.Flags().Bool("no-ignore-git-paths", false, "Do not ignore git-related files (alias for --ignore-git-paths=false)")
-
-	cmd.Flags().BoolVar(&o.UseStaging, "use_staging", false, "Use Sigstore's staging instance.")
-	cmd.Flags().StringVar(&o.Identity, "identity", "", "The expected identity of the signer (e.g., name@example.com).")
-	_ = cmd.MarkFlagRequired("identity")
-	cmd.Flags().StringVar(&o.IdentityProvider, "identity_provider", "", "The expected identity provider (e.g., https://accounts.example.com).")
-	_ = cmd.MarkFlagRequired("identity_provider")
-
+	o.AddFlags(cmd)
 	return cmd
 }

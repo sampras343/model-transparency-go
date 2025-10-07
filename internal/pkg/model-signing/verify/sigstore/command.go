@@ -67,7 +67,7 @@ func (v *SigstoreVerifier) Verify(ctx context.Context, modelPath string) error {
 	fmt.Printf("  --signature:     %s\n", filepath.Clean(v.SignaturePath))
 	fmt.Printf("  --ignore-paths:  %v\n", v.IgnorePaths)
 	fmt.Printf("  --ignore-git-paths:    %v\n", v.IgnoreGitPaths)
-	fmt.Printf("  --use_staging:   %v\n", v.UseStaging)
+	fmt.Printf("  --use-staging:   %v\n", v.UseStaging)
 	fmt.Printf("  --identity:      %s\n", v.Identity)
 	fmt.Printf("  --identity_provider: %s\n", v.IdentityProvider)
 
