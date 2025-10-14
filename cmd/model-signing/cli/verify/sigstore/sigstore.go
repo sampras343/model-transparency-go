@@ -18,11 +18,10 @@ package sigstore
 import (
 	"context"
 	"time"
+
 	"github.com/sigstore/model-signing/cmd/model-signing/cli/options"
 	"github.com/spf13/cobra"
 )
-
-
 
 func New() *cobra.Command {
 	o := &options.SigstoreVerifyOptions{}
