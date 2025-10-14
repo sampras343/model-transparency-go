@@ -40,8 +40,9 @@ signature, verification would fail.`
 		Use:   "sigstore [OPTIONS]",
 		Short: "Verify using Sigstore (DEFAULT verification method).",
 		Long:  long,
-		Args:  cobra.NoArgs,
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			modelPath := args[0]
 			v := &SigstoreCommand{
 				SignaturePath:    o.SignaturePath,
 				IgnorePaths:      o.IgnorePaths,
@@ -54,7 +55,7 @@ signature, verification would fail.`
 			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
 			defer cancel()
 
-			return v.Exec(ctx, "")
+			return v.Exec(ctx, modelPath)
 		},
 	}
 

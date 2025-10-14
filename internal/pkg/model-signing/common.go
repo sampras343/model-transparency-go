@@ -32,3 +32,14 @@ func FileExists(filename string) (bool, error) {
 	}
 	return !info.IsDir(), nil
 }
+
+func FolderExists(path string) (bool, error) {
+	info, err := os.Stat(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return info.IsDir(), nil
+}

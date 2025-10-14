@@ -40,11 +40,9 @@ Use each subcommand's --help option for details on each mode.`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(parent *cobra.Command, args []string) error {
 			sigCmd := sigstore.New()
-			// Match parent quieting behavior if desired:
 			sigCmd.SilenceUsage = parent.SilenceUsage
 			sigCmd.SilenceErrors = parent.SilenceErrors
 
-			// Forward all args to the sigstore subcommand (it will parse flags & positional MODEL_PATH).
 			sigCmd.SetArgs(args)
 			return sigCmd.ExecuteContext(parent.Context())
 		},

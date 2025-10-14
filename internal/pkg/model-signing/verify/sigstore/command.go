@@ -33,8 +33,17 @@ type SigstoreVerifier struct {
 }
 
 func (v *SigstoreVerifier) Verify(ctx context.Context, modelPath string) error {
+	// Validate model path exists and is a folder
+	exists, err := modelsigning.FolderExists(modelPath)
+	if err != nil {
+		return fmt.Errorf("checking model path %q: %w", modelPath, err)
+	}
+	if !exists {
+		return fmt.Errorf("invalid model path %q: folder does not exist", modelPath)
+	}
+
 	// Validate signature path exists and is a file
-	exists, err := modelsigning.FileExists(v.SignaturePath)
+	exists, err = modelsigning.FileExists(v.SignaturePath)
 	if err != nil {
 		return fmt.Errorf("checking --signature %q: %w", v.SignaturePath, err)
 	}
@@ -63,7 +72,7 @@ func (v *SigstoreVerifier) Verify(ctx context.Context, modelPath string) error {
 
 	// TODO: integrate real Sigstore verification against the bundle & identities.
 	fmt.Println("Sigstore verification")
-	// fmt.Printf("  MODEL_PATH:      %s\n", filepath.Clean(modelPath))
+	fmt.Printf("  MODEL_PATH:      %s\n", filepath.Clean(modelPath))
 	fmt.Printf("  --signature:     %s\n", filepath.Clean(v.SignaturePath))
 	fmt.Printf("  --ignore-paths:  %v\n", v.IgnorePaths)
 	fmt.Printf("  --ignore-git-paths:    %v\n", v.IgnoreGitPaths)
