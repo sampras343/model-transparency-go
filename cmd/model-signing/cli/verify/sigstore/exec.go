@@ -17,7 +17,7 @@ package sigstore
 import (
 	"context"
 
-	engine "github.com/sigstore/model-signing/internal/pkg/model-signing/verify/sigstore"
+	verifyEngine "github.com/sigstore/model-signing/pkg/verify/sigstore"
 )
 
 type SigstoreCommand struct {
@@ -30,7 +30,7 @@ type SigstoreCommand struct {
 }
 
 func (c *SigstoreCommand) Exec(ctx context.Context, modelPath string) error {
-	verifier := &engine.SigstoreVerifier{
+	verifier := &verifyEngine.SigstoreVerifier{
 		SignaturePath:    c.SignaturePath,
 		IgnorePaths:      c.IgnorePaths,
 		IgnoreGitPaths:   c.IgnoreGitPaths,

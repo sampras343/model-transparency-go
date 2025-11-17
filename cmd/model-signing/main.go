@@ -17,10 +17,8 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/sigstore/model-signing/cmd/model-signing/cli"
 )
@@ -32,35 +30,6 @@ type ExitCoder interface {
 
 func main() {
 	log.SetFlags(0)
-
-	for i, arg := range os.Args {
-
-		if (strings.HasPrefix(arg, "-") && len(arg) == 2) ||
-			(strings.HasPrefix(arg, "--") && len(arg) >= 4) {
-			continue
-		}
-
-		if strings.HasPrefix(arg, "--") && len(arg) == 3 {
-			newArg := fmt.Sprintf("-%c", arg[2])
-			log.Printf("warning: the flag %s is deprecated and will be removed in a future release. Please use %s.", arg, newArg)
-			os.Args[i] = newArg
-			continue
-		}
-
-		if strings.HasPrefix(arg, "-") && len(arg) > 1 && !strings.HasPrefix(arg, "--") {
-			newArg := fmt.Sprintf("-%s", arg)
-			argType := "flag"
-
-			if newArg == "--version" {
-				newArg = "version"
-				argType = "subcommand"
-			}
-			log.Printf("warning: the %s flag is deprecated and will be removed in a future release. Please use the %s %s instead.",
-				arg, newArg, argType)
-
-			os.Args[i] = newArg
-		}
-	}
 
 	if err := cli.New().Execute(); err != nil {
 		var ec ExitCoder

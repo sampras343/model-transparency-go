@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
-	modelsigning "github.com/sigstore/model-signing/internal/pkg/model-signing"
+	"github.com/sigstore/model-signing/internal/pkg/utils"
 )
 
 type SigstoreVerifier struct {
@@ -34,7 +34,7 @@ type SigstoreVerifier struct {
 
 func (v *SigstoreVerifier) Verify(ctx context.Context, modelPath string) error {
 	// Validate model path exists and is a folder
-	exists, err := modelsigning.FolderExists(modelPath)
+	exists, err := utils.FolderExists(modelPath)
 	if err != nil {
 		return fmt.Errorf("checking model path %q: %w", modelPath, err)
 	}
@@ -43,7 +43,7 @@ func (v *SigstoreVerifier) Verify(ctx context.Context, modelPath string) error {
 	}
 
 	// Validate signature path exists and is a file
-	exists, err = modelsigning.FileExists(v.SignaturePath)
+	exists, err = utils.FileExists(v.SignaturePath)
 	if err != nil {
 		return fmt.Errorf("checking --signature %q: %w", v.SignaturePath, err)
 	}
@@ -61,7 +61,7 @@ func (v *SigstoreVerifier) Verify(ctx context.Context, modelPath string) error {
 		if p == "" {
 			return fmt.Errorf("invalid --ignore-paths: contains empty path")
 		}
-		exists, err := modelsigning.FileExists(p)
+		exists, err := utils.FileExists(p)
 		if err != nil {
 			return fmt.Errorf("checking ignore path %q: %w", p, err)
 		}

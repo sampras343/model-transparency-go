@@ -26,9 +26,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-const EnvPrefix = "COSIGN"
+const EnvPrefix = "MODEL_SIGNING"
 
-// RootOptions define flags and options for the root cosign cli.
+// RootOptions define flags and options for the root cli.
 type RootOptions struct {
 	OutputFile string
 	Verbose    bool
