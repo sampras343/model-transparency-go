@@ -13,8 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package hashing
+package io
 
-type FileHasherFactory func(path string) (FileHasher, error)
+import (
+	hashengines "github.com/sigstore/model-signing/pkg/hashing/engines"
+)
 
-type ShardHasherFactory func(path string, start, end int) (FileHasher, error)
+// FileHasher is a marker interface for hash engines that hash files.
+//
+// It's intentionally just an alias of HashEngine for now, but it gives
+// you a semantic distinction in APIs that specifically expect file-based
+// hashing rather than arbitrary content hashing.
+type FileHasher interface {
+	hashengines.HashEngine
+}
