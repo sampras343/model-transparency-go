@@ -31,74 +31,138 @@ func digestHex(t *testing.T, d interface{ Hex() string }) string {
 	t.Helper()
 	return d.Hex()
 }
+// Known-value test (matches Python TestSHA256.test_hash_known_value)
+func TestSHA256_HashKnownValue(t *testing.T) {
+	const expected = "a3e49d843df13c2e2a7786f6ecd7e0d184f45d718d1ac1a8a63e570466e489dd"
 
-func TestSHA256_UpdateThenCompute(t *testing.T) {
-	const want = "88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589"
+	hasher, err := NewSHA256Engine([]byte("Test string"))
+	if err != nil {
+		t.Fatalf("NewSHA256Engine(initial) error = %v", err)
+	}
 
-	h := NewSHA256Engine(nil)
-	h.Update([]byte("abcd"))
-
-	d, err := h.Compute()
+	digest, err := hasher.Compute()
 	if err != nil {
 		t.Fatalf("Compute() error = %v", err)
 	}
 
-	got := digestHex(t, d)
-	if got != want {
-		t.Errorf("Compute() = %q, want %q", got, want)
+	got := digestHex(t, digest)
+	if got != expected {
+		t.Errorf("Compute() = %q, expected %q", got, expected)
 	}
 }
 
-func TestSHA256_InitialDataConstructor(t *testing.T) {
-	const want = "88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589"
+// Update twice is the same as updating with concatenation
+func TestSHA256_UpdateTwiceSameAsConcat(t *testing.T) {
+	str1 := []byte("Test ")
+	str2 := []byte("string")
 
-	h := NewSHA256Engine([]byte("abcd"))
-
-	d, err := h.Compute()
+	// hasher1: update twice
+	hasher1, err := NewSHA256Engine(nil)
 	if err != nil {
-		t.Fatalf("Compute() error = %v", err)
+		t.Fatalf("NewSHA256Engine(nil) error = %v", err)
+	}
+	hasher1.Update(str1)
+	hasher1.Update(str2)
+	digest1, err := hasher1.Compute()
+	if err != nil {
+		t.Fatalf("Compute() (hasher1) error = %v", err)
 	}
 
-	got := digestHex(t, d)
-	if got != want {
-		t.Errorf("Compute() = %q, want %q", got, want)
+	// hasher2: single update with concatenation
+	hasher2, err := NewSHA256Engine(nil)
+	if err != nil {
+		t.Fatalf("NewSHA256Engine(nil) error = %v", err)
+	}
+	hasher2.Update(append(append([]byte{}, str1...), str2...))
+	digest2, err := hasher2.Compute()
+	if err != nil {
+		t.Fatalf("Compute() (hasher2) error = %v", err)
+	}
+
+	got1 := digestHex(t, digest1)
+	got2 := digestHex(t, digest2)
+	if got1 != got2 {
+		t.Errorf("digest mismatch: got1=%q got2=%q", got1, got2)
 	}
 }
 
-func TestSHA256_ResetAndRecompute(t *testing.T) {
-	const want = "88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589"
-
-	h := NewSHA256Engine(nil)
-
-	h.Update([]byte("junk"))
-	h.Reset(nil)
-	h.Update([]byte("abcd"))
-
-	d, err := h.Compute()
+// Updating with an empty slice should not change the digest
+func TestSHA256_UpdateEmpty(t *testing.T) {
+	hasher1, err := NewSHA256Engine([]byte("Test string"))
 	if err != nil {
-		t.Fatalf("Compute() error = %v", err)
+		t.Fatalf("NewSHA256Engine(initial) error = %v", err)
+	}
+	hasher1.Update([]byte{}) // no-op
+	digest1, err := hasher1.Compute()
+	if err != nil {
+		t.Fatalf("Compute() (hasher1) error = %v", err)
 	}
 
-	got := digestHex(t, d)
-	if got != want {
-		t.Errorf("Compute() after Reset() = %q, want %q", got, want)
+	hasher2, err := NewSHA256Engine([]byte("Test string"))
+	if err != nil {
+		t.Fatalf("NewSHA256Engine(initial) error = %v", err)
+	}
+	digest2, err := hasher2.Compute()
+	if err != nil {
+		t.Fatalf("Compute() (hasher2) error = %v", err)
+	}
+
+	got1 := digestHex(t, digest1)
+	got2 := digestHex(t, digest2)
+	if got1 != got2 {
+		t.Errorf("digest mismatch with empty update: got1=%q got2=%q", got1, got2)
 	}
 }
 
-func TestSHA256_ResetWithInitialData(t *testing.T) {
-	const want = "88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589"
+// Update after Reset gives the same result as a fresh hasher
+func TestSHA256_UpdateAfterReset(t *testing.T) {
+	hasher, err := NewSHA256Engine([]byte("Test string"))
+	if err != nil {
+		t.Fatalf("NewSHA256Engine(initial) error = %v", err)
+	}
 
-	h := NewSHA256Engine(nil)
+	// First digest with initial data
+	digest1, err := hasher.Compute()
+	if err != nil {
+		t.Fatalf("Compute() (first) error = %v", err)
+	}
 
-	h.Reset([]byte("abcd"))
+	// Reset to empty state, then re-apply the same data
+	hasher.Reset(nil)
+	hasher.Update([]byte("Test string"))
+	digest2, err := hasher.Compute()
+	if err != nil {
+		t.Fatalf("Compute() (second) error = %v", err)
+	}
+
+	got1 := digestHex(t, digest1)
+	got2 := digestHex(t, digest2)
+	if got1 != got2 {
+		t.Errorf("digest mismatch after Reset: first=%q second=%q", got1, got2)
+	}
+}
+
+// DigestSize matches sha256.Size and the produced digest length
+func TestSHA256_DigestSize(t *testing.T) {
+	h, err := NewSHA256Engine([]byte("Test string"))
+	if err != nil {
+		t.Fatalf("NewSHA256Engine(initial) error = %v", err)
+	}
+	expectedSize := 32
+
+	if got := h.DigestSize(); got != 32 {
+		t.Errorf("DigestSize() = %d, expected %d", got, expectedSize)
+	}
 
 	d, err := h.Compute()
 	if err != nil {
 		t.Fatalf("Compute() error = %v", err)
 	}
 
-	got := digestHex(t, d)
-	if got != want {
-		t.Errorf("Compute() after Reset(initial) = %q, want %q", got, want)
+	// derive size from hex representation to avoid depending on Digest internals
+	hexStr := digestHex(t, d)
+	gotSize := len(hexStr) / 2
+	if gotSize != expectedSize {
+		t.Errorf("digest size from hex = %d, expected %d", gotSize, expectedSize)
 	}
 }

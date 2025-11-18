@@ -34,12 +34,12 @@ type SHA256Engine struct {
 
 // NewSHA256Engine constructs a new SHA256 engine.
 // If initialData is non-nil, it will be written into the hash immediately.
-func NewSHA256Engine(initialData []byte) *SHA256Engine {
+func NewSHA256Engine(initialData []byte) (*SHA256Engine, error) {
 	e := &SHA256Engine{h: sha256.New()}
 	if len(initialData) > 0 {
 		_, _ = e.h.Write(initialData)
 	}
-	return e
+	return e, nil
 }
 
 // Update appends more bytes into the hash state.
