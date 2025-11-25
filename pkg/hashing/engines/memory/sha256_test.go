@@ -31,7 +31,7 @@ func digestHex(t *testing.T, d interface{ Hex() string }) string {
 	t.Helper()
 	return d.Hex()
 }
-// Known-value test (matches Python TestSHA256.test_hash_known_value)
+// Known-value test
 func TestSHA256_HashKnownValue(t *testing.T) {
 	const expected = "a3e49d843df13c2e2a7786f6ecd7e0d184f45d718d1ac1a8a63e570466e489dd"
 

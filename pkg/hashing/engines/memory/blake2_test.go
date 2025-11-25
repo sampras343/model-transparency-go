@@ -27,7 +27,7 @@ func TestBLAKE2_ImplementsStreamingHashEngine(t *testing.T) {
 	var _ hashengines.StreamingHashEngine = (*BLAKE2)(nil)
 }
 
-// Known-value test (matches the Python TestBLAKE2.test_hash_known_value)
+// Known-value test
 func TestBLAKE2_HashKnownValue(t *testing.T) {
 	const expected = "3f1b20a13e94ef2a12c50f40de256e0eb444f274b8e2e04e5fb3f572242c858af600a06a0c350eef1645307a9bf2fa1fcb65445a0b3b2b44d0602ab95f4fb802"
 
