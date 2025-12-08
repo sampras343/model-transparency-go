@@ -27,3 +27,5 @@ import (
 type FileHasher interface {
 	hashengines.HashEngine
 }
+
+type FileHasherFactory func(path string) (FileHasher, error)
