@@ -15,31 +15,43 @@
 
 package utils
 
-
 import (
-	"errors"
-	"io/fs"
+	"fmt"
 	"os"
 )
 
-func FileExists(filename string) (bool, error) {
-	info, err := os.Stat(filename)
-	if errors.Is(err, fs.ErrNotExist) {
-		return false, nil
-	}
+// FileExists checks if a path exists and is a regular file.
+func FileExists(path string) (bool, error) {
+	info, err := os.Stat(path)
 	if err != nil {
-		return false, err
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("stat %q: %w", path, err)
 	}
 	return !info.IsDir(), nil
 }
 
+// FolderExists checks if a path exists and is a directory.
 func FolderExists(path string) (bool, error) {
 	info, err := os.Stat(path)
-	if errors.Is(err, fs.ErrNotExist) {
-		return false, nil
-	}
 	if err != nil {
-		return false, err
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("stat %q: %w", path, err)
 	}
 	return info.IsDir(), nil
+}
+
+// PathExists checks if a path exists (file or directory).
+func PathExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("stat %q: %w", path, err)
+	}
+	return true, nil
 }

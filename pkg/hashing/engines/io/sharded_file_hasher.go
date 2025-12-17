@@ -96,6 +96,10 @@ func (h *ShardedFileHasher) SetShard(start, end int64) error {
 	return nil
 }
 
+func (h *ShardedFileHasher) GetShardSize() int64 {
+	return h.shardSize
+}
+
 // DigestName returns either the override or "<inner>-sharded-<shardSize>".
 func (h *ShardedFileHasher) DigestName() string {
 	if h.digestNameOverride != "" {

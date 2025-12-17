@@ -29,3 +29,5 @@ type FileHasher interface {
 }
 
 type FileHasherFactory func(path string) (FileHasher, error)
+
+type ShardedFileHasherFactory func(path string, start, end int64) (FileHasher, error)

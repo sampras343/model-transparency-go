@@ -17,6 +17,7 @@ package digests
 
 import (
 	"encoding/hex"
+	"fmt"
 )
 
 
@@ -72,4 +73,30 @@ func (d Digest) Hex() string {
 // Size returns the size in bytes of the digest value.
 func (d Digest) Size() int {
 	return len(d.value)
+}
+
+// String returns a human-readable representation of the digest.
+func (d Digest) String() string {
+	return fmt.Sprintf("%s:%s", d.algorithm, d.Hex())
+}
+
+// Equal compares two digests for equality.
+//
+// Two digests are equal if they have the same algorithm and value.
+func (d Digest) Equal(other Digest) bool {
+	if d.algorithm != other.algorithm {
+		return false
+	}
+
+	if len(d.value) != len(other.value) {
+		return false
+	}
+
+	for i := range d.value {
+		if d.value[i] != other.value[i] {
+			return false
+		}
+	}
+
+	return true
 }

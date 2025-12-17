@@ -31,7 +31,7 @@ type SigstoreCommand struct {
 
 func (c *SigstoreCommand) Exec(ctx context.Context, modelPath string) error {
 	verifier := verifyEngine.SigstoreVerifierOptions{
-		ModelPath:		  modelPath,
+		ModelPath:        modelPath,
 		SignaturePath:    c.SignaturePath,
 		IgnorePaths:      c.IgnorePaths,
 		IgnoreGitPaths:   c.IgnoreGitPaths,
@@ -39,9 +39,11 @@ func (c *SigstoreCommand) Exec(ctx context.Context, modelPath string) error {
 		Identity:         c.Identity,
 		IdentityProvider: c.IdentityProvider,
 	}
-	v, err := verifyEngine.New(verifier)
-	if err != nil { return err }
-	status, err:= v.Verify(ctx)
+	v, err := verifyEngine.NewSigstoreVerifier(verifier)
+	if err != nil {
+		return err
+	}
+	status, err := v.Verify(ctx)
 	fmt.Println("Verification Status: ", status)
 	return err
 }
