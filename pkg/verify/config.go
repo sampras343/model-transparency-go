@@ -149,37 +149,28 @@ func (c *Config) createSignatureReader() signing.Signature {
 // the hashing configuration that was used during signing.
 func (c *Config) guessHashingConfig(sourceManifest *manifest.Manifest) error {
 	params := sourceManifest.SerializationParameters()
+	extractor := manifest.NewParamExtractor(params)
 
-	method, ok := params["method"].(string)
-	if !ok {
-		return fmt.Errorf("cannot determine serialization method from manifest")
+	// Extract common parameters
+	method, err := extractor.GetString("method")
+	if err != nil {
+		return fmt.Errorf("cannot determine serialization method: %w", err)
 	}
 
-	hashType, ok := params["hash_type"].(string)
-	if !ok {
-		return fmt.Errorf("cannot determine hash type from manifest")
+	hashType, err := extractor.GetString("hash_type")
+	if err != nil {
+		return fmt.Errorf("cannot determine hash type: %w", err)
 	}
 
-	allowSymlinks, ok := params["allow_symlinks"].(bool)
-	if !ok {
-		return fmt.Errorf("cannot determine allow_symlinks from manifest")
+	allowSymlinks, err := extractor.GetBool("allow_symlinks")
+	if err != nil {
+		return fmt.Errorf("cannot determine allow_symlinks: %w", err)
 	}
 
-	// Extract ignore_paths if present
-	var ignorePaths []string
-	if ignorePathsRaw, ok := params["ignore_paths"]; ok {
-		if paths, ok := ignorePathsRaw.([]string); ok {
-			ignorePaths = paths
-		} else if pathsIface, ok := ignorePathsRaw.([]interface{}); ok {
-			// Handle case where it's []interface{} instead of []string
-			for _, p := range pathsIface {
-				if s, ok := p.(string); ok {
-					ignorePaths = append(ignorePaths, s)
-				}
-			}
-		}
-	}
+	// Extract optional ignore_paths
+	ignorePaths := extractor.GetStringSliceOptional("ignore_paths")
 
+	// Create config based on serialization method
 	switch method {
 	case "files":
 		c.hashingConfig = hashing.NewConfig().UseFileSerialization(
@@ -188,16 +179,9 @@ func (c *Config) guessHashingConfig(sourceManifest *manifest.Manifest) error {
 			ignorePaths,
 		)
 	case "shards":
-		shardSize, ok := params["shard_size"].(int64)
-		if !ok {
-			// Try converting from other numeric types
-			if size, ok := params["shard_size"].(int); ok {
-				shardSize = int64(size)
-			} else if size, ok := params["shard_size"].(float64); ok {
-				shardSize = int64(size)
-			} else {
-				return fmt.Errorf("cannot determine shard_size from manifest")
-			}
+		shardSize, err := extractor.GetInt64("shard_size")
+		if err != nil {
+			return fmt.Errorf("cannot determine shard_size: %w", err)
 		}
 
 		c.hashingConfig = hashing.NewConfig().UseShardSerialization(

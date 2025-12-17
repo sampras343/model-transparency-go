@@ -204,26 +204,12 @@ type SigstoreVerifier struct {
 
 // NewSigstoreVerifier creates a new high-level Sigstore verifier with validation.
 func NewSigstoreVerifier(opts SigstoreVerifierOptions) (*SigstoreVerifier, error) {
-	if opts.ModelPath == "" {
-		return nil, fmt.Errorf("model path required")
+	// Validate required paths using new validation utilities
+	if err := utils.ValidateFolderExists("model path", opts.ModelPath); err != nil {
+		return nil, err
 	}
-
-	// Validate model path exists and is a folder
-	exists, err := utils.FolderExists(opts.ModelPath)
-	if err != nil {
-		return nil, fmt.Errorf("checking model path %q: %w", opts.ModelPath, err)
-	}
-	if !exists {
-		return nil, fmt.Errorf("invalid model path %q: folder does not exist", opts.ModelPath)
-	}
-
-	// Validate signature path exists and is a file
-	exists, err = utils.FileExists(opts.SignaturePath)
-	if err != nil {
-		return nil, fmt.Errorf("checking signature %q: %w", opts.SignaturePath, err)
-	}
-	if !exists {
-		return nil, fmt.Errorf("invalid signature %q: file does not exist", opts.SignaturePath)
+	if err := utils.ValidateFileExists("signature", opts.SignaturePath); err != nil {
+		return nil, err
 	}
 
 	// Validate identity is provided
@@ -239,29 +225,14 @@ func NewSigstoreVerifier(opts SigstoreVerifierOptions) (*SigstoreVerifier, error
 		return nil, fmt.Errorf("invalid identity provider %q: %w", opts.IdentityProvider, err)
 	}
 
-	// Validate each ignore path exists (file or directory)
-	for _, p := range opts.IgnorePaths {
-		if p == "" {
-			return nil, fmt.Errorf("invalid ignore-paths: contains empty path")
-		}
-		exists, err := utils.PathExists(p)
-		if err != nil {
-			return nil, fmt.Errorf("checking ignore path %q: %w", p, err)
-		}
-		if !exists {
-			return nil, fmt.Errorf("ignore path not found: %q", p)
-		}
+	// Validate ignore paths using new validation utilities
+	if err := utils.ValidateMultiple("ignore paths", opts.IgnorePaths, utils.PathTypeAny); err != nil {
+		return nil, err
 	}
 
 	// Validate trust config path if provided
-	if opts.TrustConfigPath != "" {
-		exists, err := utils.FileExists(opts.TrustConfigPath)
-		if err != nil {
-			return nil, fmt.Errorf("checking trust config %q: %w", opts.TrustConfigPath, err)
-		}
-		if !exists {
-			return nil, fmt.Errorf("trust config file not found: %q", opts.TrustConfigPath)
-		}
+	if err := utils.ValidateOptionalFile("trust config", opts.TrustConfigPath); err != nil {
+		return nil, err
 	}
 
 	return &SigstoreVerifier{opts: opts}, nil
