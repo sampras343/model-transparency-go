@@ -23,6 +23,13 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
+func init() {
+	// Register BLAKE2b hash engine
+	hashengines.MustRegister("blake2b", func() (hashengines.StreamingHashEngine, error) {
+		return NewBLAKE2(nil)
+	})
+}
+
 // Ensure BLAKE2 implements StreamingHashEngine at compile time.
 var _ hashengines.StreamingHashEngine = (*BLAKE2)(nil)
 

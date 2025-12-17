@@ -8,7 +8,6 @@ import (
 
 	hashengines "github.com/sigstore/model-signing/pkg/hashing/engines"
 	hashio "github.com/sigstore/model-signing/pkg/hashing/engines/io"
-	"github.com/sigstore/model-signing/pkg/hashing/engines/memory"
 	"github.com/sigstore/model-signing/pkg/manifest"
 )
 
@@ -372,14 +371,8 @@ func (c *Config) createShardedFileHasher(filePath string, start, end int64) (has
 
 // createContentHasher creates a streaming hash engine based on the configured algorithm.
 func (c *Config) createContentHasher() (hashengines.StreamingHashEngine, error) {
-	switch c.hashAlgorithm {
-	case "sha256":
-		return memory.NewSHA256Engine(nil)
-	case "blake2b":
-		return memory.NewBLAKE2(nil)
-	default:
-		return nil, fmt.Errorf("unsupported hash algorithm: %s", c.hashAlgorithm)
-	}
+	// Use the hash engine registry for creating engines
+	return hashengines.Create(c.hashAlgorithm)
 }
 
 // GetSerializationType returns the serialization type configuration.

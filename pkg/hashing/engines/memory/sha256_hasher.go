@@ -23,6 +23,13 @@ import (
 	hashengines "github.com/sigstore/model-signing/pkg/hashing/engines"
 )
 
+func init() {
+	// Register SHA256 hash engine
+	hashengines.MustRegister("sha256", func() (hashengines.StreamingHashEngine, error) {
+		return NewSHA256Engine(nil)
+	})
+}
+
 var _ hashengines.StreamingHashEngine = (*SHA256Engine)(nil)
 
 // SHA256Engine is a StreamingHashEngine that wraps crypto/sha256.
