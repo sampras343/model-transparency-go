@@ -39,15 +39,15 @@ linters:
       - linters:
           - revive
         path: pkg/verify/sigstore/
-        text: Ignoring Naming
+        text: "var-naming: avoid meaningless package names"
       - linters:
           - revive
         path: pkg/manifest/
-        text: Ignoring Naming
+        text: "var-naming: avoid meaningless package names"
       - linters:
           - revive
         path: pkg/interfaces/
-        text: Ignoring Naming
+        text: "var-naming: avoid meaningless package names"
     paths:
       - third_party$
       - builtin$
