@@ -1,11 +1,10 @@
-//
 // Copyright 2025 The Sigstore Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -119,8 +118,8 @@ func (h *ShardedFileHasher) Compute() (digests.Digest, error) {
 	if err != nil {
 		return digests.Digest{}, fmt.Errorf("open file %q: %w", h.filePath, err)
 	}
+	//nolint:errcheck
 	defer f.Close()
-
 	length := h.end - h.start
 	section := io.NewSectionReader(f, h.start, length)
 

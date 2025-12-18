@@ -1,4 +1,3 @@
-//
 // Copyright 2025 The Sigstore Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,6 +20,7 @@ type Interface interface {
 	// AddFlags adds this options' flags to the cobra command.
 	AddFlags(cmd *cobra.Command)
 }
+
 var logExts = []string{
 	"log",
 }

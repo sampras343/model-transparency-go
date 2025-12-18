@@ -1,11 +1,10 @@
-//
 // Copyright 2025 The Sigstore Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -44,7 +43,7 @@ type ResourceDescriptor struct {
 	Identifier string
 	// One digest for the item. Note that unlike in-toto, we only have
 	// one digest for the item and it is always required.
-	Digest     digests.Digest
+	Digest digests.Digest
 }
 
 // Manifest is a generic manifest file to represent a model.
@@ -91,7 +90,6 @@ func (manifest *Manifest) SerializationParameters() map[string]any {
 	return out
 }
 
-
 // Equal reports whether two manifests have the same items and digests.
 //
 // This ignores the model name and serialization type identity.
@@ -120,7 +118,6 @@ func (manifest *Manifest) Equal(other *Manifest) bool {
 
 	return true
 }
-
 
 // equalDigest compares two digests by algorithm and value.
 func equalDigest(a, b digests.Digest) bool {

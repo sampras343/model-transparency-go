@@ -1,11 +1,24 @@
-package serialization
+// Copyright 2025 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
+package serialization
 
 import (
 	"fmt"
 	"io/fs"
-	"path/filepath"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -14,17 +27,16 @@ import (
 	"github.com/sigstore/model-signing/pkg/manifest"
 )
 
-
 // Sharded File Serializer produces a manifest recording every file shard.
-// It traverses model directory, splits each file into fixed-size shards and 
+// It traverses model directory, splits each file into fixed-size shards and
 // computes digests for each shard in parallel.
 type ShardedFileSerializer struct {
-	hasherFactory 	fileio.ShardedFileHasherFactory
-	maxWorkers		int
-	allowSymlinks	bool
+	hasherFactory   fileio.ShardedFileHasherFactory
+	maxWorkers      int
+	allowSymlinks   bool
 	baseIgnorePaths []string
-	shardSize 		int64
-	hashType 		string
+	shardSize       int64
+	hashType        string
 }
 
 // NewShardedFileSerializer initializes a serializer that works at shard level.
@@ -52,8 +64,8 @@ func NewShardedFileSerializer(
 	mock, ok := mockHasher.(*fileio.ShardedFileHasher)
 	if !ok {
 		return nil, fmt.Errorf("sharded hasher factory must return *io.ShardedFileHasher, got %T", mockHasher)
-	} 
-	
+	}
+
 	shardSize := mock.GetShardSize() //CHECK
 	if shardSize <= 0 {
 		return nil, fmt.Errorf("invalid shard size %d from mock hasher", shardSize)
@@ -113,9 +125,8 @@ func (s *ShardedFileSerializer) Serialize(
 	modelName := deriveModelName(modelPath)
 
 	m := manifest.NewManifest(modelName, items, serializationType)
-	return*m, nil
+	return *m, nil
 }
-
 
 // shardDescriptor describes a single file shard [start, end) for hashing.
 type shardDescriptor struct {
@@ -127,7 +138,7 @@ type shardDescriptor struct {
 // that is not ignored.
 func (s *ShardedFileSerializer) collectShards(
 	modelPath string,
-	ignorePaths [] string,
+	ignorePaths []string,
 ) ([]shardDescriptor, error) {
 	var shards []shardDescriptor
 
@@ -163,9 +174,9 @@ func (s *ShardedFileSerializer) collectShards(
 		start := int64(0)
 		for _, end := range ends {
 			shards = append(shards, shardDescriptor{
-				path: path,
+				path:  path,
 				start: start,
-				end: end,
+				end:   end,
 			})
 			start = end
 		}
@@ -178,7 +189,7 @@ func (s *ShardedFileSerializer) collectShards(
 	return shards, nil
 }
 
-// hashShards hashes all shard descriptors using a worker pool bounded by 
+// hashShards hashes all shard descriptors using a worker pool bounded by
 // maxWorkers or runtime.NumCPU()
 func (s *ShardedFileSerializer) hashShards(
 	modelPath string,
@@ -197,7 +208,7 @@ func (s *ShardedFileSerializer) hashShards(
 
 	type result struct {
 		item manifest.ManifestItem
-		err error
+		err  error
 	}
 
 	jobs := make(chan shardDescriptor)
@@ -206,7 +217,7 @@ func (s *ShardedFileSerializer) hashShards(
 	var wg sync.WaitGroup
 	wg.Add(workerCount)
 
-	for i := 0; i< workerCount; i++ {
+	for i := 0; i < workerCount; i++ {
 		go func() {
 			defer wg.Done()
 			for shard := range jobs {
@@ -272,7 +283,6 @@ func (s *ShardedFileSerializer) computeShard(
 	return item, nil
 }
 
-
 // The last value is always exactly end, even if end is not a multiple of step.
 // There is always at least one value if step > 0 and end > 0.
 func endpoints(step, end int64) []int64 {
@@ -280,7 +290,7 @@ func endpoints(step, end int64) []int64 {
 		return nil
 	}
 	out := make([]int64, 0, end/step+1)
-	for v:= step; v< end; v+=step {
+	for v := step; v < end; v += step {
 		out = append(out, v)
 	}
 	out = append(out, end)

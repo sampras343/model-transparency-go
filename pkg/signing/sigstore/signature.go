@@ -1,3 +1,17 @@
+// Copyright 2025 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package sigstore
 
 import (
@@ -43,6 +57,8 @@ func (s *Signature) Write(path string) error {
 	}
 
 	// Write to file with appropriate permissions
+	// Signature files should be world-readable (0644) as they are public artifacts
+	//nolint:gosec // G306: Signature files are public, 0644 is intentional
 	if err := os.WriteFile(path, jsonBytes, 0644); err != nil {
 		return fmt.Errorf("failed to write signature file: %w", err)
 	}
@@ -53,6 +69,7 @@ func (s *Signature) Write(path string) error {
 // Read deserializes a signature from a file at the given path.
 func (s *Signature) Read(path string) (interfaces.Signature, error) {
 	// Read file
+	//nolint:gosec
 	jsonBytes, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read signature file: %w", err)
