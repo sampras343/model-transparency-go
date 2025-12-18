@@ -22,6 +22,8 @@ import (
 )
 
 // Test that BLAKE2 implements StreamingHashEngine at compile time.
+//
+//nolint:revive
 func TestBLAKE2_ImplementsStreamingHashEngine(t *testing.T) {
 	var _ hashengines.StreamingHashEngine = (*BLAKE2)(nil)
 }

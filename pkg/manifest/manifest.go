@@ -129,6 +129,7 @@ func equalDigest(a, b digests.Digest) bool {
 
 // ResourceDescriptors returns each resource from the manifest, sorted
 // by identifier to provide a stable order.
+//
 //nolint:revive
 func (m *Manifest) ResourceDescriptors() []ResourceDescriptor {
 	ids := make([]string, 0, len(m.items))

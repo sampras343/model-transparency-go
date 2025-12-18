@@ -230,6 +230,7 @@ func TestUnregister(t *testing.T) {
 	}
 }
 
+//nolint:revive
 func TestConcurrentAccess(t *testing.T) {
 	// Test that concurrent access doesn't cause data races
 	done := make(chan bool)
