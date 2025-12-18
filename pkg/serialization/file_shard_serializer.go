@@ -66,7 +66,7 @@ func NewShardedFileSerializer(
 		return nil, fmt.Errorf("sharded hasher factory must return *io.ShardedFileHasher, got %T", mockHasher)
 	}
 
-	shardSize := mock.GetShardSize() //CHECK
+	shardSize := mock.GetShardSize()
 	if shardSize <= 0 {
 		return nil, fmt.Errorf("invalid shard size %d from mock hasher", shardSize)
 	}
@@ -142,6 +142,7 @@ func (s *ShardedFileSerializer) collectShards(
 ) ([]shardDescriptor, error) {
 	var shards []shardDescriptor
 
+	//nolint:revive
 	walkFn := func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err

@@ -78,6 +78,7 @@ func NewVerifier(config SigstoreVerifierConfig) (*Verifier, error) {
 	var trustRoot *root.TrustedRoot
 	var err error
 
+	//nolint:gocritic
 	if config.UseStaging {
 		// TODO: Use staging TUF options when available
 		trustRoot, err = root.FetchTrustedRoot()

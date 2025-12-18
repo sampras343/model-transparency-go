@@ -94,6 +94,7 @@ func NewSigstoreVerifier(opts SigstoreVerifierOptions) (*SigstoreVerifier, error
 // 2. Create hashing config
 // 3. Create verification config
 // 4. Execute verification
+//nolint:revive
 func (sv *SigstoreVerifier) Verify(ctx context.Context) (verify.Result, error) {
 	// Print verification info (matching Python CLI behavior)
 	fmt.Println("Sigstore verification")

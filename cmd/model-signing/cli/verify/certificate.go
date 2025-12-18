@@ -33,6 +33,7 @@ verification instead:
     --identity IDENTITY --identity_provider ISSUER_URL
 
 For more information, see: https://github.com/sigstore/model-signing`,
+		//nolint:revive
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("certificate verification is not yet implemented\n\nPlease use 'sigstore' verification instead")
 		},
