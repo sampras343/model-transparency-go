@@ -4,14 +4,17 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sigstore/model-signing/pkg/signing"
+	"github.com/sigstore/model-signing/pkg/interfaces"
 	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// Ensure Signature implements signing.Signature at compile time.
-var _ signing.Signature = (*Signature)(nil)
+// Ensure Signature implements interfaces.Signature at compile time.
+var _ interfaces.Signature = (*Signature)(nil)
+
+// Ensure Signature implements interfaces.SignatureReader at compile time.
+var _ interfaces.SignatureReader = (*Signature)(nil)
 
 // Signature wraps a Sigstore bundle for model signing.
 //
@@ -48,7 +51,7 @@ func (s *Signature) Write(path string) error {
 }
 
 // Read deserializes a signature from a file at the given path.
-func (s *Signature) Read(path string) (signing.Signature, error) {
+func (s *Signature) Read(path string) (interfaces.Signature, error) {
 	// Read file
 	jsonBytes, err := os.ReadFile(path)
 	if err != nil {

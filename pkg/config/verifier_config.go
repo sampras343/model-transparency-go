@@ -1,4 +1,4 @@
-package verify
+package config
 
 import (
 	"fmt"
@@ -6,9 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/sigstore/model-signing/pkg/hashing"
+	"github.com/sigstore/model-signing/pkg/interfaces"
 	"github.com/sigstore/model-signing/pkg/manifest"
-	"github.com/sigstore/model-signing/pkg/signing"
 	sigstoresigning "github.com/sigstore/model-signing/pkg/signing/sigstore"
 )
 
@@ -19,13 +18,13 @@ import (
 // the configuration used during signing. By default, it attempts to guess
 // the hashing config from the signature.
 type Config struct {
-	hashingConfig       *hashing.Config
-	verifier            signing.Verifier
+	hashingConfig       *HashingConfig
+	verifier            interfaces.SignatureVerifier
 	ignoreUnsignedFiles bool
 }
 
-// NewConfig creates a new verification configuration with defaults.
-func NewConfig() *Config {
+// NewVerifierConfig creates a new verification configuration with defaults.
+func NewVerifierConfig() *Config {
 	return &Config{
 		hashingConfig:       nil,
 		verifier:            nil,
@@ -49,8 +48,8 @@ func (c *Config) Verify(modelPath, signaturePath string) error {
 	// Read signature from disk
 	// Note: The signature type must match the verifier type
 	// For now, we assume it's a Sigstore signature since that's what we support
-	sig := c.createSignatureReader()
-	signature, err := sig.Read(signaturePath)
+	reader := c.createSignatureReader()
+	signature, err := reader.Read(signaturePath)
 	if err != nil {
 		return fmt.Errorf("failed to read signature: %w", err)
 	}
@@ -110,7 +109,7 @@ func (c *Config) Verify(modelPath, signaturePath string) error {
 //
 // After calling this method, automatic guessing of the hashing configuration
 // is disabled for this Config instance.
-func (c *Config) SetHashingConfig(hashingConfig *hashing.Config) *Config {
+func (c *Config) SetHashingConfig(hashingConfig *HashingConfig) *Config {
 	c.hashingConfig = hashingConfig
 	return c
 }
@@ -126,18 +125,18 @@ func (c *Config) SetIgnoreUnsignedFiles(ignore bool) *Config {
 
 // SetVerifier sets the signature verifier to use.
 //
-// This is a generic method that accepts any signing.Verifier implementation.
-func (c *Config) SetVerifier(verifier signing.Verifier) *Config {
+// This accepts any SignatureVerifier implementation (e.g., Sigstore, certificate-based, key-based).
+func (c *Config) SetVerifier(verifier interfaces.SignatureVerifier) *Config {
 	c.verifier = verifier
 	return c
 }
 
 // createSignatureReader creates a signature reader appropriate for the verifier.
 //
-// This is a helper method that returns the correct signature type.
+// This is a helper method that returns the correct signature reader type.
 // In the future, this could be made more sophisticated to handle multiple
 // signature formats.
-func (c *Config) createSignatureReader() signing.Signature {
+func (c *Config) createSignatureReader() interfaces.SignatureReader {
 	// For now, we only support Sigstore signatures
 	// This would need to be extended if we support other signature types
 	return &sigstoresigning.Signature{}
@@ -173,7 +172,7 @@ func (c *Config) guessHashingConfig(sourceManifest *manifest.Manifest) error {
 	// Create config based on serialization method
 	switch method {
 	case "files":
-		c.hashingConfig = hashing.NewConfig().UseFileSerialization(
+		c.hashingConfig = NewHashingConfig().UseFileSerialization(
 			hashType,
 			allowSymlinks,
 			ignorePaths,
@@ -184,7 +183,7 @@ func (c *Config) guessHashingConfig(sourceManifest *manifest.Manifest) error {
 			return fmt.Errorf("cannot determine shard_size: %w", err)
 		}
 
-		c.hashingConfig = hashing.NewConfig().UseShardSerialization(
+		c.hashingConfig = NewHashingConfig().UseShardSerialization(
 			hashType,
 			shardSize,
 			allowSymlinks,

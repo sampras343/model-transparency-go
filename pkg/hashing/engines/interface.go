@@ -27,18 +27,17 @@ type HashEngine interface {
 	// DigestName returns the canonical name of the algorithm used to compute the hash.
 	// Implementations MUST include all parameters that influence the hash output
 	// For example, if a file is split into
-    // shards which are hashed separately and the final digest value is
- 	// computed by aggregating these hashes, then the shard size must be given
-    //  in the output string.
+	// shards which are hashed separately and the final digest value is
+	// computed by aggregating these hashes, then the shard size must be given
+	//  in the output string.
 	// This name gets transferred to the `algorithm` field of the `Digest`
-    // computed by the hashing engine.
+	// computed by the hashing engine.
 	DigestName() string
 
 	// DigestSize returns the size in bytes of digests produced by this engine.
 	// It must match the Size() of the Digest returned by Compute.
 	DigestSize() int
 }
-
 
 // Streaming defines the contract for streaming data into a hashing engine.
 //

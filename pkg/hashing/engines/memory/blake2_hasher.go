@@ -18,7 +18,6 @@ package memory
 import (
 	"hash"
 
-	"github.com/sigstore/model-signing/pkg/hashing/digests"
 	hashengines "github.com/sigstore/model-signing/pkg/hashing/engines"
 	"golang.org/x/crypto/blake2b"
 )
@@ -30,59 +29,22 @@ func init() {
 	})
 }
 
-// Ensure BLAKE2 implements StreamingHashEngine at compile time.
-var _ hashengines.StreamingHashEngine = (*BLAKE2)(nil)
+// BLAKE2 is a type alias for GenericHashEngine configured for BLAKE2b.
+//
+// This maintains backward compatibility while using the generic implementation
+// to eliminate code duplication.
+type BLAKE2 = GenericHashEngine
 
-// BLAKE2 is a StreamingHashEngine that wraps BLAKE2b.
-type BLAKE2 struct {
-	h hash.Hash
-}
-
-// NewBLAKE2 creates a new BLAKE2b engine.
+// NewBLAKE2 creates a new BLAKE2b-512 engine.
 //
 // If initialData is non-nil and non-empty, it is hashed immediately.
 func NewBLAKE2(initialData []byte) (*BLAKE2, error) {
-	h, err := blake2b.New512(nil) // 512-bit BLAKE2b digest
-	if err != nil {
-		return nil, err
-	}
-
-	b := &BLAKE2{h: h}
-	if len(initialData) > 0 {
-		_, _ = b.h.Write(initialData)
-	}
-	return b, nil
-}
-
-// Update appends additional bytes to the data to be hashed.
-func (b *BLAKE2) Update(data []byte) {
-	if len(data) == 0 {
-		return
-	}
-	_, _ = b.h.Write(data)
-}
-
-// Reset clears the hash state and optionally seeds it with initial data.
-func (b *BLAKE2) Reset(data []byte) {
-	h, _ := blake2b.New512(nil) // nil key is valid; error can be ignored safely
-	b.h = h
-	if len(data) > 0 {
-		_, _ = b.h.Write(data)
-	}
-}
-
-// Compute finalizes the hash and returns a digests.Digest.
-func (b *BLAKE2) Compute() (digests.Digest, error) {
-	sum := b.h.Sum(nil)
-	return digests.NewDigest(b.DigestName(), sum), nil
-}
-
-// DigestName returns the canonical name of the algorithm.
-func (b *BLAKE2) DigestName() string {
-	return "blake2b"
-}
-
-// DigestSize returns the size, in bytes, of digests produced by this engine.
-func (b *BLAKE2) DigestSize() int {
-	return blake2b.Size
+	return NewGenericHashEngine(
+		"blake2b",
+		blake2b.Size,
+		func() (hash.Hash, error) {
+			return blake2b.New512(nil) // 512-bit BLAKE2b digest with no key
+		},
+		initialData,
+	)
 }

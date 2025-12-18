@@ -19,7 +19,6 @@ import (
 	"crypto/sha256"
 	"hash"
 
-	"github.com/sigstore/model-signing/pkg/hashing/digests"
 	hashengines "github.com/sigstore/model-signing/pkg/hashing/engines"
 )
 
@@ -30,52 +29,22 @@ func init() {
 	})
 }
 
-var _ hashengines.StreamingHashEngine = (*SHA256Engine)(nil)
-
-// SHA256Engine is a StreamingHashEngine that wraps crypto/sha256.
+// SHA256Engine is a type alias for GenericHashEngine configured for SHA256.
 //
-// It supports optional initial data and full streaming updates.
-type SHA256Engine struct {
-	h hash.Hash
-}
+// This maintains backward compatibility while using the generic implementation
+// to eliminate code duplication.
+type SHA256Engine = GenericHashEngine
 
 // NewSHA256Engine constructs a new SHA256 engine.
+//
 // If initialData is non-nil, it will be written into the hash immediately.
 func NewSHA256Engine(initialData []byte) (*SHA256Engine, error) {
-	e := &SHA256Engine{h: sha256.New()}
-	if len(initialData) > 0 {
-		_, _ = e.h.Write(initialData)
-	}
-	return e, nil
-}
-
-// Update appends more bytes into the hash state.
-func (e *SHA256Engine) Update(data []byte) {
-	if len(data) > 0 {
-		_, _ = e.h.Write(data)
-	}
-}
-
-// Reset clears the hash state and optionally seeds it with new data.
-func (e *SHA256Engine) Reset(data []byte) {
-	e.h = sha256.New()
-	if len(data) > 0 {
-		_, _ = e.h.Write(data)
-	}
-}
-
-// Compute finalizes the hash and returns a Digest value.
-func (e *SHA256Engine) Compute() (digests.Digest, error) {
-	sum := e.h.Sum(nil)
-	return digests.NewDigest(e.DigestName(), sum), nil
-}
-
-// DigestName returns the algorithm identifier.
-func (e *SHA256Engine) DigestName() string {
-	return "sha256"
-}
-
-// DigestSize returns the byte length of the produced digest.
-func (e *SHA256Engine) DigestSize() int {
-	return sha256.Size
+	return NewGenericHashEngine(
+		"sha256",
+		sha256.Size,
+		func() (hash.Hash, error) {
+			return sha256.New(), nil
+		},
+		initialData,
+	)
 }

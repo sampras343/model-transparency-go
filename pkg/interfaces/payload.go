@@ -1,11 +1,13 @@
-package signing
+package interfaces
 
 import (
 	"fmt"
 
 	intoto "github.com/in-toto/attestation/go/v1"
+	"github.com/sigstore/model-signing/pkg/hashing/digests"
 	"github.com/sigstore/model-signing/pkg/hashing/engines/memory"
 	"github.com/sigstore/model-signing/pkg/manifest"
+	"github.com/sigstore/model-signing/pkg/utils"
 	"google.golang.org/protobuf/encoding/protojson"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 )
@@ -31,17 +33,13 @@ type Payload struct {
 // It computes a root digest over all resource digests and constructs
 // an in-toto statement suitable for signing.
 func NewPayload(m *manifest.Manifest) (*Payload, error) {
-	hasher, err := memory.NewSHA256Engine(nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create hasher: %w", err)
-	}
-
-	// Build resources list from manifest
+	// Build resources list and collect digests
 	descriptors := m.ResourceDescriptors()
 	resources := make([]map[string]interface{}, 0, len(descriptors))
+	digestList := make([]digests.Digest, 0, len(descriptors))
 
 	for _, desc := range descriptors {
-		hasher.Update(desc.Digest.Value())
+		digestList = append(digestList, desc.Digest)
 
 		resource := map[string]interface{}{
 			"name":      desc.Identifier,
@@ -51,8 +49,8 @@ func NewPayload(m *manifest.Manifest) (*Payload, error) {
 		resources = append(resources, resource)
 	}
 
-	// Compute root digest
-	rootDigest, err := hasher.Compute()
+	// Compute root digest using helper function
+	rootDigest, err := memory.ComputeRootDigest(digestList)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compute root digest: %w", err)
 	}
@@ -79,9 +77,9 @@ func NewPayload(m *manifest.Manifest) (*Payload, error) {
 
 	// Create in-toto statement
 	statement := &intoto.Statement{
-		Type:          InTotoStatementType,
+		Type:          utils.InTotoStatementType,
 		Subject:       []*intoto.ResourceDescriptor{subject},
-		PredicateType: PredicateType,
+		PredicateType: utils.PredicateType,
 		Predicate:     predicateStruct,
 	}
 

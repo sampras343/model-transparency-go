@@ -13,17 +13,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package certificate
+package verify
 
-import "github.com/spf13/cobra"
+import (
+	"fmt"
 
-func New() *cobra.Command {
+	"github.com/spf13/cobra"
+)
+
+func NewKey() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "certificate",
-		Short: "Verify using a certificate.",
+		Use:   "key",
+		Short: "Verify using a public key (not yet implemented).",
+		Long: `Verify model signatures using public key verification.
+
+This verification method is not yet implemented. Please use 'sigstore'
+verification instead:
+
+  model-signing verify sigstore MODEL_PATH --signature SIGNATURE_PATH \
+    --identity IDENTITY --identity_provider ISSUER_URL
+
+For more information, see: https://github.com/sigstore/model-signing`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// TODO: Implement certificate verification flow and flags here.
-			return cmd.Usage()
+			return fmt.Errorf("key-based verification is not yet implemented\n\nPlease use 'sigstore' verification instead")
 		},
 	}
 	return cmd

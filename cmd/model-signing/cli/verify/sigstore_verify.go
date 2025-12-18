@@ -13,17 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sigstore
+package verify
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/sigstore/model-signing/cmd/model-signing/cli/options"
+	verifyEngine "github.com/sigstore/model-signing/pkg/verify/sigstore"
 	"github.com/spf13/cobra"
 )
 
-func New() *cobra.Command {
+func NewSigstore() *cobra.Command {
 	o := &options.SigstoreVerifyOptions{}
 
 	long := `Verify using Sigstore (DEFAULT verification method).
@@ -42,19 +44,32 @@ signature, verification would fail.`
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			modelPath := args[0]
-			v := &SigstoreCommand{
-				SignaturePath:    o.SignaturePath,
-				IgnorePaths:      o.IgnorePaths,
-				IgnoreGitPaths:   o.IgnoreGitPaths,
-				UseStaging:       o.UseStaging,
-				Identity:         o.Identity,
-				IdentityProvider: o.IdentityProvider,
+
+			// Map CLI options directly to verifier options (single source of truth)
+			opts := verifyEngine.SigstoreVerifierOptions{
+				ModelPath:           modelPath,
+				SignaturePath:       o.SignaturePath,
+				IgnorePaths:         o.IgnorePaths,
+				IgnoreGitPaths:      o.IgnoreGitPaths,
+				AllowSymlinks:       o.AllowSymlinks,
+				UseStaging:          o.UseStaging,
+				Identity:            o.Identity,
+				IdentityProvider:    o.IdentityProvider,
+				TrustConfigPath:     o.TrustConfigPath,
+				IgnoreUnsignedFiles: o.IgnoreUnsignedFiles,
+			}
+
+			verifier, err := verifyEngine.NewSigstoreVerifier(opts)
+			if err != nil {
+				return err
 			}
 
 			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
 			defer cancel()
 
-			return v.Exec(ctx, modelPath)
+			status, err := verifier.Verify(ctx)
+			fmt.Println("Verification Status: ", status)
+			return err
 		},
 	}
 

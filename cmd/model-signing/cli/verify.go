@@ -16,9 +16,7 @@
 package cli
 
 import (
-	"github.com/sigstore/model-signing/cmd/model-signing/cli/verify/sigstore"
-	"github.com/sigstore/model-signing/cmd/model-signing/cli/verify/certificate"
-	"github.com/sigstore/model-signing/cmd/model-signing/cli/verify/key"
+	"github.com/sigstore/model-signing/cmd/model-signing/cli/verify"
 	"github.com/spf13/cobra"
 )
 
@@ -37,9 +35,9 @@ to be generated via Sigstore (as if invoking 'sigstore' subcommand).
 
 Use each subcommand's --help option for details on each mode.`,
 		DisableFlagParsing: true,
-		Args: cobra.ArbitraryArgs,
+		Args:               cobra.ArbitraryArgs,
 		RunE: func(parent *cobra.Command, args []string) error {
-			sigCmd := sigstore.New()
+			sigCmd := verify.NewSigstore()
 			sigCmd.SilenceUsage = parent.SilenceUsage
 			sigCmd.SilenceErrors = parent.SilenceErrors
 
@@ -49,9 +47,9 @@ Use each subcommand's --help option for details on each mode.`,
 	}
 
 	// Add PKI subcommands. Each owns its own flags.
-	cmd.AddCommand(sigstore.New())    // full implementation
-	cmd.AddCommand(certificate.New()) // stub for now
-	cmd.AddCommand(key.New())         // stub for now
+	cmd.AddCommand(verify.NewSigstore())    // full implementation
+	cmd.AddCommand(verify.NewKey())         // stub for now
+	cmd.AddCommand(verify.NewCertificate()) // stub for now
 
 	return cmd
 }
