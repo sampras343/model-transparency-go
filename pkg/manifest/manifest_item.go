@@ -25,7 +25,8 @@ import (
 
 // ManifestItem represents an individual object of a model stored as an item
 // in a manifest. It pairs a canonical name with its digest.
-
+//
+//nolint:revive
 type ManifestItem interface {
 	Name() string
 	Digest() digests.Digest

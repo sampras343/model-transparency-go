@@ -31,6 +31,8 @@ import (
 var _ interfaces.SignatureVerifier = (*Verifier)(nil)
 
 // SigstoreVerifierConfig holds configuration for creating a Sigstore verifier.
+//
+//nolint:revive
 type SigstoreVerifierConfig struct {
 	// Identity is the expected identity that signed the model.
 	// This is matched against the certificate's subject.
