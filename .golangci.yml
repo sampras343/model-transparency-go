@@ -38,15 +38,7 @@ linters:
         path: _test\.go
       - linters:
           - revive
-        path: pkg/verify/sigstore/
-        text: "var-naming: avoid meaningless package names"
-      - linters:
-          - revive
-        path: pkg/manifest/
-        text: "var-naming: avoid meaningless package names"
-      - linters:
-          - revive
-        path: pkg/interfaces/
+        path: pkg/
         text: "var-naming: avoid meaningless package names"
     paths:
       - third_party$
