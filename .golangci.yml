@@ -33,11 +33,25 @@ linters:
       - linters:
           - errcheck
           - gosec
+          - revive
+          - gocritic
         path: _test\.go
       - linters:
-          - staticcheck
-        path: pkg/signer/tink.go
-        text: SA1019
+          - revive
+        path: pkg/verify/sigstore/sigstore_verifier.go
+        text: Ignoring Naming
+      - linters:
+          - revive
+        path: pkg/verify/sigstore/sigstore_verifier_config.go
+        text: Ignoring Naming
+      - linters:
+          - revive
+        path: pkg/manifest/manifest_item.go
+        text: Ignoring Naming
+      - linters:
+          - revive
+        path: pkg/interfaces/payload.go
+        text: Ignoring Naming
     paths:
       - third_party$
       - builtin$
