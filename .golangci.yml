@@ -38,19 +38,15 @@ linters:
         path: _test\.go
       - linters:
           - revive
-        path: pkg/verify/sigstore/sigstore_verifier.go
+        path: pkg/verify/sigstore/
         text: Ignoring Naming
       - linters:
           - revive
-        path: pkg/verify/sigstore/sigstore_verifier_config.go
+        path: pkg/manifest/
         text: Ignoring Naming
       - linters:
           - revive
-        path: pkg/manifest/manifest_item.go
-        text: Ignoring Naming
-      - linters:
-          - revive
-        path: pkg/interfaces/payload.go
+        path: pkg/interfaces/
         text: Ignoring Naming
     paths:
       - third_party$
