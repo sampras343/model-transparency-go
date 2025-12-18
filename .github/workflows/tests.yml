@@ -11,13 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+# Copyright 2025 The Sigstore Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# ...
 
 name: ci-checks
 on:
   workflow_dispatch:
   push:
     branches:
-      - 'main'
+      - 'ci'
   pull_request:
 
 permissions: {}
@@ -41,7 +45,7 @@ jobs:
         uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9.2.0
         with:
           version: v2.6
-          args: --timeout=10m --verbose --skip-files=.*_test\.go
+          args: --timeout=10m --verbose
 
   license-check:
     name: license boilerplate check
@@ -52,12 +56,15 @@ jobs:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
+
       - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
         with:
           go-version-file: './go.mod'
           check-latest: true
+
       - name: Install addlicense
         run: go install github.com/google/addlicense@2fe3ee94479d08be985a84861de4e6b06a1c7208 # v1.0.0
+
       - name: Check license headers
         run: |
           set -e

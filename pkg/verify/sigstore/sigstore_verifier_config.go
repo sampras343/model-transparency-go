@@ -31,6 +31,8 @@ import (
 var _ interfaces.SignatureVerifier = (*Verifier)(nil)
 
 // SigstoreVerifierConfig holds configuration for creating a Sigstore verifier.
+//
+//nolint:revive
 type SigstoreVerifierConfig struct {
 	// Identity is the expected identity that signed the model.
 	// This is matched against the certificate's subject.
@@ -78,6 +80,7 @@ func NewVerifier(config SigstoreVerifierConfig) (*Verifier, error) {
 	var trustRoot *root.TrustedRoot
 	var err error
 
+	//nolint:gocritic
 	if config.UseStaging {
 		// TODO: Use staging TUF options when available
 		trustRoot, err = root.FetchTrustedRoot()

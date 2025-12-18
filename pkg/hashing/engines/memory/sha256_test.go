@@ -21,6 +21,8 @@ import (
 )
 
 // Test that SHA256 implements StreamingHashEngine at compile time.
+//
+//nolint:revive
 func TestSHA256_ImplementsStreamingHashEngine(t *testing.T) {
 	var _ hashengines.StreamingHashEngine = (*SHA256Engine)(nil)
 }

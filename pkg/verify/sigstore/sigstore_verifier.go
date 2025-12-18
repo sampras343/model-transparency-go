@@ -31,6 +31,8 @@ var _ verify.ModelVerifier = (*SigstoreVerifier)(nil)
 // SigstoreVerifierOptions contains options for high-level Sigstore verification.
 //
 // This is used by the CLI and follows the Python CLI pattern.
+//
+//nolint:revive
 type SigstoreVerifierOptions struct {
 	ModelPath           string
 	SignaturePath       string
@@ -47,6 +49,8 @@ type SigstoreVerifierOptions struct {
 // SigstoreVerifier provides high-level verification with validation.
 //
 // This mirrors the Python CLI behavior and includes input validation.
+//
+//nolint:revive
 type SigstoreVerifier struct {
 	opts SigstoreVerifierOptions
 }
@@ -94,6 +98,8 @@ func NewSigstoreVerifier(opts SigstoreVerifierOptions) (*SigstoreVerifier, error
 // 2. Create hashing config
 // 3. Create verification config
 // 4. Execute verification
+//
+//nolint:revive
 func (sv *SigstoreVerifier) Verify(ctx context.Context) (verify.Result, error) {
 	// Print verification info (matching Python CLI behavior)
 	fmt.Println("Sigstore verification")
