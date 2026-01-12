@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sigstore
+package sigstore_verifier
 
 import (
 	"context"
@@ -112,6 +112,7 @@ func (sv *SigstoreVerifier) Verify(ctx context.Context) (verify.Result, error) {
 	fmt.Printf("  --identity:          %s\n", sv.opts.Identity)
 	fmt.Printf("  --identity_provider: %s\n", sv.opts.IdentityProvider)
 	fmt.Printf("  --ignore-unsigned-files: %v\n", sv.opts.IgnoreUnsignedFiles)
+	fmt.Printf("  --trust-config: %v\n", sv.opts.TrustConfigPath)
 
 	// Resolve ignore paths
 	ignorePaths := sv.opts.IgnorePaths

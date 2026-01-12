@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sigstore
+package sigstore_verifier
 
 import (
 	"encoding/base64"
@@ -21,7 +21,7 @@ import (
 
 	"github.com/sigstore/model-signing/pkg/interfaces"
 	"github.com/sigstore/model-signing/pkg/manifest"
-	sigstoresigning "github.com/sigstore/model-signing/pkg/signing/sigstore"
+	sign "github.com/sigstore/model-signing/pkg/signature"
 	"github.com/sigstore/model-signing/pkg/utils"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	sigstoreverify "github.com/sigstore/sigstore-go/pkg/verify"
@@ -127,7 +127,7 @@ func NewVerifier(config SigstoreVerifierConfig) (*Verifier, error) {
 // the identity policy before extracting and validating the manifest.
 func (v *Verifier) Verify(signature interfaces.Signature) (*manifest.Manifest, error) {
 	// Cast to Sigstore signature
-	sig, ok := signature.(*sigstoresigning.Signature)
+	sig, ok := signature.(*sign.Signature)
 	if !ok {
 		return nil, fmt.Errorf("signature is not a Sigstore signature")
 	}
