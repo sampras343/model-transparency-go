@@ -27,7 +27,7 @@ type SigstoreSignOpetions struct {
 	OAuthForceOob         bool     // --oauth-force-oob
 	UseAmbientCredentials bool     // --use-ambient-credentials
 	IdentityToken         string   // --identity-token
-	ClientId              string   // --client-id
+	ClientID              string   // --client-id
 	ClientSecret          string   // --client-secret
 	TrustConfigPath       string   // --trust-config
 }
@@ -42,9 +42,8 @@ func (o *SigstoreSignOpetions) AddFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&o.OAuthForceOob, "oauth-force-oob", false, "Force Oauth.")
 	cmd.Flags().BoolVar(&o.UseAmbientCredentials, "use-ambient-credentials", false, "Allow the usage of ambient credentials")
 	cmd.Flags().StringVar(&o.IdentityToken, "identity-token", "", "The expected identity token the signer.")
-	cmd.Flags().StringVar(&o.ClientId, "client-id", "", "The expected identity token the signer.")
+	cmd.Flags().StringVar(&o.ClientID, "client-id", "", "The expected identity token the signer.")
 	cmd.Flags().StringVar(&o.ClientSecret, "client-secret", "", "The expected identity token the signer.")
-	
+
 	cmd.Flags().StringVar(&o.TrustConfigPath, "trust-config", "", "Path to custom trust root JSON file.")
-	
 }

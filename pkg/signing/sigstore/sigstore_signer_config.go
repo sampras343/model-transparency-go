@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sigstore_signer
+package sigstore
 
 import (
 	"context"
@@ -32,14 +32,12 @@ import (
 var _ interfaces.Signer = (*LocalSigner)(nil)
 
 // SigstoreSignerConfig holds configuration for creating a Sigstore signer.
-//
-//nolint:revive
 type SigstoreSignerConfig struct {
 	UseAmbientCredentials bool
 	UseStaging            bool
 	IdentityToken         string
 	OAuthForceOob         bool
-	ClientId              string
+	ClientID              string
 	ClientSecret          string
 	TrustRootPath         string
 }
@@ -122,9 +120,9 @@ func (s *LocalSigner) Sign(payload *interfaces.Payload) (interfaces.Signature, e
 	}
 
 	// Configure Fulcio for certificate issuance
-	fulcioURL := utils.FulcioProdUrl
+	fulcioURL := utils.FulcioProdURL
 	if s.config.UseStaging {
-		fulcioURL = utils.FulcioStagingUrl
+		fulcioURL = utils.FulcioStagingURL
 	}
 
 	fulcio := sigstoresign.NewFulcio(&sigstoresign.FulcioOptions{
@@ -132,9 +130,9 @@ func (s *LocalSigner) Sign(payload *interfaces.Payload) (interfaces.Signature, e
 	})
 
 	// Configure Rekor for transparency log
-	rekorURL := utils.RekorProdUrl
+	rekorURL := utils.RekorProdURL
 	if s.config.UseStaging {
-		rekorURL = utils.RekorStagingUrl
+		rekorURL = utils.RekorStagingURL
 	}
 
 	rekor := sigstoresign.NewRekor(&sigstoresign.RekorOptions{
@@ -174,16 +172,16 @@ func (s *LocalSigner) Sign(payload *interfaces.Payload) (interfaces.Signature, e
 // 1. Use provided identity token if available
 // 2. Use ambient credentials if configured
 // 3. Fall back to interactive OAuth flow
-func (s *LocalSigner) getIDToken(ctx context.Context) (string, error) {
+func (s *LocalSigner) getIDToken(_ context.Context) (string, error) {
 	// If a token is explicitly provided, use it
 	if s.config.IdentityToken != "" {
 		return s.config.IdentityToken, nil
 	}
 
 	// Determine OIDC issuer URL
-	issuerURL := utils.IssuerProdUrl
+	issuerURL := utils.IssuerProdURL
 	if s.config.UseStaging {
-		issuerURL = utils.IssuerStagingUrl
+		issuerURL = utils.IssuerStagingURL
 	}
 
 	// Check for ambient credentials (GitHub Actions, etc.)
@@ -200,9 +198,9 @@ func (s *LocalSigner) getIDToken(ctx context.Context) (string, error) {
 	}
 
 	// Get ID token using OAuth flow
-	clientID := s.config.ClientId
+	clientID := s.config.ClientID
 	if clientID == "" {
-		clientID = utils.DefaultClientId
+		clientID = utils.DefaultClientID
 	}
 
 	clientSecret := s.config.ClientSecret

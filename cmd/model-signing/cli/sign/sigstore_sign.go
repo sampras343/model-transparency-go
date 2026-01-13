@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/sigstore/model-signing/cmd/model-signing/cli/options"
-	sigstore_signer "github.com/sigstore/model-signing/pkg/signing/sigstore"
+	sigstore "github.com/sigstore/model-signing/pkg/signing/sigstore"
 	"github.com/spf13/cobra"
 )
 
@@ -51,7 +51,7 @@ production one.`
 			modelPath := args[0]
 
 			// Map CLI options directly to signer options
-			opts := sigstore_signer.SigstoreSignerOptions{
+			opts := sigstore.SigstoreSignerOptions{
 				ModelPath:             modelPath,
 				SignaturePath:         o.SignaturePath,
 				IgnorePaths:           o.IgnorePaths,
@@ -61,12 +61,12 @@ production one.`
 				OAuthForceOob:         o.OAuthForceOob,
 				UseAmbientCredentials: o.UseAmbientCredentials,
 				IdentityToken:         o.IdentityToken,
-				ClientId:              o.ClientId,
+				ClientID:              o.ClientID,
 				ClientSecret:          o.ClientSecret,
 				TrustConfigPath:       o.TrustConfigPath,
 			}
 
-			signer, err := sigstore_signer.NewSigstoreSigner(opts)
+			signer, err := sigstore.NewSigstoreSigner(opts)
 			if err != nil {
 				return err
 			}

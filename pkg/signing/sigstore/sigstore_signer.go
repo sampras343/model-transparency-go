@@ -1,4 +1,18 @@
-package sigstore_signer
+// Copyright 2025 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package sigstore
 
 import (
 	"context"
@@ -21,7 +35,7 @@ type SigstoreSignerOptions struct {
 	OAuthForceOob         bool
 	UseAmbientCredentials bool
 	IdentityToken         string
-	ClientId              string
+	ClientID              string
 	ClientSecret          string
 	TrustConfigPath       string
 }
@@ -53,7 +67,7 @@ func NewSigstoreSigner(opts SigstoreSignerOptions) (*SigstoreSigner, error) {
 // 2. Creating a payload from the manifest
 // 3. Signing the payload with Sigstore
 // 4. Writing the signature bundle to disk
-func (ss *SigstoreSigner) Sign(ctx context.Context) (signing.Result, error) {
+func (ss *SigstoreSigner) Sign(_ context.Context) (signing.Result, error) {
 	// Print signing configuration
 	fmt.Println("Sigstore Signing")
 	fmt.Printf("  MODEL_PATH:                 %s\n", filepath.Clean(ss.opts.ModelPath))
@@ -65,7 +79,7 @@ func (ss *SigstoreSigner) Sign(ctx context.Context) (signing.Result, error) {
 	fmt.Printf("  --oauth-force-oob:          %v\n", ss.opts.OAuthForceOob)
 	fmt.Printf("  --use-ambient-credentials:  %v\n", ss.opts.UseAmbientCredentials)
 	fmt.Printf("  --identity-token:           %v\n", maskToken(ss.opts.IdentityToken))
-	fmt.Printf("  --client-id:                %v\n", ss.opts.ClientId)
+	fmt.Printf("  --client-id:                %v\n", ss.opts.ClientID)
 	fmt.Printf("  --client-secret:            %v\n", maskToken(ss.opts.ClientSecret))
 	fmt.Printf("  --trust-config:             %v\n", ss.opts.TrustConfigPath)
 
@@ -106,7 +120,7 @@ func (ss *SigstoreSigner) Sign(ctx context.Context) (signing.Result, error) {
 		UseStaging:            ss.opts.UseStaging,
 		IdentityToken:         ss.opts.IdentityToken,
 		OAuthForceOob:         ss.opts.OAuthForceOob,
-		ClientId:              ss.opts.ClientId,
+		ClientID:              ss.opts.ClientID,
 		ClientSecret:          ss.opts.ClientSecret,
 		TrustRootPath:         ss.opts.TrustConfigPath,
 	}
