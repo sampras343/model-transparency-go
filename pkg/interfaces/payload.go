@@ -78,9 +78,13 @@ func NewPayload(m *manifest.Manifest) (*Payload, error) {
 	}
 
 	// Build predicate
+	// Convert both serialization parameters and resources to be protobuf-compatible
+	serializationParams := convertToProtoCompatible(m.SerializationParameters())
+	resourcesCompat := convertToProtoCompatible(resources)
+
 	predicateMap := map[string]interface{}{
-		"serialization": m.SerializationParameters(),
-		"resources":     resources,
+		"serialization": serializationParams,
+		"resources":     resourcesCompat,
 		// Other properties can go here in future extensions
 	}
 
@@ -104,7 +108,7 @@ func NewPayload(m *manifest.Manifest) (*Payload, error) {
 func (p *Payload) ToJSON() ([]byte, error) {
 	// Use protojson to convert the statement to JSON
 	opts := protojson.MarshalOptions{
-		UseProtoNames:   true,
+		UseProtoNames:   false,
 		EmitUnpopulated: false,
 	}
 
@@ -124,4 +128,42 @@ func PayloadFromJSON(data []byte) (*Payload, error) {
 	}
 
 	return &Payload{Statement: statement}, nil
+}
+
+// convertToProtoCompatible recursively converts Go types to protobuf-compatible types.
+// structpb.NewStruct doesn't handle typed slices like []string or []map[string]interface{}.
+func convertToProtoCompatible(v interface{}) interface{} {
+	switch val := v.(type) {
+	case map[string]interface{}:
+		// Recursively convert nested maps
+		result := make(map[string]interface{}, len(val))
+		for k, v := range val {
+			result[k] = convertToProtoCompatible(v)
+		}
+		return result
+	case []map[string]interface{}:
+		// Convert []map[string]interface{} to []interface{}
+		result := make([]interface{}, len(val))
+		for i, m := range val {
+			result[i] = convertToProtoCompatible(m)
+		}
+		return result
+	case []string:
+		// Convert []string to []interface{}
+		result := make([]interface{}, len(val))
+		for i, s := range val {
+			result[i] = s
+		}
+		return result
+	case []interface{}:
+		// Recursively convert slices
+		result := make([]interface{}, len(val))
+		for i, v := range val {
+			result[i] = convertToProtoCompatible(v)
+		}
+		return result
+	default:
+		// Return other types as-is (string, int, bool, etc.)
+		return val
+	}
 }

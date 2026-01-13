@@ -115,7 +115,7 @@ func ValidatePathExists(fieldName, path string) error {
 
 // ValidateOptionalFile validates a file path only if it's not empty.
 //
-// This is useful for optional configuration files.
+// This is for optional configuration files.
 func ValidateOptionalFile(fieldName, path string) error {
 	if path == "" {
 		return nil
@@ -125,7 +125,7 @@ func ValidateOptionalFile(fieldName, path string) error {
 
 // ValidateOptionalFolder validates a folder path only if it's not empty.
 //
-// This is useful for optional directories.
+// This is for optional directories.
 func ValidateOptionalFolder(fieldName, path string) error {
 	if path == "" {
 		return nil

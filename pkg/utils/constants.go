@@ -19,4 +19,11 @@ const (
 	InTotoStatementType   = "https://in-toto.io/Statement/v1"
 	PredicateType         = "https://model_signing/signature/v1.0"
 	PredicateTypeCompat   = "https://model_signing/Digests/v0.1"
+	IssuerProdUrl         = "https://oauth2.sigstore.dev/auth"
+	IssuerStagingUrl      = "https://oauth2.sigstage.dev/auth"
+	FulcioProdUrl         = "https://fulcio.sigstore.dev"
+	FulcioStagingUrl      = "https://fulcio.sigstage.dev"
+	RekorProdUrl          = "https://rekor.sigstore.dev"
+	RekorStagingUrl       = "https://rekor.sigstage.dev"
+	DefaultClientId       = "sigstore"
 )

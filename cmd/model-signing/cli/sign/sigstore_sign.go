@@ -32,10 +32,18 @@ func NewSigstore() *cobra.Command {
 Signs the of model at MODEL_PATH and stores the signature to
 SIGNATURE_PATH (given via --signature option). Files in IGNORE_PATHS are ignored.
 
-For Sigstore, we also need to provide an expected identity token for the signature. `
+If using Sigstore, we need to provision an OIDC token. In general, this is
+taken from an interactive OIDC flow, but ambient credentials could be used
+to use workload identity tokens (e.g., when running in GitHub actions).
+Alternatively, a constant identity token can be provided via
+--identity-token.
+
+Sigstore allows users to use a staging instance for test-only signatures.
+Passing the --use-staging flag would use that instance instead of the
+production one.`
 
 	cmd := &cobra.Command{
-		Use:   "sigstore [OPTIONS]",
+		Use:   "sigstore [OPTIONS] MODEL_PATH",
 		Short: "Sign using Sigstore (DEFAULT signing method).",
 		Long:  long,
 		Args:  cobra.ExactArgs(1),

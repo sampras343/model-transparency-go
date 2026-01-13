@@ -21,9 +21,11 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - 'ci'
+      - 'main'
+      - 'signer-sigstore'
   pull_request:
-
+    branches:
+      - 'main'
 permissions: {}
 
 jobs:

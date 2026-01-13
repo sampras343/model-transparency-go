@@ -13,3 +13,225 @@
 // limitations under the License.
 
 package sigstore_signer
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/sigstore/model-signing/pkg/interfaces"
+	sign "github.com/sigstore/model-signing/pkg/signature"
+	"github.com/sigstore/model-signing/pkg/utils"
+	"github.com/sigstore/sigstore-go/pkg/bundle"
+	"github.com/sigstore/sigstore-go/pkg/root"
+	sigstoresign "github.com/sigstore/sigstore-go/pkg/sign"
+	"github.com/sigstore/sigstore/pkg/oauthflow"
+)
+
+// Ensure LocalSigner implements interfaces.Signer at compile time.
+var _ interfaces.Signer = (*LocalSigner)(nil)
+
+// SigstoreSignerConfig holds configuration for creating a Sigstore signer.
+//
+//nolint:revive
+type SigstoreSignerConfig struct {
+	UseAmbientCredentials bool
+	UseStaging            bool
+	IdentityToken         string
+	OAuthForceOob         bool
+	ClientId              string
+	ClientSecret          string
+	TrustRootPath         string
+}
+
+// LocalSigner signs model manifests using Sigstore.
+//
+// It creates ephemeral keys, obtains short-lived certificates from Fulcio,
+// and logs signatures to Rekor for transparency.
+type LocalSigner struct {
+	config    SigstoreSignerConfig
+	trustRoot *root.TrustedRoot
+}
+
+func NewLocalSigner(config SigstoreSignerConfig) (*LocalSigner, error) {
+	// Create trust root
+	var trustRoot *root.TrustedRoot
+	var err error
+
+	//nolint:gocritic
+	if config.UseStaging {
+		// TODO: Use staging TUF options when available
+		trustRoot, err = root.FetchTrustedRoot()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch staging trust root: %w", err)
+		}
+	} else if config.TrustRootPath != "" {
+		trustRoot, err = root.NewTrustedRootFromPath(config.TrustRootPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load trust root from file: %w", err)
+		}
+	} else {
+		// Use production trust root
+		trustRoot, err = root.FetchTrustedRoot()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch production trust root: %w", err)
+		}
+	}
+
+	return &LocalSigner{
+		config:    config,
+		trustRoot: trustRoot,
+	}, nil
+}
+
+// Sign signs a payload and returns a Sigstore bundle signature.
+//
+// The signing flow:
+// 1. Generate an ephemeral keypair
+// 2. Obtain an OIDC token (from ambient credentials, provided token, or interactive flow)
+// 3. Get a short-lived certificate from Fulcio
+// 4. Create a DSSE envelope with the payload
+// 5. Sign the envelope
+// 6. Log the signature to Rekor for transparency
+// 7. Return a bundle containing everything needed for verification
+func (s *LocalSigner) Sign(payload *interfaces.Payload) (interfaces.Signature, error) {
+	ctx := context.Background()
+
+	// Convert payload to JSON for DSSE
+	payloadJSON, err := payload.ToJSON()
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize payload: %w", err)
+	}
+
+	// Create DSSE content
+	dsseContent := &sigstoresign.DSSEData{
+		Data:        payloadJSON,
+		PayloadType: utils.InTotoJSONPayloadType,
+	}
+
+	// Generate ephemeral keypair
+	keypair, err := sigstoresign.NewEphemeralKeypair(nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate ephemeral keypair: %w", err)
+	}
+
+	// Get OIDC token
+	idToken, err := s.getIDToken(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get identity token: %w", err)
+	}
+
+	// Configure Fulcio for certificate issuance
+	fulcioURL := utils.FulcioProdUrl
+	if s.config.UseStaging {
+		fulcioURL = utils.FulcioStagingUrl
+	}
+
+	fulcio := sigstoresign.NewFulcio(&sigstoresign.FulcioOptions{
+		BaseURL: fulcioURL,
+	})
+
+	// Configure Rekor for transparency log
+	rekorURL := utils.RekorProdUrl
+	if s.config.UseStaging {
+		rekorURL = utils.RekorStagingUrl
+	}
+
+	rekor := sigstoresign.NewRekor(&sigstoresign.RekorOptions{
+		BaseURL: rekorURL,
+	})
+
+	// Create bundle with all signing components
+	bundleOpts := sigstoresign.BundleOptions{
+		CertificateProvider: fulcio,
+		CertificateProviderOptions: &sigstoresign.CertificateProviderOptions{
+			IDToken: idToken,
+		},
+		TransparencyLogs: []sigstoresign.Transparency{rekor},
+		Context:          ctx,
+		TrustedRoot:      s.trustRoot,
+	}
+
+	// Sign and create bundle
+	protoBundle, err := sigstoresign.Bundle(dsseContent, keypair, bundleOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create signature bundle: %w", err)
+	}
+
+	// Convert protobuf bundle to sigstore-go bundle
+	sigstoreBundle, err := bundle.NewBundle(protoBundle)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create sigstore bundle: %w", err)
+	}
+
+	// Wrap in our signature type
+	return sign.NewSignature(sigstoreBundle), nil
+}
+
+// getIDToken obtains an OIDC identity token based on configuration.
+//
+// Priority order:
+// 1. Use provided identity token if available
+// 2. Use ambient credentials if configured
+// 3. Fall back to interactive OAuth flow
+func (s *LocalSigner) getIDToken(ctx context.Context) (string, error) {
+	// If a token is explicitly provided, use it
+	if s.config.IdentityToken != "" {
+		return s.config.IdentityToken, nil
+	}
+
+	// Determine OIDC issuer URL
+	issuerURL := utils.IssuerProdUrl
+	if s.config.UseStaging {
+		issuerURL = utils.IssuerStagingUrl
+	}
+
+	// Check for ambient credentials (GitHub Actions, etc.)
+	if s.config.UseAmbientCredentials {
+		// Try common environment variables for OIDC tokens
+		token := os.Getenv("SIGSTORE_ID_TOKEN")
+		if token == "" {
+			token = os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN")
+		}
+		if token != "" {
+			return token, nil
+		}
+		return "", fmt.Errorf("ambient credentials requested but SIGSTORE_ID_TOKEN or ACTIONS_ID_TOKEN_REQUEST_TOKEN not found")
+	}
+
+	// Get ID token using OAuth flow
+	clientID := s.config.ClientId
+	if clientID == "" {
+		clientID = utils.DefaultClientId
+	}
+
+	clientSecret := s.config.ClientSecret
+
+	var token *oauthflow.OIDCIDToken
+	var err error
+
+	if s.config.OAuthForceOob {
+		// Use device flow (no browser, no local server)
+		// User manually enters verification code from provider
+		fmt.Println("\nStarting device flow authentication...")
+		fmt.Println("You will see a verification code to enter in your browser.")
+
+		tokenGetter := oauthflow.NewDeviceFlowTokenGetterForIssuer(issuerURL)
+		redirectURL := "" // Empty for device flow
+
+		token, err = oauthflow.OIDConnect(issuerURL, clientID, clientSecret, redirectURL, tokenGetter)
+	} else {
+		// Use interactive flow with automatic browser and local callback server
+		// Empty redirect URL tells oauthflow to start a local server on a random port
+		redirectURL := ""
+		tokenGetter := oauthflow.DefaultIDTokenGetter
+
+		token, err = oauthflow.OIDConnect(issuerURL, clientID, clientSecret, redirectURL, tokenGetter)
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("failed to get ID token via OIDC flow: %w", err)
+	}
+
+	return token.RawString, nil
+}
