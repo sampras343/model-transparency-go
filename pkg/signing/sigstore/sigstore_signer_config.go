@@ -32,6 +32,7 @@ import (
 var _ interfaces.Signer = (*LocalSigner)(nil)
 
 // SigstoreSignerConfig holds configuration for creating a Sigstore signer.
+//
 //nolint:revive
 type SigstoreSignerConfig struct {
 	UseAmbientCredentials bool
