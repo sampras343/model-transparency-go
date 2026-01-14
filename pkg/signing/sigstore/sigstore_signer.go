@@ -25,6 +25,7 @@ import (
 	"github.com/sigstore/model-signing/pkg/utils"
 )
 
+//nolint:revive
 type SigstoreSignerOptions struct {
 	ModelPath             string
 	SignaturePath         string
@@ -40,6 +41,7 @@ type SigstoreSignerOptions struct {
 	TrustConfigPath       string
 }
 
+//nolint:revive
 type SigstoreSigner struct {
 	opts SigstoreSignerOptions
 }
