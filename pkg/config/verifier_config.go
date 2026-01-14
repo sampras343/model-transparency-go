@@ -22,7 +22,7 @@ import (
 
 	"github.com/sigstore/model-signing/pkg/interfaces"
 	"github.com/sigstore/model-signing/pkg/manifest"
-	sigstoresigning "github.com/sigstore/model-signing/pkg/signing/sigstore"
+	sign "github.com/sigstore/model-signing/pkg/signature"
 )
 
 // Config holds configuration for verifying models against signatures.
@@ -153,7 +153,7 @@ func (c *Config) SetVerifier(verifier interfaces.SignatureVerifier) *Config {
 func (c *Config) createSignatureReader() interfaces.SignatureReader {
 	// For now, we only support Sigstore signatures
 	// This would need to be extended if we support other signature types
-	return &sigstoresigning.Signature{}
+	return &sign.Signature{}
 }
 
 // guessHashingConfig attempts to determine the hashing configuration from a manifest.

@@ -30,8 +30,6 @@ var _ verify.ModelVerifier = (*SigstoreVerifier)(nil)
 
 // SigstoreVerifierOptions contains options for high-level Sigstore verification.
 //
-// This is used by the CLI and follows the Python CLI pattern.
-//
 //nolint:revive
 type SigstoreVerifierOptions struct {
 	ModelPath           string
@@ -48,8 +46,6 @@ type SigstoreVerifierOptions struct {
 
 // SigstoreVerifier provides high-level verification with validation.
 //
-// This mirrors the Python CLI behavior and includes input validation.
-//
 //nolint:revive
 type SigstoreVerifier struct {
 	opts SigstoreVerifierOptions
@@ -57,7 +53,7 @@ type SigstoreVerifier struct {
 
 // NewSigstoreVerifier creates a new high-level Sigstore verifier with validation.
 func NewSigstoreVerifier(opts SigstoreVerifierOptions) (*SigstoreVerifier, error) {
-	// Validate required paths using new validation utilities
+	// Validate if required paths exists
 	if err := utils.ValidateFolderExists("model path", opts.ModelPath); err != nil {
 		return nil, err
 	}
@@ -93,7 +89,7 @@ func NewSigstoreVerifier(opts SigstoreVerifierOptions) (*SigstoreVerifier, error
 
 // Verify performs the complete verification flow.
 //
-// This follows the Python verification pattern:
+// Verification pattern:
 // 1. Create verifier config
 // 2. Create hashing config
 // 3. Create verification config
@@ -101,7 +97,7 @@ func NewSigstoreVerifier(opts SigstoreVerifierOptions) (*SigstoreVerifier, error
 //
 //nolint:revive
 func (sv *SigstoreVerifier) Verify(ctx context.Context) (verify.Result, error) {
-	// Print verification info (matching Python CLI behavior)
+	// Print verification info
 	fmt.Println("Sigstore verification")
 	fmt.Printf("  MODEL_PATH:          %s\n", filepath.Clean(sv.opts.ModelPath))
 	fmt.Printf("  --signature:         %s\n", filepath.Clean(sv.opts.SignaturePath))
@@ -112,6 +108,7 @@ func (sv *SigstoreVerifier) Verify(ctx context.Context) (verify.Result, error) {
 	fmt.Printf("  --identity:          %s\n", sv.opts.Identity)
 	fmt.Printf("  --identity_provider: %s\n", sv.opts.IdentityProvider)
 	fmt.Printf("  --ignore-unsigned-files: %v\n", sv.opts.IgnoreUnsignedFiles)
+	fmt.Printf("  --trust-config: %v\n", sv.opts.TrustConfigPath)
 
 	// Resolve ignore paths
 	ignorePaths := sv.opts.IgnorePaths

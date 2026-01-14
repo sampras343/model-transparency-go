@@ -70,6 +70,7 @@ func New() *cobra.Command {
 	templates.SetCustomUsageFunc(cmd)
 
 	// Add sub-commands.
+	cmd.AddCommand(Sign())
 	cmd.AddCommand(Verify())
 	cmd.AddCommand(version.WithFont("starwars"))
 	cmd.AddCommand(cobracompletefig.CreateCompletionSpecCommand())
