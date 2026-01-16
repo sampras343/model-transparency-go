@@ -106,7 +106,7 @@ func (sv *SigstoreVerifier) Verify(ctx context.Context) (verify.Result, error) {
 	fmt.Printf("  --allow-symlinks:    %v\n", sv.opts.AllowSymlinks)
 	fmt.Printf("  --use-staging:       %v\n", sv.opts.UseStaging)
 	fmt.Printf("  --identity:          %s\n", sv.opts.Identity)
-	fmt.Printf("  --identity_provider: %s\n", sv.opts.IdentityProvider)
+	fmt.Printf("  --identity-provider: %s\n", sv.opts.IdentityProvider)
 	fmt.Printf("  --ignore-unsigned-files: %v\n", sv.opts.IgnoreUnsignedFiles)
 	fmt.Printf("  --trust-config: %v\n", sv.opts.TrustConfigPath)
 

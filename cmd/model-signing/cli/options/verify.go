@@ -47,3 +47,24 @@ func (o *SigstoreVerifyOptions) AddFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.TrustConfigPath, "trust-config", "", "Path to custom trust root JSON file.")
 	cmd.Flags().BoolVar(&o.IgnoreUnsignedFiles, "ignore-unsigned-files", true, "Ignore files in model that are not in signature.")
 }
+
+type KeyVerifyOptions struct {
+	SignaturePath       string   // --signature SIGNATURE_PATH (required)
+	IgnorePaths         []string // --ignore-paths
+	IgnoreGitPaths      bool     // --ignore-git-paths (default true; users can pass --ignore-git-paths=false)
+	AllowSymlinks       bool     // --allow-symlinks
+	PublicKeyPath       string   // --public-key PUBLIC_KEY (required)
+	IgnoreUnsignedFiles bool     // --ignore-unsigned-files
+}
+
+func (o *KeyVerifyOptions) AddFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&o.SignaturePath, "signature", "", "Location of the signature file to verify.")
+	_ = cmd.MarkFlagRequired("signature")
+
+	cmd.Flags().StringSliceVar(&o.IgnorePaths, "ignore-paths", nil, "File paths to ignore when signing or verifying.")
+	cmd.Flags().BoolVar(&o.IgnoreGitPaths, "ignore-git-paths", true, "Ignore git-related files when signing or verifying.")
+	cmd.Flags().BoolVar(&o.AllowSymlinks, "allow-symlinks", false, "Allow following symbolic links in model directory.")
+	cmd.Flags().StringVar(&o.PublicKeyPath, "public-key", "", "Location of the public key file to verify.")
+	_ = cmd.MarkFlagRequired("public-key")
+	cmd.Flags().BoolVar(&o.IgnoreUnsignedFiles, "ignore-unsigned-files", true, "Ignore files in model that are not in signature.")
+}
