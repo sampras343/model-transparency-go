@@ -28,6 +28,8 @@ import (
 var _ verify.ModelVerifier = (*KeyVerifier)(nil)
 
 // KeyVerifierOptions contains options for high-level key-based verification.
+//
+//nolint:revive
 type KeyVerifierOptions struct {
 	ModelPath           string
 	SignaturePath       string
@@ -39,6 +41,8 @@ type KeyVerifierOptions struct {
 }
 
 // KeyVerifier provides high-level verification with validation.
+//
+//nolint:revive
 type KeyVerifier struct {
 	opts KeyVerifierOptions
 }

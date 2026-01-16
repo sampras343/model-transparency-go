@@ -36,6 +36,8 @@ import (
 var _ interfaces.SignatureVerifier = (*Verifier)(nil)
 
 // KeyVerifierConfig holds configuration for creating a public key verifier.
+//
+//nolint:revive
 type KeyVerifierConfig struct {
 	// PublicKeyPath is the path to the public key file (PEM format).
 	// The public key must be paired with the private key used for signing.
@@ -96,7 +98,7 @@ func (v *Verifier) Verify(signature interfaces.Signature) (*manifest.Manifest, e
 		return nil, err
 	}
 
-	// Verify we have exactly one signature 
+	// Verify we have exactly one signature
 	// Note: May need to change if we start appending signatures with incremental changes in model
 	if err := dsseEnvelope.ValidateSignatureCount(); err != nil {
 		return nil, err
