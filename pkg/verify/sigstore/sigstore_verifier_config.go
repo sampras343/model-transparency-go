@@ -15,10 +15,10 @@
 package sigstore
 
 import (
-	"encoding/base64"
 	"fmt"
 	"net/url"
 
+	"github.com/sigstore/model-signing/pkg/dsse"
 	"github.com/sigstore/model-signing/pkg/interfaces"
 	"github.com/sigstore/model-signing/pkg/manifest"
 	sign "github.com/sigstore/model-signing/pkg/signature"
@@ -156,32 +156,25 @@ func (v *Verifier) Verify(signature interfaces.Signature) (*manifest.Manifest, e
 		return nil, fmt.Errorf("signature verification failed: %w", err)
 	}
 
-	// Extract DSSE envelope from the bundle
-	bundle := sig.Bundle()
-	envelope, err := bundle.Envelope()
+	// Extract DSSE envelope from the bundle using common utilities
+	dsseEnvelope, err := dsse.ExtractFromBundle(sig.Bundle())
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract envelope from bundle: %w", err)
-	}
-
-	dsseEnvelope := envelope.RawEnvelope()
-	if dsseEnvelope == nil {
-		return nil, fmt.Errorf("bundle does not contain a DSSE envelope")
+		return nil, err
 	}
 
 	// Verify payload type
-	if dsseEnvelope.PayloadType != utils.InTotoJSONPayloadType {
-		return nil, fmt.Errorf("expected DSSE payload %s, but got %s",
-			utils.InTotoJSONPayloadType, dsseEnvelope.PayloadType)
+	if err := dsseEnvelope.ValidatePayloadType(utils.InTotoJSONPayloadType); err != nil {
+		return nil, err
 	}
 
 	// Decode the base64-encoded payload
-	payloadBytes, err := base64.StdEncoding.DecodeString(string(dsseEnvelope.Payload))
+	payloadBytes, err := dsseEnvelope.DecodePayload()
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode DSSE payload: %w", err)
+		return nil, err
 	}
 
 	// Extract manifest from payload
-	m, err := utils.VerifySignedContent(dsseEnvelope.PayloadType, payloadBytes)
+	m, err := utils.VerifySignedContent(dsseEnvelope.PayloadType(), payloadBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract manifest: %w", err)
 	}

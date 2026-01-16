@@ -47,7 +47,7 @@ Use each subcommand's --help option for details on each mode.`,
 
 	// Add PKI subcommands. Each owns its own flags.
 	cmd.AddCommand(verify.NewSigstore())    // full implementation
-	cmd.AddCommand(verify.NewKey())         // stub for now
+	cmd.AddCommand(verify.NewKey())         // full implementation
 	cmd.AddCommand(verify.NewCertificate()) // stub for now
 
 	return cmd

@@ -44,7 +44,6 @@ signature, verification would fail.`
 		RunE: func(cmd *cobra.Command, args []string) error {
 			modelPath := args[0]
 
-			// Map CLI options directly to verifier options (single source of truth)
 			opts := verifyEngine.SigstoreVerifierOptions{
 				ModelPath:           modelPath,
 				SignaturePath:       o.SignaturePath,

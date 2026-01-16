@@ -15,28 +15,63 @@
 package verify
 
 import (
+	"context"
 	"fmt"
+	"time"
 
+	"github.com/sigstore/model-signing/cmd/model-signing/cli/options"
+	keyverify "github.com/sigstore/model-signing/pkg/verify/key"
 	"github.com/spf13/cobra"
 )
 
 func NewKey() *cobra.Command {
+	o := &options.KeyVerifyOptions{}
+	long := `Verify using a public key (paired with a private one).
+
+Verifies the integrity of model at MODEL_PATH, according to signature from
+SIGNATURE_PATH (given via --signature option). Files in IGNORE_PATHS are
+ignored.
+
+The public key provided via --public-key must have been paired with the
+private key used when generating the signature.
+
+Note that this method does not provide a way to tie to the identity of the
+signer, outside of pairing the keys. Also note that we don't offer key
+management protocols.`
+
 	cmd := &cobra.Command{
-		Use:   "key",
-		Short: "Verify using a public key (not yet implemented).",
-		Long: `Verify model signatures using public key verification.
-
-This verification method is not yet implemented. Please use 'sigstore'
-verification instead:
-
-  model-signing verify sigstore MODEL_PATH --signature SIGNATURE_PATH \
-    --identity IDENTITY --identity_provider ISSUER_URL
-
-For more information, see: https://github.com/sigstore/model-signing`,
-		//nolint:revive
+		Use:   "key [OPTIONS] MODEL_PATH",
+		Short: "Verify using a public key.",
+		Long:  long,
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("key-based verification is not yet implemented\n\nPlease use 'sigstore' verification instead")
+			modelPath := args[0]
+
+			// Map CLI options to key verifier options
+			opts := keyverify.KeyVerifierOptions{
+				ModelPath:           modelPath,
+				SignaturePath:       o.SignaturePath,
+				IgnorePaths:         o.IgnorePaths,
+				IgnoreGitPaths:      o.IgnoreGitPaths,
+				AllowSymlinks:       o.AllowSymlinks,
+				PublicKeyPath:       o.PublicKeyPath,
+				IgnoreUnsignedFiles: o.IgnoreUnsignedFiles,
+			}
+
+			verifier, err := keyverify.NewKeyVerifier(opts)
+			if err != nil {
+				return err
+			}
+
+			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
+			defer cancel()
+
+			status, err := verifier.Verify(ctx)
+			fmt.Println("Verification Status: ", status)
+			return err
 		},
 	}
+
+	o.AddFlags(cmd)
 	return cmd
 }

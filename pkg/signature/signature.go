@@ -78,7 +78,8 @@ func (s *Signature) Read(path string) (interfaces.Signature, error) {
 	// Parse as protobuf bundle
 	protoBundle := &protobundle.Bundle{}
 	opts := protojson.UnmarshalOptions{
-		DiscardUnknown: false,
+		// Allow unknown fields for compatibility
+		DiscardUnknown: true,
 	}
 
 	if err := opts.Unmarshal(jsonBytes, protoBundle); err != nil {
