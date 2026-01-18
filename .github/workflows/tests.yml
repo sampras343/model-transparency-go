@@ -22,7 +22,6 @@ on:
   push:
     branches:
       - 'main'
-      - 'signer-sigstore'
   pull_request:
     branches:
       - 'main'

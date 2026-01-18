@@ -62,3 +62,14 @@ func hexToBytes(hexStr string) ([]byte, error) {
 	}
 	return bytes, nil
 }
+
+// maskToken masks sensitive tokens for logging.
+func MaskToken(token string) string {
+	if token == "" {
+		return ""
+	}
+	if len(token) <= 8 {
+		return "***"
+	}
+	return token[:4] + "..." + token[len(token)-4:]
+}

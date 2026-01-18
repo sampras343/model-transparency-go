@@ -80,9 +80,9 @@ func (ss *SigstoreSigner) Sign(_ context.Context) (signing.Result, error) {
 	fmt.Printf("  --use-staging:              %v\n", ss.opts.UseStaging)
 	fmt.Printf("  --oauth-force-oob:          %v\n", ss.opts.OAuthForceOob)
 	fmt.Printf("  --use-ambient-credentials:  %v\n", ss.opts.UseAmbientCredentials)
-	fmt.Printf("  --identity-token:           %v\n", maskToken(ss.opts.IdentityToken))
+	fmt.Printf("  --identity-token:           %v\n", utils.MaskToken(ss.opts.IdentityToken))
 	fmt.Printf("  --client-id:                %v\n", ss.opts.ClientID)
-	fmt.Printf("  --client-secret:            %v\n", maskToken(ss.opts.ClientSecret))
+	fmt.Printf("  --client-secret:            %v\n", utils.MaskToken(ss.opts.ClientSecret))
 	fmt.Printf("  --trust-config:             %v\n", ss.opts.TrustConfigPath)
 
 	// Resolve ignore paths
@@ -160,13 +160,3 @@ func (ss *SigstoreSigner) Sign(_ context.Context) (signing.Result, error) {
 	}, nil
 }
 
-// maskToken masks sensitive tokens for logging.
-func maskToken(token string) string {
-	if token == "" {
-		return ""
-	}
-	if len(token) <= 8 {
-		return "***"
-	}
-	return token[:4] + "..." + token[len(token)-4:]
-}
