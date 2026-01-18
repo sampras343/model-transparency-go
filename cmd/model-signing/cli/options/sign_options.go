@@ -18,7 +18,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type SigstoreSignOpetions struct {
+type SigstoreSignOptions struct {
 	SignaturePath         string   // --signature SIGNATURE_PATH (required)
 	IgnorePaths           []string // --ignore-paths
 	IgnoreGitPaths        bool     // --ignore-git-paths (default true; users can pass --ignore-git-paths=false)
@@ -32,8 +32,8 @@ type SigstoreSignOpetions struct {
 	TrustConfigPath       string   // --trust-config
 }
 
-func (o *SigstoreSignOpetions) AddFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&o.SignaturePath, "signature", "", "Location of the signature file to verify.")
+func (o *SigstoreSignOptions) AddFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&o.SignaturePath, "signature", "", "Location of the signature file to sign.")
 	_ = cmd.MarkFlagRequired("signature")
 	cmd.Flags().StringSliceVar(&o.IgnorePaths, "ignore-paths", nil, "File paths to ignore when signing or verifying.")
 	cmd.Flags().BoolVar(&o.IgnoreGitPaths, "ignore-git-paths", true, "Ignore git-related files when signing or verifying.")
@@ -46,4 +46,24 @@ func (o *SigstoreSignOpetions) AddFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.ClientSecret, "client-secret", "", "The expected identity token the signer.")
 
 	cmd.Flags().StringVar(&o.TrustConfigPath, "trust-config", "", "Path to custom trust root JSON file.")
+}
+
+type KeySignOptions struct {
+	SignaturePath  string   // --signature SIGNATURE_PATH (required)
+	IgnorePaths    []string // --ignore-paths
+	IgnoreGitPaths bool     // --ignore-git-paths (default true; users can pass --ignore-git-paths=false)
+	AllowSymlinks  bool     // --allow-symlinks
+	Password       string   // --password
+	PrivateKeyPath  string   // --private-key PRIVATE_KEY (required)
+}
+
+func (o *KeySignOptions) AddFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&o.SignaturePath, "signature", "", "Location of the signature file to sign.")
+	_ = cmd.MarkFlagRequired("signature")
+	cmd.Flags().StringSliceVar(&o.IgnorePaths, "ignore-paths", nil, "File paths to ignore when signing or verifying.")
+	cmd.Flags().BoolVar(&o.IgnoreGitPaths, "ignore-git-paths", true, "Ignore git-related files when signing or verifying.")
+	cmd.Flags().BoolVar(&o.AllowSymlinks, "allow-symlinks", false, "Allow following symbolic links in model directory.")
+	cmd.Flags().StringVar(&o.PrivateKeyPath, "private-key", "", "Location of the private file to sign.")
+	_ = cmd.MarkFlagRequired("private-key")
+	cmd.Flags().StringVar(&o.Password, "password", "", "Password for the key encryption, if any.")
 }
