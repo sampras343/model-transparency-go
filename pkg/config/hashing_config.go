@@ -106,10 +106,17 @@ func (c *HashingConfig) UseShardSerialization(hashAlgorithm string, shardSize in
 
 // SetIgnoredPaths sets the paths to ignore during hashing.
 //
-// If ignoreGitPaths is true, common git-related paths are also ignored.
+// If ignoreGitPaths is true, common git-related paths are also ignored and
+// stored in the manifest so verification can automatically apply them.
 func (c *HashingConfig) SetIgnoredPaths(paths []string, ignoreGitPaths bool) *HashingConfig {
 	c.ignoredPaths = paths
 	c.ignoreGitPaths = ignoreGitPaths
+
+	// Add git-related paths to ignore list so they're stored in manifest
+	if ignoreGitPaths {
+		c.ignoredPaths = append(c.ignoredPaths, gitRelatedPaths...)
+	}
+
 	return c
 }
 
@@ -272,15 +279,8 @@ func (c *HashingConfig) shouldIgnorePath(path, modelPath string) bool {
 		}
 	}
 
-	// Check git-related paths if configured
-	if c.ignoreGitPaths {
-		for _, gitPath := range gitRelatedPaths {
-			if relPath == gitPath || strings.HasPrefix(relPath, gitPath+string(filepath.Separator)) {
-				return true
-			}
-		}
-	}
-
+	// Git-related paths are added to c.ignoredPaths when ignoreGitPaths is true,
+	// so no separate checking is needed. This ensures they're stored in the manifest.
 	return false
 }
 
