@@ -127,7 +127,7 @@ func (ss *SigstoreSigner) Sign(_ context.Context) (signing.Result, error) {
 		TrustRootPath:         ss.opts.TrustConfigPath,
 	}
 
-	signer, err := NewLocalSigner(signerConfig)
+	signer, err := NewLocalSigstoreSigner(signerConfig)
 	if err != nil {
 		return signing.Result{
 			Verified: false,

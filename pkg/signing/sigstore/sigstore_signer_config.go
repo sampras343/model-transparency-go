@@ -28,8 +28,8 @@ import (
 	"github.com/sigstore/sigstore/pkg/oauthflow"
 )
 
-// Ensure LocalSigner implements interfaces.Signer at compile time.
-var _ interfaces.Signer = (*LocalSigner)(nil)
+// Ensure LocalSigstoreSigner implements interfaces.Signer at compile time.
+var _ interfaces.Signer = (*LocalSigstoreSigner)(nil)
 
 // SigstoreSignerConfig holds configuration for creating a Sigstore signer.
 //
@@ -44,16 +44,13 @@ type SigstoreSignerConfig struct {
 	TrustRootPath         string
 }
 
-// LocalSigner signs model manifests using Sigstore.
-//
-// It creates ephemeral keys, obtains short-lived certificates from Fulcio,
-// and logs signatures to Rekor for transparency.
-type LocalSigner struct {
+// LocalSigstoreSigner signs model manifests using Sigstore.
+type LocalSigstoreSigner struct {
 	config    SigstoreSignerConfig
 	trustRoot *root.TrustedRoot
 }
 
-func NewLocalSigner(config SigstoreSignerConfig) (*LocalSigner, error) {
+func NewLocalSigstoreSigner(config SigstoreSignerConfig) (*LocalSigstoreSigner, error) {
 	// Create trust root
 	var trustRoot *root.TrustedRoot
 	var err error
@@ -78,7 +75,7 @@ func NewLocalSigner(config SigstoreSignerConfig) (*LocalSigner, error) {
 		}
 	}
 
-	return &LocalSigner{
+	return &LocalSigstoreSigner{
 		config:    config,
 		trustRoot: trustRoot,
 	}, nil
@@ -94,7 +91,7 @@ func NewLocalSigner(config SigstoreSignerConfig) (*LocalSigner, error) {
 // 5. Sign the envelope
 // 6. Log the signature to Rekor for transparency
 // 7. Return a bundle containing everything needed for verification
-func (s *LocalSigner) Sign(payload *interfaces.Payload) (interfaces.Signature, error) {
+func (s *LocalSigstoreSigner) Sign(payload *interfaces.Payload) (interfaces.Signature, error) {
 	ctx := context.Background()
 
 	// Convert payload to JSON for DSSE
@@ -174,7 +171,7 @@ func (s *LocalSigner) Sign(payload *interfaces.Payload) (interfaces.Signature, e
 // 1. Use provided identity token if available
 // 2. Use ambient credentials if configured
 // 3. Fall back to interactive OAuth flow
-func (s *LocalSigner) getIDToken(_ context.Context) (string, error) {
+func (s *LocalSigstoreSigner) getIDToken(_ context.Context) (string, error) {
 	// If a token is explicitly provided, use it
 	if s.config.IdentityToken != "" {
 		return s.config.IdentityToken, nil
