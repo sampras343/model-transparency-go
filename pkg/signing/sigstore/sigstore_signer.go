@@ -159,4 +159,3 @@ func (ss *SigstoreSigner) Sign(_ context.Context) (signing.Result, error) {
 		Message:  "Signing succeeded",
 	}, nil
 }
-

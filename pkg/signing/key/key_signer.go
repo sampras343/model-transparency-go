@@ -36,6 +36,7 @@ type KeySignerOptions struct {
 	Password       string
 }
 
+//nolint:revive
 type KeySigner struct {
 	opts KeySignerOptions
 }

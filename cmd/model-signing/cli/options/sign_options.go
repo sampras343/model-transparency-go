@@ -54,7 +54,7 @@ type KeySignOptions struct {
 	IgnoreGitPaths bool     // --ignore-git-paths (default true; users can pass --ignore-git-paths=false)
 	AllowSymlinks  bool     // --allow-symlinks
 	Password       string   // --password
-	PrivateKeyPath  string   // --private-key PRIVATE_KEY (required)
+	PrivateKeyPath string   // --private-key PRIVATE_KEY (required)
 }
 
 func (o *KeySignOptions) AddFlags(cmd *cobra.Command) {

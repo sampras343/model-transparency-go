@@ -296,4 +296,3 @@ func (s *LocalKeySigner) createVerificationMaterial() *protobundle.VerificationM
 		},
 	}
 }
-
