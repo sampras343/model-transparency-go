@@ -102,4 +102,43 @@ func (ss *KeySigner) Sign(_ context.Context) (signing.Result, error) {
 			Message:  fmt.Sprintf("Failed to create payload: %v", err),
 		}, fmt.Errorf("failed to create payload: %w", err)
 	}
+
+	// Step 3: Create key signer and sign the payload
+	fmt.Println("\nStep 3: Signing with private key...")
+	signerConfig := KeySignerConfig{
+		PrivateKeyPath: ss.opts.PrivateKeyPath,
+		Password:       ss.opts.Password,
+	}
+
+	signer, err := NewLocalKeySigner(signerConfig)
+	if err != nil {
+		return signing.Result{
+			Verified: false,
+			Message:  fmt.Sprintf("Failed to create signer: %v", err),
+		}, fmt.Errorf("failed to create signer: %w", err)
+	}
+
+	signature, err := signer.Sign(payload)
+	if err != nil {
+		return signing.Result{
+			Verified: false,
+			Message:  fmt.Sprintf("Failed to sign payload: %v", err),
+		}, fmt.Errorf("failed to sign payload: %w", err)
+	}
+	fmt.Println("  Signing successful")
+
+	// Step 4: Write signature to disk
+	fmt.Println("\nStep 4: Writing signature to disk...")
+	if err := signature.Write(ss.opts.SignaturePath); err != nil {
+		return signing.Result{
+			Verified: false,
+			Message:  fmt.Sprintf("Failed to write signature: %v", err),
+		}, fmt.Errorf("failed to write signature: %w", err)
+	}
+	fmt.Printf("  Signature written to: %s\n", ss.opts.SignaturePath)
+
+	return signing.Result{
+		Verified: true,
+		Message:  "Signing succeeded",
+	}, nil
 }

@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	dsse_lib "github.com/secure-systems-lab/go-securesystemslib/dsse"
+	protodsse "github.com/sigstore/protobuf-specs/gen/pb-go/dsse"
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 )
 
@@ -118,4 +119,48 @@ func (e *Envelope) PayloadType() string {
 // for operations not covered by the Envelope methods.
 func (e *Envelope) RawEnvelope() *dsse_lib.Envelope {
 	return e.raw
+}
+
+// CreateEnvelope creates a new DSSE envelope with a single signature.
+//
+// The payload and signature are base64-encoded as required by the DSSE spec.
+// This is a convenience function for signing operations.
+func CreateEnvelope(payloadType string, payload []byte, signature []byte) *Envelope {
+	envelope := &dsse_lib.Envelope{
+		Payload:     base64.StdEncoding.EncodeToString(payload),
+		PayloadType: payloadType,
+		Signatures: []dsse_lib.Signature{
+			{
+				Sig:   base64.StdEncoding.EncodeToString(signature),
+				KeyID: "", // Empty keyid as per DSSE spec
+			},
+		},
+	}
+	return &Envelope{raw: envelope}
+}
+
+// ToProtobuf converts the DSSE envelope to protobuf format.
+//
+// The go-securesystemslib envelope stores Payload and Sig as base64-encoded strings,
+// but the protobuf expects []byte. This function handles the conversion by decoding
+// the base64 strings to bytes.
+func (e *Envelope) ToProtobuf() *protodsse.Envelope {
+	// Decode base64 payload to bytes
+	payloadBytes, _ := base64.StdEncoding.DecodeString(e.raw.Payload)
+
+	// Decode base64 signatures to bytes
+	signatures := make([]*protodsse.Signature, len(e.raw.Signatures))
+	for i, sig := range e.raw.Signatures {
+		sigBytes, _ := base64.StdEncoding.DecodeString(sig.Sig)
+		signatures[i] = &protodsse.Signature{
+			Sig:   sigBytes,
+			Keyid: sig.KeyID,
+		}
+	}
+
+	return &protodsse.Envelope{
+		Payload:     payloadBytes,
+		PayloadType: e.raw.PayloadType,
+		Signatures:  signatures,
+	}
 }
