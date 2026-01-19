@@ -25,7 +25,7 @@ import (
 )
 
 func NewSigstore() *cobra.Command {
-	o := &options.SigstoreSignOpetions{}
+	o := &options.SigstoreSignOptions{}
 
 	long := `Sign using Sigstore (DEFAULT signing method).
 
@@ -50,7 +50,6 @@ production one.`
 		RunE: func(cmd *cobra.Command, args []string) error {
 			modelPath := args[0]
 
-			// Map CLI options directly to signer options
 			opts := sigstore.SigstoreSignerOptions{
 				ModelPath:             modelPath,
 				SignaturePath:         o.SignaturePath,
