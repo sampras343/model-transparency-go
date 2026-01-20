@@ -260,7 +260,7 @@ func TestComputePublicKeyHash_RSA(t *testing.T) {
 
 	// Verify all characters are valid hex
 	for _, c := range hash {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) { //nolint:staticcheck
 			t.Errorf("Invalid hex character in hash: %c", c)
 		}
 	}

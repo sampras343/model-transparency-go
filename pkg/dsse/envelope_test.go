@@ -176,7 +176,7 @@ func TestRawEnvelope(t *testing.T) {
 func TestEnvelope_PayloadDecoding(t *testing.T) {
 	// Create an envelope and verify payload can be decoded correctly
 	originalPayload := map[string]interface{}{
-		"test": "data",
+		"test":   "data",
 		"number": float64(42),
 		"nested": map[string]interface{}{
 			"key": "value",
