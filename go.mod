@@ -1,6 +1,6 @@
 module github.com/sigstore/model-signing
 
-go 1.25.0
+go 1.25.5
 
 require (
 	github.com/google/go-containerregistry v0.20.7
