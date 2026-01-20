@@ -164,13 +164,18 @@ func (c *HashingConfig) Hash(modelPath string, filesToHash []string) (*manifest.
 	// Determine which files to hash
 	var filePaths []string
 	if filesToHash != nil {
-		// Use provided list (convert to absolute paths)
-		filePaths = make([]string, len(filesToHash))
-		for i, f := range filesToHash {
+		// Use provided list (convert to absolute paths and filter out ignored paths)
+		for _, f := range filesToHash {
+			var absPath string
 			if filepath.IsAbs(f) {
-				filePaths[i] = f
+				absPath = f
 			} else {
-				filePaths[i] = filepath.Join(absModelPath, f)
+				absPath = filepath.Join(absModelPath, f)
+			}
+
+			// Check if path should be ignored
+			if !c.shouldIgnorePath(absPath, absModelPath) {
+				filePaths = append(filePaths, absPath)
 			}
 		}
 	} else {
