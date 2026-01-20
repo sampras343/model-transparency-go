@@ -7,6 +7,7 @@ require (
 	github.com/in-toto/attestation v1.1.2
 	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/moby/term v0.5.2
+	github.com/secure-systems-lab/go-securesystemslib v0.9.1
 	github.com/sigstore/protobuf-specs v0.5.0
 	github.com/sigstore/sigstore v1.10.0
 	github.com/sigstore/sigstore-go v1.1.4
@@ -66,7 +67,6 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sassoftware/relic v7.2.1+incompatible // indirect
-	github.com/secure-systems-lab/go-securesystemslib v0.9.1 // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
 	github.com/sigstore/rekor v1.4.3 // indirect
 	github.com/sigstore/rekor-tiles/v2 v2.0.1 // indirect

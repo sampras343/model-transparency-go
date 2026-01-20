@@ -26,7 +26,7 @@ func TestMaskToken(t *testing.T) {
 		{"short token (<=8) masked fully", "abc123", "***"},
 		{"exactly 8 chars masked fully", "abcd1234", "***"},
 		{"long token masks middle", "abcdefghijkl", "abcd...ijkl"},
-		{"unicode ok length>8", "αβγδεζηθικλ", "αβγδ...ηθικλ"},
+		{"unicode ok length>8", "αβγδεζηθικλ", "αβγδ...θικλ"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

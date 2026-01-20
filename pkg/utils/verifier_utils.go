@@ -68,8 +68,10 @@ func MaskToken(token string) string {
 	if token == "" {
 		return ""
 	}
-	if len(token) <= 8 {
+	// Convert to runes to handle Unicode characters properly
+	runes := []rune(token)
+	if len(runes) <= 8 {
 		return "***"
 	}
-	return token[:4] + "..." + token[len(token)-4:]
+	return string(runes[:4]) + "..." + string(runes[len(runes)-4:])
 }
