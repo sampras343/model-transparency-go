@@ -481,3 +481,101 @@ func TestMethodChaining(t *testing.T) {
 		t.Errorf("Expected at least 5 ignoredPaths, got %d", len(config.ignoredPaths))
 	}
 }
+
+func TestHash_WithSpecificFilesAndIgnoreGitPaths(t *testing.T) {
+	// Create temporary test directory
+	tmpDir := t.TempDir()
+
+	// Create test files including git files
+	testFiles := []string{
+		"file1.txt",
+		"file2.txt",
+		".gitignore",
+		".gitattributes",
+	}
+
+	for _, f := range testFiles {
+		path := filepath.Join(tmpDir, f)
+		if err := os.WriteFile(path, []byte("test content"), 0644); err != nil {
+			t.Fatalf("Failed to create file %s: %v", f, err)
+		}
+	}
+
+	config := NewHashingConfig()
+	config.SetIgnoredPaths([]string{}, true) // Enable git paths ignore
+
+	// Provide explicit list including git files (simulating what happens during verification)
+	filesToHash := []string{"file1.txt", "file2.txt", ".gitignore", ".gitattributes"}
+	manifest, err := config.Hash(tmpDir, filesToHash)
+	if err != nil {
+		t.Fatalf("Hash failed: %v", err)
+	}
+
+	if manifest == nil {
+		t.Fatal("Expected non-nil manifest")
+	}
+
+	// Verify that git files were filtered out
+	resourceDescriptors := manifest.ResourceDescriptors()
+	for _, rd := range resourceDescriptors {
+		if rd.Identifier == ".gitignore" || rd.Identifier == ".gitattributes" {
+			t.Errorf("Expected git file '%s' to be filtered out, but it was included in manifest", rd.Identifier)
+		}
+	}
+
+	// Verify that only non-git files are in the manifest
+	if len(resourceDescriptors) != 2 {
+		t.Errorf("Expected 2 files in manifest (file1.txt, file2.txt), got %d", len(resourceDescriptors))
+	}
+}
+
+func TestHash_WithSpecificFilesWithoutIgnoreGitPaths(t *testing.T) {
+	// Create temporary test directory
+	tmpDir := t.TempDir()
+
+	// Create test files including git files
+	testFiles := []string{
+		"file1.txt",
+		".gitignore",
+	}
+
+	for _, f := range testFiles {
+		path := filepath.Join(tmpDir, f)
+		if err := os.WriteFile(path, []byte("test content"), 0644); err != nil {
+			t.Fatalf("Failed to create file %s: %v", f, err)
+		}
+	}
+
+	config := NewHashingConfig()
+	config.SetIgnoredPaths([]string{}, false) // Disable git paths ignore
+
+	// Provide explicit list including git files
+	filesToHash := []string{"file1.txt", ".gitignore"}
+	manifest, err := config.Hash(tmpDir, filesToHash)
+	if err != nil {
+		t.Fatalf("Hash failed: %v", err)
+	}
+
+	if manifest == nil {
+		t.Fatal("Expected non-nil manifest")
+	}
+
+	// Verify that git files were NOT filtered out (since ignoreGitPaths is false)
+	resourceDescriptors := manifest.ResourceDescriptors()
+	foundGitFile := false
+	for _, rd := range resourceDescriptors {
+		if rd.Identifier == ".gitignore" {
+			foundGitFile = true
+			break
+		}
+	}
+
+	if !foundGitFile {
+		t.Error("Expected .gitignore to be included in manifest when ignoreGitPaths is false")
+	}
+
+	// Verify that both files are in the manifest
+	if len(resourceDescriptors) != 2 {
+		t.Errorf("Expected 2 files in manifest (file1.txt, .gitignore), got %d", len(resourceDescriptors))
+	}
+}
