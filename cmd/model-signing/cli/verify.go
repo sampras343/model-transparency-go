@@ -46,18 +46,8 @@ signature, verification would fail.`
 		RunE: func(cmd *cobra.Command, args []string) error {
 			modelPath := args[0]
 
-			opts := sigstore.SigstoreVerifierOptions{
-				ModelPath:           modelPath,
-				SignaturePath:       o.SignaturePath,
-				IgnorePaths:         o.IgnorePaths,
-				IgnoreGitPaths:      o.IgnoreGitPaths,
-				AllowSymlinks:       o.AllowSymlinks,
-				UseStaging:          o.UseStaging,
-				Identity:            o.Identity,
-				IdentityProvider:    o.IdentityProvider,
-				TrustConfigPath:     o.TrustConfigPath,
-				IgnoreUnsignedFiles: o.IgnoreUnsignedFiles,
-			}
+			// Convert CLI options to library options
+			opts := o.ToStandardOptions(modelPath)
 
 			verifier, err := sigstore.NewSigstoreVerifier(opts)
 			if err != nil {
@@ -100,16 +90,8 @@ management protocols.`
 		RunE: func(cmd *cobra.Command, args []string) error {
 			modelPath := args[0]
 
-			// Map CLI options to key verifier options
-			opts := keyverify.KeyVerifierOptions{
-				ModelPath:           modelPath,
-				SignaturePath:       o.SignaturePath,
-				IgnorePaths:         o.IgnorePaths,
-				IgnoreGitPaths:      o.IgnoreGitPaths,
-				AllowSymlinks:       o.AllowSymlinks,
-				PublicKeyPath:       o.PublicKeyPath,
-				IgnoreUnsignedFiles: o.IgnoreUnsignedFiles,
-			}
+			// Convert CLI options to library options
+			opts := o.ToStandardOptions(modelPath)
 
 			verifier, err := keyverify.NewKeyVerifier(opts)
 			if err != nil {

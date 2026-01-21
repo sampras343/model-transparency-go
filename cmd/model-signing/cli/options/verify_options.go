@@ -16,6 +16,9 @@ package options
 
 import (
 	"github.com/spf13/cobra"
+
+	key "github.com/sigstore/model-signing/pkg/verify/key"
+	sigstore "github.com/sigstore/model-signing/pkg/verify/sigstore"
 )
 
 type SigstoreVerifyOptions struct {
@@ -66,4 +69,33 @@ func (o *CertificateVerifyOptions) AddFlags(cmd *cobra.Command) {
 
 	cmd.Flags().BoolVar(&o.LogFingerprints, "log-fingerprints", true, "Ignore files in model that are not in signature.")
 	cmd.Flags().StringSliceVar(&o.CertificateChain, "certificate-chain", nil, "File paths of certificate chain of trust")
+}
+
+// ToStandardOptions converts CLI options to library options for Sigstore verification
+func (o *SigstoreVerifyOptions) ToStandardOptions(modelPath string) sigstore.SigstoreVerifierOptions {
+	return sigstore.SigstoreVerifierOptions{
+		ModelPath:           modelPath,
+		SignaturePath:       o.SignaturePath,
+		IgnorePaths:         o.IgnorePaths,
+		IgnoreGitPaths:      o.IgnoreGitPaths,
+		AllowSymlinks:       o.AllowSymlinks,
+		UseStaging:          o.UseStaging,
+		Identity:            o.Identity,
+		IdentityProvider:    o.IdentityProvider,
+		TrustConfigPath:     o.TrustConfigPath,
+		IgnoreUnsignedFiles: o.IgnoreUnsignedFiles,
+	}
+}
+
+// ToStandardOptions converts CLI options to library options for key-based verification
+func (o *KeyVerifyOptions) ToStandardOptions(modelPath string) key.KeyVerifierOptions {
+	return key.KeyVerifierOptions{
+		ModelPath:           modelPath,
+		SignaturePath:       o.SignaturePath,
+		IgnorePaths:         o.IgnorePaths,
+		IgnoreGitPaths:      o.IgnoreGitPaths,
+		AllowSymlinks:       o.AllowSymlinks,
+		PublicKeyPath:       o.PublicKeyPath,
+		IgnoreUnsignedFiles: o.IgnoreUnsignedFiles,
+	}
 }

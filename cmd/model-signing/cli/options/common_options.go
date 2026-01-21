@@ -31,8 +31,8 @@ func (o *CommonModelFlags) AddFlags(cmd *cobra.Command, signatureFlagHelp string
 	cmd.Flags().StringVar(&o.SignaturePath, "signature", "", signatureFlagHelp)
 	_ = cmd.MarkFlagRequired("signature")
 	cmd.Flags().StringSliceVar(&o.IgnorePaths, "ignore-paths", nil, "File paths to ignore when signing or verifying.")
-	cmd.Flags().BoolVar(&o.IgnoreGitPaths, "ignore-git-paths", true, "Ignore git-related files when signing or verifying.")
-	cmd.Flags().BoolVar(&o.AllowSymlinks, "allow-symlinks", false, "Allow following symbolic links in model directory.")
+	cmd.Flags().BoolVar(&o.IgnoreGitPaths, "ignore-git-paths", true, "Ignore git-related files when signing or verifying. [default: true]")
+	cmd.Flags().BoolVar(&o.AllowSymlinks, "allow-symlinks", false, "Whether to allow following symlinks when signing or verifying files.")
 }
 
 // CommonVerifyFlags contains flags shared by all verification commands

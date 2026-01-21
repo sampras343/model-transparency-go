@@ -52,20 +52,8 @@ production one.`
 		RunE: func(cmd *cobra.Command, args []string) error {
 			modelPath := args[0]
 
-			opts := sigstore.SigstoreSignerOptions{
-				ModelPath:             modelPath,
-				SignaturePath:         o.SignaturePath,
-				IgnorePaths:           o.IgnorePaths,
-				IgnoreGitPaths:        o.IgnoreGitPaths,
-				AllowSymlinks:         o.AllowSymlinks,
-				UseStaging:            o.UseStaging,
-				OAuthForceOob:         o.OAuthForceOob,
-				UseAmbientCredentials: o.UseAmbientCredentials,
-				IdentityToken:         o.IdentityToken,
-				ClientID:              o.ClientID,
-				ClientSecret:          o.ClientSecret,
-				TrustConfigPath:       o.TrustConfigPath,
-			}
+			// Convert CLI options to library options
+			opts := o.ToStandardOptions(modelPath)
 
 			signer, err := sigstore.NewSigstoreSigner(opts)
 			if err != nil {
@@ -109,15 +97,8 @@ func NewKeySigner() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			modelPath := args[0]
 
-			opts := key.KeySignerOptions{
-				ModelPath:      modelPath,
-				SignaturePath:  o.SignaturePath,
-				IgnorePaths:    o.IgnorePaths,
-				IgnoreGitPaths: o.IgnoreGitPaths,
-				AllowSymlinks:  o.AllowSymlinks,
-				PrivateKeyPath: o.PrivateKeyPath,
-				Password:       o.Password,
-			}
+			// Convert CLI options to library options
+			opts := o.ToStandardOptions(modelPath)
 
 			signer, err := key.NewKeySigner(opts)
 			if err != nil {
