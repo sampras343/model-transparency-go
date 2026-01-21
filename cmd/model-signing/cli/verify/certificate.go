@@ -23,16 +23,19 @@ import (
 func NewCertificate() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "certificate",
-		Short: "Verify using a certificate (not yet implemented).",
-		Long: `Verify model signatures using certificate-based verification.
+		Short: "Verify using a certificate",
+		Long: `Verify using a certificate.
 
-This verification method is not yet implemented. Please use 'sigstore'
-verification instead:
+    Verifies the integrity of model at MODEL_PATH, according to
+    signature from SIGNATURE_PATH (given via --signature option). Files in
+    IGNORE_PATHS are ignored.
 
-  model-signing verify sigstore MODEL_PATH --signature SIGNATURE_PATH \
-    --identity IDENTITY --identity_provider ISSUER_URL
+    The signing certificate is encoded in the signature, as part of the Sigstore
+    bundle. To verify the root of trust, pass additional certificates in the
+    certificate chain, using --certificate-chain (this option can be repeated
+    as needed, or all certificates could be placed in a single file).
 
-For more information, see: https://github.com/sigstore/model-signing`,
+    Note that we don't offer certificate and key management protocols.`,
 		//nolint:revive
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("certificate verification is not yet implemented\n\nPlease use 'sigstore' verification instead")

@@ -19,50 +19,37 @@ import (
 )
 
 type SigstoreSignOptions struct {
-	SignaturePath         string   // --signature SIGNATURE_PATH (required)
-	IgnorePaths           []string // --ignore-paths
-	IgnoreGitPaths        bool     // --ignore-git-paths (default true; users can pass --ignore-git-paths=false)
-	AllowSymlinks         bool     // --allow-symlinks
-	UseStaging            bool     // --use-staging
-	OAuthForceOob         bool     // --oauth-force-oob
-	UseAmbientCredentials bool     // --use-ambient-credentials
-	IdentityToken         string   // --identity-token
-	ClientID              string   // --client-id
-	ClientSecret          string   // --client-secret
-	TrustConfigPath       string   // --trust-config
+	CommonModelFlags
+	UseStaging            bool   // --use-staging
+	OAuthForceOob         bool   // --oauth-force-oob
+	UseAmbientCredentials bool   // --use-ambient-credentials
+	IdentityToken         string // --identity-token
+	ClientID              string // --client-id
+	ClientSecret          string // --client-secret
+	TrustConfigPath       string // --trust-config
 }
 
 func (o *SigstoreSignOptions) AddFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&o.SignaturePath, "signature", "", "Location of the signature file to sign.")
-	_ = cmd.MarkFlagRequired("signature")
-	cmd.Flags().StringSliceVar(&o.IgnorePaths, "ignore-paths", nil, "File paths to ignore when signing or verifying.")
-	cmd.Flags().BoolVar(&o.IgnoreGitPaths, "ignore-git-paths", true, "Ignore git-related files when signing or verifying.")
-	cmd.Flags().BoolVar(&o.AllowSymlinks, "allow-symlinks", false, "Allow following symbolic links in model directory.")
+	o.CommonModelFlags.AddFlags(cmd, "Location of the signature file to sign.")
+
 	cmd.Flags().BoolVar(&o.UseStaging, "use-staging", false, "Use Sigstore's staging instance.")
 	cmd.Flags().BoolVar(&o.OAuthForceOob, "oauth-force-oob", false, "Force Oauth.")
 	cmd.Flags().BoolVar(&o.UseAmbientCredentials, "use-ambient-credentials", false, "Allow the usage of ambient credentials")
 	cmd.Flags().StringVar(&o.IdentityToken, "identity-token", "", "The expected identity token the signer.")
 	cmd.Flags().StringVar(&o.ClientID, "client-id", "", "The expected identity token the signer.")
 	cmd.Flags().StringVar(&o.ClientSecret, "client-secret", "", "The expected identity token the signer.")
-
 	cmd.Flags().StringVar(&o.TrustConfigPath, "trust-config", "", "Path to custom trust root JSON file.")
 }
 
 type KeySignOptions struct {
-	SignaturePath  string   // --signature SIGNATURE_PATH (required)
-	IgnorePaths    []string // --ignore-paths
-	IgnoreGitPaths bool     // --ignore-git-paths (default true; users can pass --ignore-git-paths=false)
-	AllowSymlinks  bool     // --allow-symlinks
-	Password       string   // --password
-	PrivateKeyPath string   // --private-key PRIVATE_KEY (required)
+	CommonModelFlags
+	Password       string // --password
+	PrivateKeyPath string // --private-key PRIVATE_KEY (required)
 }
 
 func (o *KeySignOptions) AddFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&o.SignaturePath, "signature", "", "Location of the signature file to sign.")
-	_ = cmd.MarkFlagRequired("signature")
-	cmd.Flags().StringSliceVar(&o.IgnorePaths, "ignore-paths", nil, "File paths to ignore when signing or verifying.")
-	cmd.Flags().BoolVar(&o.IgnoreGitPaths, "ignore-git-paths", true, "Ignore git-related files when signing or verifying.")
-	cmd.Flags().BoolVar(&o.AllowSymlinks, "allow-symlinks", false, "Allow following symbolic links in model directory.")
+	o.CommonModelFlags.AddFlags(cmd, "Location of the signature file to sign.")
+
 	cmd.Flags().StringVar(&o.PrivateKeyPath, "private-key", "", "Location of the private file to sign.")
 	_ = cmd.MarkFlagRequired("private-key")
 	cmd.Flags().StringVar(&o.Password, "password", "", "Password for the key encryption, if any.")
