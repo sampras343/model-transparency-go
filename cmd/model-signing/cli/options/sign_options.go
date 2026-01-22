@@ -33,7 +33,7 @@ type SigstoreSignOptions struct {
 }
 
 func (o *SigstoreSignOptions) AddFlags(cmd *cobra.Command) {
-	o.CommonModelFlags.AddFlagsForSigning(cmd)
+	o.AddFlagsForSigning(cmd)
 
 	cmd.Flags().BoolVar(&o.UseStaging, "use-staging", false, "Use Sigstore's staging instance.")
 	cmd.Flags().BoolVar(&o.OAuthForceOob, "oauth-force-oob", false, "Force an out-of-band OAuth flow and do not automatically start the default web browser.")
@@ -51,7 +51,7 @@ type KeySignOptions struct {
 }
 
 func (o *KeySignOptions) AddFlags(cmd *cobra.Command) {
-	o.CommonModelFlags.AddFlagsForSigning(cmd)
+	o.AddFlagsForSigning(cmd)
 
 	cmd.Flags().StringVar(&o.PrivateKeyPath, "private-key", "", "Path to the private key, as a PEM-encoded file. [required]")
 	_ = cmd.MarkFlagRequired("private-key")
