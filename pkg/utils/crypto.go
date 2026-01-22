@@ -21,6 +21,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/sha512"
 	"fmt"
 )
 
@@ -57,12 +58,31 @@ func VerifySignature(publicKey crypto.PublicKey, message, signature []byte) erro
 }
 
 // signECDSA signs data using an ECDSA private key.
+// The hash algorithm is selected based on the key size to match cryptographic best practices:
+// - P-256 (secp256r1) uses SHA256
+// - P-384 (secp384r1) uses SHA384
+// - P-521 (secp521r1) uses SHA512
 func signECDSA(key *ecdsa.PrivateKey, data []byte) ([]byte, error) {
-	// Hash the data with SHA256
-	hash := sha256.Sum256(data)
+	// Select hash algorithm based on curve size
+	var hash []byte
+	keySize := key.Curve.Params().BitSize
+
+	switch keySize {
+	case 256:
+		h := sha256.Sum256(data)
+		hash = h[:]
+	case 384:
+		h := sha512.Sum384(data)
+		hash = h[:]
+	case 521:
+		h := sha512.Sum512(data)
+		hash = h[:]
+	default:
+		return nil, fmt.Errorf("unsupported ECDSA curve size: %d bits", keySize)
+	}
 
 	// Sign using ECDSA with ASN.1 encoding
-	signature, err := ecdsa.SignASN1(rand.Reader, key, hash[:])
+	signature, err := ecdsa.SignASN1(rand.Reader, key, hash)
 	if err != nil {
 		return nil, fmt.Errorf("ECDSA signing failed: %w", err)
 	}
@@ -91,17 +111,27 @@ func signEd25519(key ed25519.PrivateKey, data []byte) ([]byte, error) {
 }
 
 // verifyECDSA verifies an ECDSA signature.
+// The hash algorithm is selected based on the key size to match signing:
+// - P-256 (secp256r1) uses SHA256
+// - P-384 (secp384r1) uses SHA384
+// - P-521 (secp521r1) uses SHA512
 func verifyECDSA(key *ecdsa.PublicKey, message, signature []byte) error {
-	// Hash the message based on curve size
+	// Select hash algorithm based on curve size
 	var hash []byte
 	keySize := key.Curve.Params().BitSize
 
 	switch keySize {
-	case 256, 384, 521:
+	case 256:
 		h := sha256.Sum256(message)
 		hash = h[:]
+	case 384:
+		h := sha512.Sum384(message)
+		hash = h[:]
+	case 521:
+		h := sha512.Sum512(message)
+		hash = h[:]
 	default:
-		return fmt.Errorf("unsupported ECDSA key size: %d", keySize)
+		return fmt.Errorf("unsupported ECDSA key size: %d bits", keySize)
 	}
 
 	// Verify the signature
