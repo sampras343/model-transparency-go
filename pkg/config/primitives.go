@@ -40,17 +40,18 @@ import (
 //  3. Otherwise → fetch production trust root from network (default)
 //
 // Examples:
-//   // Use production (default)
-//   cfg := TrustRootConfig{}
 //
-//   // Use staging for testing
-//   cfg := TrustRootConfig{UseStaging: true}
+//	// Use production (default)
+//	cfg := TrustRootConfig{}
 //
-//   // Use custom trust root
-//   cfg := TrustRootConfig{TrustRootPath: "/path/to/trust-root.json"}
+//	// Use staging for testing
+//	cfg := TrustRootConfig{UseStaging: true}
 //
-//   // Invalid: UseStaging takes precedence, TrustRootPath will be ignored
-//   cfg := TrustRootConfig{UseStaging: true, TrustRootPath: "/path/to/trust-root.json"}
+//	// Use custom trust root
+//	cfg := TrustRootConfig{TrustRootPath: "/path/to/trust-root.json"}
+//
+//	// Invalid: UseStaging takes precedence, TrustRootPath will be ignored
+//	cfg := TrustRootConfig{UseStaging: true, TrustRootPath: "/path/to/trust-root.json"}
 type TrustRootConfig struct {
 	// UseStaging uses staging configurations instead of production.
 	// When true, staging trust root is fetched from network.

@@ -176,7 +176,7 @@ func Sign() *cobra.Command {
 	}
 
 	// Add PKI subcommands. Each owns its own flags.
-	cmd.AddCommand(NewSigstoreSign())    // full implementation
+	cmd.AddCommand(NewSigstoreSign())      // full implementation
 	cmd.AddCommand(NewKeySigner())         // full implementation
 	cmd.AddCommand(NewCertificateSigner()) // stub for now
 

@@ -34,7 +34,7 @@ import (
 
 func TestNewVerifier_EmptyPublicKeyPath(t *testing.T) {
 	cfg := KeyVerifierConfig{
-		KeyConfig: config.KeyConfig{Path: "",},
+		KeyConfig: config.KeyConfig{Path: ""},
 	}
 
 	_, err := NewVerifier(cfg)
@@ -45,7 +45,7 @@ func TestNewVerifier_EmptyPublicKeyPath(t *testing.T) {
 
 func TestNewVerifier_NonexistentPublicKey(t *testing.T) {
 	cfg := KeyVerifierConfig{
-		KeyConfig: config.KeyConfig{Path: "/nonexistent/key.pub",},
+		KeyConfig: config.KeyConfig{Path: "/nonexistent/key.pub"},
 	}
 
 	_, err := NewVerifier(cfg)
@@ -64,7 +64,7 @@ func TestNewVerifier_InvalidPEMFormat(t *testing.T) {
 	}
 
 	cfg := KeyVerifierConfig{
-		KeyConfig: config.KeyConfig{Path: keyFile,},
+		KeyConfig: config.KeyConfig{Path: keyFile},
 	}
 
 	_, err := NewVerifier(cfg)
@@ -99,7 +99,7 @@ func TestNewVerifier_ValidECDSAKey(t *testing.T) {
 	}
 
 	cfg := KeyVerifierConfig{
-		KeyConfig: config.KeyConfig{Path: keyFile,},
+		KeyConfig: config.KeyConfig{Path: keyFile},
 	}
 
 	verifier, err := NewVerifier(cfg)
@@ -148,7 +148,7 @@ func TestNewVerifier_ValidRSAKey(t *testing.T) {
 	}
 
 	cfg := KeyVerifierConfig{
-		KeyConfig: config.KeyConfig{Path: keyFile,},
+		KeyConfig: config.KeyConfig{Path: keyFile},
 	}
 
 	verifier, err := NewVerifier(cfg)
@@ -192,7 +192,7 @@ func TestNewVerifier_ValidEd25519Key(t *testing.T) {
 	}
 
 	cfg := KeyVerifierConfig{
-		KeyConfig: config.KeyConfig{Path: keyFile,},
+		KeyConfig: config.KeyConfig{Path: keyFile},
 	}
 
 	verifier, err := NewVerifier(cfg)
@@ -233,7 +233,7 @@ func TestNewVerifier_RSAPKCS1Format(t *testing.T) {
 	}
 
 	cfg := KeyVerifierConfig{
-		KeyConfig: config.KeyConfig{Path: keyFile,},
+		KeyConfig: config.KeyConfig{Path: keyFile},
 	}
 
 	verifier, err := NewVerifier(cfg)
