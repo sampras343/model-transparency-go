@@ -42,13 +42,15 @@ type SigstoreVerifierOptions struct {
 	IdentityProvider    string
 	TrustConfigPath     string
 	IgnoreUnsignedFiles bool
+	Logger              *utils.Logger
 }
 
 // SigstoreVerifier provides high-level verification with validation.
 //
 //nolint:revive
 type SigstoreVerifier struct {
-	opts SigstoreVerifierOptions
+	opts   SigstoreVerifierOptions
+	logger *utils.Logger
 }
 
 // NewSigstoreVerifier creates a new high-level Sigstore verifier with validation.
@@ -84,7 +86,16 @@ func NewSigstoreVerifier(opts SigstoreVerifierOptions) (*SigstoreVerifier, error
 		return nil, err
 	}
 
-	return &SigstoreVerifier{opts: opts}, nil
+	// Use provided logger or create a default non-verbose one
+	logger := opts.Logger
+	if logger == nil {
+		logger = utils.NewLogger(false)
+	}
+
+	return &SigstoreVerifier{
+		opts:   opts,
+		logger: logger,
+	}, nil
 }
 
 // Verify performs the complete verification flow.
@@ -97,18 +108,18 @@ func NewSigstoreVerifier(opts SigstoreVerifierOptions) (*SigstoreVerifier, error
 //
 //nolint:revive
 func (sv *SigstoreVerifier) Verify(ctx context.Context) (verify.Result, error) {
-	// Print verification info
-	fmt.Println("Sigstore verification")
-	fmt.Printf("  MODEL_PATH:          %s\n", filepath.Clean(sv.opts.ModelPath))
-	fmt.Printf("  --signature:         %s\n", filepath.Clean(sv.opts.SignaturePath))
-	fmt.Printf("  --ignore-paths:      %v\n", sv.opts.IgnorePaths)
-	fmt.Printf("  --ignore-git-paths:  %v\n", sv.opts.IgnoreGitPaths)
-	fmt.Printf("  --allow-symlinks:    %v\n", sv.opts.AllowSymlinks)
-	fmt.Printf("  --use-staging:       %v\n", sv.opts.UseStaging)
-	fmt.Printf("  --identity:          %s\n", sv.opts.Identity)
-	fmt.Printf("  --identity-provider: %s\n", sv.opts.IdentityProvider)
-	fmt.Printf("  --ignore-unsigned-files: %v\n", sv.opts.IgnoreUnsignedFiles)
-	fmt.Printf("  --trust-config: %v\n", sv.opts.TrustConfigPath)
+	// Print verification info (debug only)
+	sv.logger.Debugln("Sigstore verification")
+	sv.logger.Debug("  MODEL_PATH:              %s", filepath.Clean(sv.opts.ModelPath))
+	sv.logger.Debug("  --signature:             %s", filepath.Clean(sv.opts.SignaturePath))
+	sv.logger.Debug("  --ignore-paths:          %v", sv.opts.IgnorePaths)
+	sv.logger.Debug("  --ignore-git-paths:      %v", sv.opts.IgnoreGitPaths)
+	sv.logger.Debug("  --allow-symlinks:        %v", sv.opts.AllowSymlinks)
+	sv.logger.Debug("  --use-staging:           %v", sv.opts.UseStaging)
+	sv.logger.Debug("  --identity:              %s", sv.opts.Identity)
+	sv.logger.Debug("  --identity-provider:     %s", sv.opts.IdentityProvider)
+	sv.logger.Debug("  --ignore-unsigned-files: %v", sv.opts.IgnoreUnsignedFiles)
+	sv.logger.Debug("  --trust-config:          %v", sv.opts.TrustConfigPath)
 
 	// Resolve ignore paths
 	ignorePaths := sv.opts.IgnorePaths
@@ -117,10 +128,12 @@ func (sv *SigstoreVerifier) Verify(ctx context.Context) (verify.Result, error) {
 
 	// Create Sigstore verifier
 	verifierConfig := SigstoreVerifierConfig{
-		Identity:      sv.opts.Identity,
-		OIDCIssuer:    sv.opts.IdentityProvider,
-		UseStaging:    sv.opts.UseStaging,
-		TrustRootPath: sv.opts.TrustConfigPath,
+		TrustRootConfig: config.TrustRootConfig{
+			UseStaging:    sv.opts.UseStaging,
+			TrustRootPath: sv.opts.TrustConfigPath,
+		},
+		Identity:   sv.opts.Identity,
+		OIDCIssuer: sv.opts.IdentityProvider,
 	}
 
 	sigstoreVerifier, err := NewVerifier(verifierConfig)

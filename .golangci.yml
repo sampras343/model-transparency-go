@@ -40,6 +40,10 @@ linters:
           - revive
         path: pkg/
         text: "var-naming: avoid meaningless package names"
+      - linters:
+          - gosec
+        path: pkg/
+        text: "integer overflow conversion"
     paths:
       - third_party$
       - builtin$

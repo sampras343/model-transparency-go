@@ -16,55 +16,86 @@ package options
 
 import (
 	"github.com/spf13/cobra"
+
+	key "github.com/sigstore/model-signing/pkg/verify/key"
+	sigstore "github.com/sigstore/model-signing/pkg/verify/sigstore"
 )
 
 type SigstoreVerifyOptions struct {
-	SignaturePath       string   // --signature SIGNATURE_PATH (required)
-	IgnorePaths         []string // --ignore-paths
-	IgnoreGitPaths      bool     // --ignore-git-paths (default true; users can pass --ignore-git-paths=false)
-	AllowSymlinks       bool     // --allow-symlinks
-	UseStaging          bool     // --use-staging
-	Identity            string   // --identity (required)
-	IdentityProvider    string   // --identity_provider (required)
-	TrustConfigPath     string   // --trust-config
-	IgnoreUnsignedFiles bool     // --ignore-unsigned-files
+	CommonModelFlags
+	CommonVerifyFlags
+	UseStaging       bool   // --use-staging
+	Identity         string // --identity (required)
+	IdentityProvider string // --identity-provider (required)
+	TrustConfigPath  string // --trust-config
 }
 
 func (o *SigstoreVerifyOptions) AddFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&o.SignaturePath, "signature", "", "Location of the signature file to verify.")
-	_ = cmd.MarkFlagRequired("signature")
-
-	cmd.Flags().StringSliceVar(&o.IgnorePaths, "ignore-paths", nil, "File paths to ignore when signing or verifying.")
-	cmd.Flags().BoolVar(&o.IgnoreGitPaths, "ignore-git-paths", true, "Ignore git-related files when signing or verifying.")
-	cmd.Flags().BoolVar(&o.AllowSymlinks, "allow-symlinks", false, "Allow following symbolic links in model directory.")
+	o.AddFlagsForVerify(cmd)
+	o.CommonVerifyFlags.AddFlags(cmd)
 
 	cmd.Flags().BoolVar(&o.UseStaging, "use-staging", false, "Use Sigstore's staging instance.")
 	cmd.Flags().StringVar(&o.Identity, "identity", "", "The expected identity of the signer (e.g., name@example.com).")
 	_ = cmd.MarkFlagRequired("identity")
-	cmd.Flags().StringVar(&o.IdentityProvider, "identity_provider", "", "The expected identity provider (e.g., https://accounts.example.com).")
-	_ = cmd.MarkFlagRequired("identity_provider")
-
+	cmd.Flags().StringVar(&o.IdentityProvider, "identity-provider", "", "The expected identity provider (e.g., https://accounts.example.com).")
+	_ = cmd.MarkFlagRequired("identity-provider")
 	cmd.Flags().StringVar(&o.TrustConfigPath, "trust-config", "", "Path to custom trust root JSON file.")
-	cmd.Flags().BoolVar(&o.IgnoreUnsignedFiles, "ignore-unsigned-files", true, "Ignore files in model that are not in signature.")
 }
 
 type KeyVerifyOptions struct {
-	SignaturePath       string   // --signature SIGNATURE_PATH (required)
-	IgnorePaths         []string // --ignore-paths
-	IgnoreGitPaths      bool     // --ignore-git-paths (default true; users can pass --ignore-git-paths=false)
-	AllowSymlinks       bool     // --allow-symlinks
-	PublicKeyPath       string   // --public-key PUBLIC_KEY (required)
-	IgnoreUnsignedFiles bool     // --ignore-unsigned-files
+	CommonModelFlags
+	CommonVerifyFlags
+	PublicKeyPath string // --public-key PUBLIC_KEY (required)
 }
 
 func (o *KeyVerifyOptions) AddFlags(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&o.SignaturePath, "signature", "", "Location of the signature file to verify.")
-	_ = cmd.MarkFlagRequired("signature")
+	o.AddFlagsForVerify(cmd)
+	o.CommonVerifyFlags.AddFlags(cmd)
 
-	cmd.Flags().StringSliceVar(&o.IgnorePaths, "ignore-paths", nil, "File paths to ignore when signing or verifying.")
-	cmd.Flags().BoolVar(&o.IgnoreGitPaths, "ignore-git-paths", true, "Ignore git-related files when signing or verifying.")
-	cmd.Flags().BoolVar(&o.AllowSymlinks, "allow-symlinks", false, "Allow following symbolic links in model directory.")
 	cmd.Flags().StringVar(&o.PublicKeyPath, "public-key", "", "Location of the public key file to verify.")
 	_ = cmd.MarkFlagRequired("public-key")
-	cmd.Flags().BoolVar(&o.IgnoreUnsignedFiles, "ignore-unsigned-files", true, "Ignore files in model that are not in signature.")
+}
+
+type CertificateVerifyOptions struct {
+	CommonModelFlags
+	CommonVerifyFlags
+	CertificateChain []string // --certificate-chain
+	LogFingerprints  bool     // --log-fingerprints
+}
+
+func (o *CertificateVerifyOptions) AddFlags(cmd *cobra.Command) {
+	o.AddFlagsForVerify(cmd)
+	o.CommonVerifyFlags.AddFlags(cmd)
+
+	cmd.Flags().BoolVar(&o.LogFingerprints, "log-fingerprints", true, "Ignore files in model that are not in signature.")
+	cmd.Flags().StringSliceVar(&o.CertificateChain, "certificate-chain", nil, "File paths of certificate chain of trust")
+}
+
+// ToStandardOptions converts CLI options to library options for Sigstore verification
+func (o *SigstoreVerifyOptions) ToStandardOptions(modelPath string) sigstore.SigstoreVerifierOptions {
+	return sigstore.SigstoreVerifierOptions{
+		ModelPath:           modelPath,
+		SignaturePath:       o.SignaturePath,
+		IgnorePaths:         o.IgnorePaths,
+		IgnoreGitPaths:      o.IgnoreGitPaths,
+		AllowSymlinks:       o.AllowSymlinks,
+		UseStaging:          o.UseStaging,
+		Identity:            o.Identity,
+		IdentityProvider:    o.IdentityProvider,
+		TrustConfigPath:     o.TrustConfigPath,
+		IgnoreUnsignedFiles: o.IgnoreUnsignedFiles,
+	}
+}
+
+// ToStandardOptions converts CLI options to library options for key-based verification
+func (o *KeyVerifyOptions) ToStandardOptions(modelPath string) key.KeyVerifierOptions {
+	return key.KeyVerifierOptions{
+		ModelPath:           modelPath,
+		SignaturePath:       o.SignaturePath,
+		IgnorePaths:         o.IgnorePaths,
+		IgnoreGitPaths:      o.IgnoreGitPaths,
+		AllowSymlinks:       o.AllowSymlinks,
+		PublicKeyPath:       o.PublicKeyPath,
+		IgnoreUnsignedFiles: o.IgnoreUnsignedFiles,
+	}
 }

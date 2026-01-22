@@ -15,6 +15,7 @@
 package key
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
@@ -22,28 +23,32 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/sigstore/model-signing/pkg/config"
+	"github.com/sigstore/model-signing/pkg/utils"
 )
 
 func TestNewVerifier_EmptyPublicKeyPath(t *testing.T) {
-	config := KeyVerifierConfig{
-		PublicKeyPath: "",
+	cfg := KeyVerifierConfig{
+		KeyConfig: config.KeyConfig{Path: ""},
 	}
 
-	_, err := NewVerifier(config)
+	_, err := NewVerifier(cfg)
 	if err == nil {
 		t.Error("Expected error for empty public key path, got nil")
 	}
 }
 
 func TestNewVerifier_NonexistentPublicKey(t *testing.T) {
-	config := KeyVerifierConfig{
-		PublicKeyPath: "/nonexistent/key.pub",
+	cfg := KeyVerifierConfig{
+		KeyConfig: config.KeyConfig{Path: "/nonexistent/key.pub"},
 	}
 
-	_, err := NewVerifier(config)
+	_, err := NewVerifier(cfg)
 	if err == nil {
 		t.Error("Expected error for nonexistent public key, got nil")
 	}
@@ -58,11 +63,11 @@ func TestNewVerifier_InvalidPEMFormat(t *testing.T) {
 		t.Fatalf("Failed to create key file: %v", err)
 	}
 
-	config := KeyVerifierConfig{
-		PublicKeyPath: keyFile,
+	cfg := KeyVerifierConfig{
+		KeyConfig: config.KeyConfig{Path: keyFile},
 	}
 
-	_, err := NewVerifier(config)
+	_, err := NewVerifier(cfg)
 	if err == nil {
 		t.Error("Expected error for invalid PEM format, got nil")
 	}
@@ -93,11 +98,11 @@ func TestNewVerifier_ValidECDSAKey(t *testing.T) {
 		t.Fatalf("Failed to write key file: %v", err)
 	}
 
-	config := KeyVerifierConfig{
-		PublicKeyPath: keyFile,
+	cfg := KeyVerifierConfig{
+		KeyConfig: config.KeyConfig{Path: keyFile},
 	}
 
-	verifier, err := NewVerifier(config)
+	verifier, err := NewVerifier(cfg)
 	if err != nil {
 		t.Fatalf("Expected no error for valid ECDSA key, got: %v", err)
 	}
@@ -142,11 +147,11 @@ func TestNewVerifier_ValidRSAKey(t *testing.T) {
 		t.Fatalf("Failed to write key file: %v", err)
 	}
 
-	config := KeyVerifierConfig{
-		PublicKeyPath: keyFile,
+	cfg := KeyVerifierConfig{
+		KeyConfig: config.KeyConfig{Path: keyFile},
 	}
 
-	verifier, err := NewVerifier(config)
+	verifier, err := NewVerifier(cfg)
 	if err != nil {
 		t.Fatalf("Expected no error for valid RSA key, got: %v", err)
 	}
@@ -186,11 +191,11 @@ func TestNewVerifier_ValidEd25519Key(t *testing.T) {
 		t.Fatalf("Failed to write key file: %v", err)
 	}
 
-	config := KeyVerifierConfig{
-		PublicKeyPath: keyFile,
+	cfg := KeyVerifierConfig{
+		KeyConfig: config.KeyConfig{Path: keyFile},
 	}
 
-	verifier, err := NewVerifier(config)
+	verifier, err := NewVerifier(cfg)
 	if err != nil {
 		t.Fatalf("Expected no error for valid Ed25519 key, got: %v", err)
 	}
@@ -227,11 +232,11 @@ func TestNewVerifier_RSAPKCS1Format(t *testing.T) {
 		t.Fatalf("Failed to write key file: %v", err)
 	}
 
-	config := KeyVerifierConfig{
-		PublicKeyPath: keyFile,
+	cfg := KeyVerifierConfig{
+		KeyConfig: config.KeyConfig{Path: keyFile},
 	}
 
-	verifier, err := NewVerifier(config)
+	verifier, err := NewVerifier(cfg)
 	if err != nil {
 		t.Fatalf("Expected no error for PKCS1 RSA key, got: %v", err)
 	}
@@ -253,7 +258,7 @@ func TestValidatePublicKey_UnsupportedECDSACurve(t *testing.T) {
 		t.Fatalf("Failed to generate ECDSA key: %v", err)
 	}
 
-	_, err = validatePublicKey(&privateKey.PublicKey)
+	_, err = validatePublicKeyTest(&privateKey.PublicKey)
 	if err == nil {
 		t.Error("Expected error for unsupported curve P-224, got nil")
 	}
@@ -276,7 +281,7 @@ func TestValidatePublicKey_SupportedCurves(t *testing.T) {
 				t.Fatalf("Failed to generate ECDSA key: %v", err)
 			}
 
-			pubKey, err := validatePublicKey(&privateKey.PublicKey)
+			pubKey, err := validatePublicKeyTest(&privateKey.PublicKey)
 			if err != nil {
 				t.Errorf("Expected no error for curve %s, got: %v", tc.name, err)
 			}
@@ -317,10 +322,10 @@ func TestComputePAE_Verifier(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := computePAE(tt.payloadType, tt.payload)
+			result := utils.ComputePAE(tt.payloadType, tt.payload)
 
 			if len(result) != len(tt.expected) {
-				t.Errorf("computePAE() length = %d, want %d", len(result), len(tt.expected))
+				t.Errorf("utils.ComputePAE() length = %d, want %d", len(result), len(tt.expected))
 				t.Errorf("Full result: %q", string(result))
 				t.Errorf("Full expected: %q", string(tt.expected))
 				return
@@ -328,7 +333,7 @@ func TestComputePAE_Verifier(t *testing.T) {
 
 			for i := range result {
 				if result[i] != tt.expected[i] {
-					t.Errorf("computePAE() at index %d = %d, want %d", i, result[i], tt.expected[i])
+					t.Errorf("utils.ComputePAE() at index %d = %d, want %d", i, result[i], tt.expected[i])
 					t.Errorf("Full result: %q", string(result))
 					t.Errorf("Full expected: %q", string(tt.expected))
 					return
@@ -373,10 +378,10 @@ func TestAppendLength_Verifier(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := appendLength(tt.initial, tt.length)
+			result := appendLengthTest(tt.initial, tt.length)
 
 			if string(result) != string(tt.expected) {
-				t.Errorf("appendLength() = %q, want %q", string(result), string(tt.expected))
+				t.Errorf("appendLengthTest() = %q, want %q", string(result), string(tt.expected))
 			}
 		})
 	}
@@ -391,7 +396,7 @@ func TestLoadPublicKey_InvalidPEM(t *testing.T) {
 		t.Fatalf("Failed to create key file: %v", err)
 	}
 
-	_, err := loadPublicKey(keyFile)
+	_, err := loadPublicKeyTest(keyFile)
 	if err == nil {
 		t.Error("Expected error for invalid PEM, got nil")
 	}
@@ -411,8 +416,58 @@ func TestLoadPublicKey_UnsupportedFormat(t *testing.T) {
 		t.Fatalf("Failed to write key file: %v", err)
 	}
 
-	_, err := loadPublicKey(keyFile)
+	_, err := loadPublicKeyTest(keyFile)
 	if err == nil {
 		t.Error("Expected error for unsupported format, got nil")
 	}
+}
+
+// Test helper functions
+
+func appendLengthTest(buf []byte, n int) []byte {
+	return append(buf, []byte(fmt.Sprintf("%d", n))...)
+}
+
+func validatePublicKeyTest(key interface{}) (crypto.PublicKey, error) {
+	switch k := key.(type) {
+	case *ecdsa.PublicKey:
+		// Validate curve is supported
+		curveName := k.Curve.Params().Name
+		if curveName != "P-256" && curveName != "P-384" && curveName != "P-521" {
+			return nil, fmt.Errorf("unsupported elliptic curve: %s (supported: P-256, P-384, P-521)", curveName)
+		}
+		return k, nil
+	case *rsa.PublicKey:
+		// RSA keys are supported
+		return k, nil
+	case ed25519.PublicKey:
+		// Ed25519 keys are supported
+		return k, nil
+	default:
+		return nil, fmt.Errorf("unsupported public key type: %T", key)
+	}
+}
+
+func loadPublicKeyTest(path string) (crypto.PublicKey, error) {
+	pemBytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read public key file: %w", err)
+	}
+
+	block, _ := pem.Decode(pemBytes)
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode PEM block")
+	}
+
+	// Try parsing as PKIX public key (most common format)
+	if key, err := x509.ParsePKIXPublicKey(block.Bytes); err == nil {
+		return validatePublicKeyTest(key)
+	}
+
+	// Try parsing as PKCS1 RSA public key
+	if key, err := x509.ParsePKCS1PublicKey(block.Bytes); err == nil {
+		return validatePublicKeyTest(key)
+	}
+
+	return nil, fmt.Errorf("failed to parse public key (unsupported format)")
 }

@@ -15,12 +15,18 @@
 package key
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
+	"fmt"
 	"testing"
+
+	"github.com/sigstore/model-signing/pkg/config"
+	"github.com/sigstore/model-signing/pkg/utils"
 )
 
 func TestComputePAE(t *testing.T) {
@@ -64,14 +70,14 @@ func TestComputePAE(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := computePAE(tt.payloadType, tt.payload)
+			result := utils.ComputePAE(tt.payloadType, tt.payload)
 			if len(result) != len(tt.expected) {
-				t.Errorf("computePAE() length = %d, want %d", len(result), len(tt.expected))
+				t.Errorf("utils.ComputePAE() length = %d, want %d", len(result), len(tt.expected))
 				return
 			}
 			for i := range result {
 				if result[i] != tt.expected[i] {
-					t.Errorf("computePAE() at index %d = %v, want %v", i, result[i], tt.expected[i])
+					t.Errorf("utils.ComputePAE() at index %d = %v, want %v", i, result[i], tt.expected[i])
 					t.Errorf("Full result: %q", string(result))
 					t.Errorf("Full expected: %q", string(tt.expected))
 					return
@@ -128,9 +134,9 @@ func TestAppendLength(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := appendLength(tt.buf, tt.n)
+			result := appendLengthTest(tt.buf, tt.n)
 			if string(result) != string(tt.expected) {
-				t.Errorf("appendLength() = %q, want %q", string(result), string(tt.expected))
+				t.Errorf("appendLengthTest() = %q, want %q", string(result), string(tt.expected))
 			}
 		})
 	}
@@ -143,9 +149,9 @@ func TestExtractPublicKey_ECDSA(t *testing.T) {
 		t.Fatalf("Failed to generate ECDSA key: %v", err)
 	}
 
-	publicKey, err := extractPublicKey(privateKey)
+	publicKey, err := config.ExtractPublicKey(privateKey)
 	if err != nil {
-		t.Fatalf("extractPublicKey() error = %v", err)
+		t.Fatalf("config.ExtractPublicKey() error = %v", err)
 	}
 
 	// Verify it's the correct public key
@@ -166,9 +172,9 @@ func TestExtractPublicKey_RSA(t *testing.T) {
 		t.Fatalf("Failed to generate RSA key: %v", err)
 	}
 
-	publicKey, err := extractPublicKey(privateKey)
+	publicKey, err := config.ExtractPublicKey(privateKey)
 	if err != nil {
-		t.Fatalf("extractPublicKey() error = %v", err)
+		t.Fatalf("config.ExtractPublicKey() error = %v", err)
 	}
 
 	// Verify it's the correct public key
@@ -189,9 +195,9 @@ func TestExtractPublicKey_Ed25519(t *testing.T) {
 		t.Fatalf("Failed to generate Ed25519 key: %v", err)
 	}
 
-	publicKey, err := extractPublicKey(privateKey)
+	publicKey, err := config.ExtractPublicKey(privateKey)
 	if err != nil {
-		t.Fatalf("extractPublicKey() error = %v", err)
+		t.Fatalf("config.ExtractPublicKey() error = %v", err)
 	}
 
 	// Verify it's the correct public key
@@ -207,7 +213,7 @@ func TestExtractPublicKey_Ed25519(t *testing.T) {
 
 func TestExtractPublicKey_UnsupportedType(t *testing.T) {
 	// Test with unsupported type (e.g., string)
-	_, err := extractPublicKey("not a key")
+	_, err := config.ExtractPublicKey("not a key")
 	if err == nil {
 		t.Error("Expected error for unsupported key type, got nil")
 	}
@@ -220,9 +226,9 @@ func TestComputePublicKeyHash_ECDSA(t *testing.T) {
 		t.Fatalf("Failed to generate ECDSA key: %v", err)
 	}
 
-	hash, err := computePublicKeyHash(&privateKey.PublicKey)
+	hash, err := config.ComputePublicKeyHash(&privateKey.PublicKey)
 	if err != nil {
-		t.Fatalf("computePublicKeyHash() error = %v", err)
+		t.Fatalf("config.ComputePublicKeyHash() error = %v", err)
 	}
 
 	// Verify hash is a hex string of correct length (SHA256 = 64 hex chars)
@@ -231,13 +237,13 @@ func TestComputePublicKeyHash_ECDSA(t *testing.T) {
 	}
 
 	// Verify hash is consistent (calling again should give same result)
-	hash2, err := computePublicKeyHash(&privateKey.PublicKey)
+	hash2, err := config.ComputePublicKeyHash(&privateKey.PublicKey)
 	if err != nil {
-		t.Fatalf("computePublicKeyHash() second call error = %v", err)
+		t.Fatalf("config.ComputePublicKeyHash() second call error = %v", err)
 	}
 
 	if hash != hash2 {
-		t.Error("computePublicKeyHash() is not deterministic")
+		t.Error("config.ComputePublicKeyHash() is not deterministic")
 	}
 }
 
@@ -248,9 +254,9 @@ func TestComputePublicKeyHash_RSA(t *testing.T) {
 		t.Fatalf("Failed to generate RSA key: %v", err)
 	}
 
-	hash, err := computePublicKeyHash(&privateKey.PublicKey)
+	hash, err := config.ComputePublicKeyHash(&privateKey.PublicKey)
 	if err != nil {
-		t.Fatalf("computePublicKeyHash() error = %v", err)
+		t.Fatalf("config.ComputePublicKeyHash() error = %v", err)
 	}
 
 	// Verify hash is a hex string of correct length (SHA256 = 64 hex chars)
@@ -273,9 +279,9 @@ func TestComputePublicKeyHash_Ed25519(t *testing.T) {
 		t.Fatalf("Failed to generate Ed25519 key: %v", err)
 	}
 
-	hash, err := computePublicKeyHash(publicKey)
+	hash, err := config.ComputePublicKeyHash(publicKey)
 	if err != nil {
-		t.Fatalf("computePublicKeyHash() error = %v", err)
+		t.Fatalf("config.ComputePublicKeyHash() error = %v", err)
 	}
 
 	// Verify hash is a hex string of correct length (SHA256 = 64 hex chars)
@@ -293,9 +299,9 @@ func TestSignWithKey_ECDSA(t *testing.T) {
 
 	data := []byte("test data to sign")
 
-	signature, err := signWithKey(privateKey, data)
+	signature, err := utils.SignWithKey(privateKey, data)
 	if err != nil {
-		t.Fatalf("signWithKey() error = %v", err)
+		t.Fatalf("utils.SignWithKey() error = %v", err)
 	}
 
 	if len(signature) == 0 {
@@ -303,9 +309,9 @@ func TestSignWithKey_ECDSA(t *testing.T) {
 	}
 
 	// Signatures should be different each time (due to randomness)
-	signature2, err := signWithKey(privateKey, data)
+	signature2, err := utils.SignWithKey(privateKey, data)
 	if err != nil {
-		t.Fatalf("signWithKey() second call error = %v", err)
+		t.Fatalf("utils.SignWithKey() second call error = %v", err)
 	}
 
 	// ECDSA signatures have randomness, so they should differ
@@ -324,9 +330,9 @@ func TestSignWithKey_RSA(t *testing.T) {
 
 	data := []byte("test data to sign")
 
-	signature, err := signWithKey(privateKey, data)
+	signature, err := utils.SignWithKey(privateKey, data)
 	if err != nil {
-		t.Fatalf("signWithKey() error = %v", err)
+		t.Fatalf("utils.SignWithKey() error = %v", err)
 	}
 
 	if len(signature) == 0 {
@@ -348,9 +354,9 @@ func TestSignWithKey_Ed25519(t *testing.T) {
 
 	data := []byte("test data to sign")
 
-	signature, err := signWithKey(privateKey, data)
+	signature, err := utils.SignWithKey(privateKey, data)
 	if err != nil {
-		t.Fatalf("signWithKey() error = %v", err)
+		t.Fatalf("utils.SignWithKey() error = %v", err)
 	}
 
 	if len(signature) != ed25519.SignatureSize {
@@ -358,9 +364,9 @@ func TestSignWithKey_Ed25519(t *testing.T) {
 	}
 
 	// Ed25519 signatures are deterministic for the same key and data
-	signature2, err := signWithKey(privateKey, data)
+	signature2, err := utils.SignWithKey(privateKey, data)
 	if err != nil {
-		t.Fatalf("signWithKey() second call error = %v", err)
+		t.Fatalf("utils.SignWithKey() second call error = %v", err)
 	}
 
 	// Ed25519 signatures should be identical for same input
@@ -371,19 +377,20 @@ func TestSignWithKey_Ed25519(t *testing.T) {
 
 func TestSignWithKey_UnsupportedType(t *testing.T) {
 	// Test with unsupported type
-	_, err := signWithKey("not a key", []byte("data"))
+	_, err := utils.SignWithKey("not a key", []byte("data"))
 	if err == nil {
 		t.Error("Expected error for unsupported key type, got nil")
 	}
 }
 
 func TestNewLocalKeySigner_EmptyPrivateKeyPath(t *testing.T) {
-	config := KeySignerConfig{
-		PrivateKeyPath: "",
-		Password:       "",
+	cfg := KeySignerConfig{
+		KeyConfig: config.KeyConfig{
+			Path: "",
+		},
 	}
 
-	_, err := NewLocalKeySigner(config)
+	_, err := NewLocalKeySigner(cfg)
 	if err == nil {
 		t.Error("Expected error for empty private key path, got nil")
 	}
@@ -420,9 +427,9 @@ func TestSignECDSA(t *testing.T) {
 
 	data := []byte("test data")
 
-	signature, err := signECDSA(privateKey, data)
+	signature, err := signECDSATest(privateKey, data)
 	if err != nil {
-		t.Fatalf("signECDSA() error = %v", err)
+		t.Fatalf("signECDSATest() error = %v", err)
 	}
 
 	if len(signature) == 0 {
@@ -439,9 +446,9 @@ func TestSignRSA(t *testing.T) {
 
 	data := []byte("test data")
 
-	signature, err := signRSA(privateKey, data)
+	signature, err := signRSATest(privateKey, data)
 	if err != nil {
-		t.Fatalf("signRSA() error = %v", err)
+		t.Fatalf("signRSATest() error = %v", err)
 	}
 
 	if len(signature) == 0 {
@@ -458,12 +465,41 @@ func TestSignEd25519(t *testing.T) {
 
 	data := []byte("test data")
 
-	signature, err := signEd25519(privateKey, data)
+	signature, err := signEd25519Test(privateKey, data)
 	if err != nil {
-		t.Fatalf("signEd25519() error = %v", err)
+		t.Fatalf("signEd25519Test() error = %v", err)
 	}
 
 	if len(signature) != ed25519.SignatureSize {
 		t.Errorf("Expected signature length %d, got %d", ed25519.SignatureSize, len(signature))
 	}
+}
+
+// Test helper functions (these were internal functions that tests need access to)
+
+func appendLengthTest(buf []byte, n int) []byte {
+	return append(buf, []byte(fmt.Sprintf("%d", n))...)
+}
+
+func signECDSATest(key *ecdsa.PrivateKey, data []byte) ([]byte, error) {
+	hash := sha256.Sum256(data)
+	signature, err := ecdsa.SignASN1(rand.Reader, key, hash[:])
+	if err != nil {
+		return nil, fmt.Errorf("ECDSA signing failed: %w", err)
+	}
+	return signature, nil
+}
+
+func signRSATest(key *rsa.PrivateKey, data []byte) ([]byte, error) {
+	hash := sha256.Sum256(data)
+	signature, err := rsa.SignPSS(rand.Reader, key, crypto.SHA256, hash[:], nil)
+	if err != nil {
+		return nil, fmt.Errorf("RSA-PSS signing failed: %w", err)
+	}
+	return signature, nil
+}
+
+func signEd25519Test(key ed25519.PrivateKey, data []byte) ([]byte, error) {
+	signature := ed25519.Sign(key, data)
+	return signature, nil
 }

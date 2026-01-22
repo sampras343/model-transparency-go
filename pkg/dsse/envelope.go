@@ -23,10 +23,14 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 )
 
-// Envelope wraps the raw DSSE envelope with utility methods.
+// Envelope wraps a DSSE envelope with utility methods.
 //
 // This provides a clean interface for common DSSE operations like
 // payload decoding, signature extraction, and validation.
+//
+// Note: We use go-securesystemslib/dsse internally for compatibility with sigstore-go,
+// which returns this type from bundle.Envelope.RawEnvelope(). We provide ToProtobuf()
+// to convert to the official Sigstore protobuf format when creating bundles.
 type Envelope struct {
 	raw *dsse_lib.Envelope
 }
@@ -82,30 +86,44 @@ func (e *Envelope) ValidatePayloadType(expectedType string) error {
 
 // DecodePayload decodes the base64-encoded DSSE payload.
 //
-// In DSSE envelopes, the payload is stored as a base64-encoded string
-// in the JSON representation. This function handles the decoding.
+// The DSSE spec requires the payload to be base64-encoded in the envelope.
+// This method decodes it and returns the raw payload bytes.
 func (e *Envelope) DecodePayload() ([]byte, error) {
+	if e.raw.Payload == "" {
+		return nil, fmt.Errorf("envelope payload is empty")
+	}
+
 	payloadBytes, err := base64.StdEncoding.DecodeString(e.raw.Payload)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode DSSE payload: %w", err)
+		return nil, fmt.Errorf("failed to decode payload: %w", err)
 	}
+
 	return payloadBytes, nil
 }
 
 // DecodeSignature decodes the base64-encoded signature.
 //
-// Returns the first (and only) signature's bytes after base64 decoding.
+// Returns the first (and only) signature's bytes.
 // Call ValidateSignatureCount() first to ensure exactly one signature exists.
+//
+// The DSSE spec requires signatures to be base64-encoded in the envelope.
+// This method decodes it and returns the raw signature bytes.
 func (e *Envelope) DecodeSignature() ([]byte, error) {
 	if len(e.raw.Signatures) == 0 {
 		return nil, fmt.Errorf("no signatures found in envelope")
 	}
 
-	signatureBytes, err := base64.StdEncoding.DecodeString(e.raw.Signatures[0].Sig)
+	sig := e.raw.Signatures[0].Sig
+	if sig == "" {
+		return nil, fmt.Errorf("signature is empty")
+	}
+
+	sigBytes, err := base64.StdEncoding.DecodeString(sig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode signature: %w", err)
 	}
-	return signatureBytes, nil
+
+	return sigBytes, nil
 }
 
 // PayloadType returns the DSSE payload type.
@@ -113,7 +131,7 @@ func (e *Envelope) PayloadType() string {
 	return e.raw.PayloadType
 }
 
-// RawEnvelope returns the underlying raw DSSE envelope.
+// RawEnvelope returns the underlying DSSE envelope.
 //
 // Use this when you need direct access to the envelope structure
 // for operations not covered by the Envelope methods.
@@ -124,7 +142,6 @@ func (e *Envelope) RawEnvelope() *dsse_lib.Envelope {
 // CreateEnvelope creates a new DSSE envelope with a single signature.
 //
 // The payload and signature are base64-encoded as required by the DSSE spec.
-// This is a convenience function for signing operations.
 func CreateEnvelope(payloadType string, payload []byte, signature []byte) *Envelope {
 	envelope := &dsse_lib.Envelope{
 		Payload:     base64.StdEncoding.EncodeToString(payload),
@@ -139,19 +156,27 @@ func CreateEnvelope(payloadType string, payload []byte, signature []byte) *Envel
 	return &Envelope{raw: envelope}
 }
 
-// ToProtobuf converts the DSSE envelope to protobuf format.
+// ToProtobuf converts the envelope to Sigstore protobuf format.
 //
-// The go-securesystemslib envelope stores Payload and Sig as base64-encoded strings,
-// but the protobuf expects []byte. This function handles the conversion by decoding
-// the base64 strings to bytes.
+// The conversion handles:
+// - Base64 decoding of payload and signatures (protobuf uses raw bytes)
+// - Field name mapping (KeyID -> Keyid)
 func (e *Envelope) ToProtobuf() *protodsse.Envelope {
-	// Decode base64 payload to bytes
-	payloadBytes, _ := base64.StdEncoding.DecodeString(e.raw.Payload)
+	// Decode payload from base64
+	payloadBytes, err := base64.StdEncoding.DecodeString(e.raw.Payload)
+	if err != nil {
+		// Should never happen if envelope was created properly
+		payloadBytes = []byte{}
+	}
 
-	// Decode base64 signatures to bytes
+	// Convert signatures
 	signatures := make([]*protodsse.Signature, len(e.raw.Signatures))
 	for i, sig := range e.raw.Signatures {
-		sigBytes, _ := base64.StdEncoding.DecodeString(sig.Sig)
+		sigBytes, err := base64.StdEncoding.DecodeString(sig.Sig)
+		if err != nil {
+			sigBytes = []byte{}
+		}
+
 		signatures[i] = &protodsse.Signature{
 			Sig:   sigBytes,
 			Keyid: sig.KeyID,
