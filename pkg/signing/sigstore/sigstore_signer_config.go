@@ -16,9 +16,11 @@ package sigstore
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/model-signing/pkg/config"
 	"github.com/sigstore/model-signing/pkg/interfaces"
 	sign "github.com/sigstore/model-signing/pkg/signature"
@@ -26,7 +28,9 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	sigstoresign "github.com/sigstore/sigstore-go/pkg/sign"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/oauthflow"
+	"golang.org/x/oauth2"
 )
 
 // Ensure LocalSigstoreSigner implements interfaces.Signer at compile time.
@@ -149,6 +153,89 @@ func (s *LocalSigstoreSigner) Sign(payload *interfaces.Payload) (interfaces.Sign
 	return sign.NewSignature(sigstoreBundle), nil
 }
 
+// oobIDTokenGetter implements the out-of-band OAuth flow.
+// It displays the auth URL and prompts the user to manually enter the verification code.
+type oobIDTokenGetter struct{}
+
+// GetIDToken implements the OOB flow without attempting to open a browser.
+func (o *oobIDTokenGetter) GetIDToken(p *oidc.Provider, cfg oauth2.Config) (*oauthflow.OIDCIDToken, error) {
+	// Use the OOB redirect URI which tells the OAuth provider to display the code in the browser
+	cfg.RedirectURL = "urn:ietf:wg:oauth:2.0:oob"
+
+	// PKCE is required for security
+	pkce, err := oauthflow.NewPKCE(p)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate state and nonce
+	state := randomString(128)
+	nonce := randomString(128)
+
+	// Build auth URL with PKCE
+	opts := append(pkce.AuthURLOpts(), oauth2.AccessTypeOnline, oidc.Nonce(nonce))
+	authURL := cfg.AuthCodeURL(state, opts...)
+
+	// Display URL and prompt for code
+	fmt.Println("Go to the following link in a browser:")
+	fmt.Printf("\n\t%s\n", authURL)
+	fmt.Print("Enter verification code: ")
+
+	// Read code from stdin
+	var code string
+	_, err = fmt.Scanln(&code)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read verification code: %w", err)
+	}
+
+	// Exchange code for token
+	token, err := cfg.Exchange(context.Background(), code, append(pkce.TokenURLOpts(), oidc.Nonce(nonce))...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to exchange code for token: %w", err)
+	}
+
+	// Extract and verify ID token
+	idToken, ok := token.Extra("id_token").(string)
+	if !ok {
+		return nil, errors.New("id_token not present in token response")
+	}
+
+	// Verify the ID token
+	verifier := p.Verifier(&oidc.Config{ClientID: cfg.ClientID})
+	parsedIDToken, err := verifier.Verify(context.Background(), idToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify ID token: %w", err)
+	}
+
+	// Verify nonce
+	if parsedIDToken.Nonce != nonce {
+		return nil, errors.New("nonce mismatch")
+	}
+
+	// Verify access token hash if present
+	if parsedIDToken.AccessTokenHash != "" {
+		if err := parsedIDToken.VerifyAccessToken(token.AccessToken); err != nil {
+			return nil, fmt.Errorf("failed to verify access token: %w", err)
+		}
+	}
+
+	// Extract subject
+	email, err := oauthflow.SubjectFromToken(parsedIDToken)
+	if err != nil {
+		return nil, err
+	}
+
+	return &oauthflow.OIDCIDToken{
+		RawString: idToken,
+		Subject:   email,
+	}, nil
+}
+
+// randomString generates a cryptographically secure random URL-safe string.
+func randomString(length int) string {
+	return cryptoutils.GenerateRandomURLSafeString(uint(length))
+}
+
 // getIDToken obtains an OIDC identity token based on configuration.
 //
 // Priority order:
@@ -192,15 +279,12 @@ func (s *LocalSigstoreSigner) getIDToken(_ context.Context) (string, error) {
 	var err error
 
 	if s.config.OAuthForceOob {
-		// Use device flow (no browser, no local server)
-		// User manually enters verification code from provider
-		fmt.Println("\nStarting device flow authentication...")
-		fmt.Println("You will see a verification code to enter in your browser.")
+		// Use out-of-band (OOB) OAuth flow
+		// User opens browser manually, logs in, and copies verification code
+		// This uses redirect_uri=urn:ietf:wg:oauth:2.0:oob
+		tokenGetter := &oobIDTokenGetter{}
 
-		tokenGetter := oauthflow.NewDeviceFlowTokenGetterForIssuer(issuerURL)
-		redirectURL := "" // Empty for device flow
-
-		token, err = oauthflow.OIDConnect(issuerURL, clientID, clientSecret, redirectURL, tokenGetter)
+		token, err = oauthflow.OIDConnect(issuerURL, clientID, clientSecret, "", tokenGetter)
 	} else {
 		// Use interactive flow with automatic browser and local callback server
 		// Empty redirect URL tells oauthflow to start a local server on a random port
