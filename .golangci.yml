@@ -41,10 +41,6 @@ linters:
         path: pkg/
         text: "var-naming: avoid meaningless package names"
       - linters:
-          - staticcheck
-        path: pkg/
-        text: "could remove embedded field"
-      - linters:
           - gosec
         path: pkg/
         text: "integer overflow conversion"

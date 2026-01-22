@@ -51,13 +51,13 @@ type Verifier struct {
 // NewVerifier creates a new public key verifier with the given configuration.
 func NewVerifier(cfg KeyVerifierConfig) (*Verifier, error) {
 	// Load public key using shared configuration primitive
-	publicKey, err := cfg.KeyConfig.LoadPublicKey()
+	publicKey, err := cfg.LoadPublicKey()
 	if err != nil {
 		return nil, err
 	}
 
 	// Compute public key hash using shared utility
-	keyHash, err := config.ComputePublicKeyHashFromFile(cfg.KeyConfig.Path)
+	keyHash, err := config.ComputePublicKeyHashFromFile(cfg.Path)
 	if err != nil {
 		return nil, err
 	}

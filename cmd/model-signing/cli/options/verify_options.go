@@ -31,7 +31,7 @@ type SigstoreVerifyOptions struct {
 }
 
 func (o *SigstoreVerifyOptions) AddFlags(cmd *cobra.Command) {
-	o.CommonModelFlags.AddFlagsForVerify(cmd)
+	o.AddFlagsForVerify(cmd)
 	o.CommonVerifyFlags.AddFlags(cmd)
 
 	cmd.Flags().BoolVar(&o.UseStaging, "use-staging", false, "Use Sigstore's staging instance.")
@@ -49,7 +49,7 @@ type KeyVerifyOptions struct {
 }
 
 func (o *KeyVerifyOptions) AddFlags(cmd *cobra.Command) {
-	o.CommonModelFlags.AddFlagsForVerify(cmd)
+	o.AddFlagsForVerify(cmd)
 	o.CommonVerifyFlags.AddFlags(cmd)
 
 	cmd.Flags().StringVar(&o.PublicKeyPath, "public-key", "", "Location of the public key file to verify.")
@@ -64,7 +64,7 @@ type CertificateVerifyOptions struct {
 }
 
 func (o *CertificateVerifyOptions) AddFlags(cmd *cobra.Command) {
-	o.CommonModelFlags.AddFlagsForVerify(cmd)
+	o.AddFlagsForVerify(cmd)
 	o.CommonVerifyFlags.AddFlags(cmd)
 
 	cmd.Flags().BoolVar(&o.LogFingerprints, "log-fingerprints", true, "Ignore files in model that are not in signature.")

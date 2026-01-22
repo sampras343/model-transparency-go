@@ -53,7 +53,7 @@ type LocalKeySigner struct {
 // NewLocalKeySigner creates a new private key signer with the given configuration.
 func NewLocalKeySigner(cfg KeySignerConfig) (*LocalKeySigner, error) {
 	// Load private key using shared configuration primitive
-	privateKey, err := cfg.KeyConfig.LoadPrivateKey()
+	privateKey, err := cfg.LoadPrivateKey()
 	if err != nil {
 		return nil, err
 	}

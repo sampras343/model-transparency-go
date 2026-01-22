@@ -71,7 +71,7 @@ func NewVerifier(config SigstoreVerifierConfig) (*Verifier, error) {
 	}
 
 	// Load trust root using shared configuration primitive
-	trustRoot, err := config.TrustRootConfig.LoadTrustRoot()
+	trustRoot, err := config.LoadTrustRoot()
 	if err != nil {
 		return nil, err
 	}
