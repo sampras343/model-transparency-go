@@ -66,7 +66,7 @@ func ExtractFromBundle(bndl *bundle.Bundle) (*Envelope, error) {
 // The current implementation only supports single-signature envelopes.
 // Multi-signature support may be added in the future.
 func (e *Envelope) ValidateSignatureCount() error {
-	if e.raw.Signatures == nil || len(e.raw.Signatures) == 0 {
+	if len(e.raw.Signatures) == 0 {
 		return fmt.Errorf("no signatures found in envelope")
 	}
 	if len(e.raw.Signatures) > 1 {
@@ -109,7 +109,7 @@ func (e *Envelope) DecodePayload() ([]byte, error) {
 // The DSSE spec requires signatures to be base64-encoded in the envelope.
 // This method decodes it and returns the raw signature bytes.
 func (e *Envelope) DecodeSignature() ([]byte, error) {
-	if e.raw.Signatures == nil || len(e.raw.Signatures) == 0 {
+	if len(e.raw.Signatures) == 0 {
 		return nil, fmt.Errorf("no signatures found in envelope")
 	}
 
