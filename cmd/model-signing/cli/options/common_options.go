@@ -22,13 +22,21 @@ import (
 type CommonModelFlags struct {
 	SignaturePath  string   // --signature SIGNATURE_PATH (required)
 	IgnorePaths    []string // --ignore-paths
-	IgnoreGitPaths bool     // --ignore-git-paths (default true; users can pass --ignore-git-paths=false)
+	IgnoreGitPaths bool     // --ignore-git-paths (default true)
 	AllowSymlinks  bool     // --allow-symlinks
 }
 
-// AddFlags adds common model flags to the cobra command
-func (o *CommonModelFlags) AddFlags(cmd *cobra.Command, signatureFlagHelp string) {
-	cmd.Flags().StringVar(&o.SignaturePath, "signature", "", signatureFlagHelp)
+// AddFlagsForSigning adds common model flags for signing commands
+func (o *CommonModelFlags) AddFlagsForSigning(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&o.SignaturePath, "signature", "model.sig", "Location of the signature file to generate. Defaults to model.sig")
+	cmd.Flags().StringSliceVar(&o.IgnorePaths, "ignore-paths", nil, "File paths to ignore when signing or verifying.")
+	cmd.Flags().BoolVar(&o.IgnoreGitPaths, "ignore-git-paths", true, "Ignore git-related files when signing or verifying. [default: true]")
+	cmd.Flags().BoolVar(&o.AllowSymlinks, "allow-symlinks", false, "Whether to allow following symlinks when signing or verifying files.")
+}
+
+// AddFlagsForVerify adds common model flags for verification commands
+func (o *CommonModelFlags) AddFlagsForVerify(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&o.SignaturePath, "signature", "", "Location of the signature file to verify. [required]")
 	_ = cmd.MarkFlagRequired("signature")
 	cmd.Flags().StringSliceVar(&o.IgnorePaths, "ignore-paths", nil, "File paths to ignore when signing or verifying.")
 	cmd.Flags().BoolVar(&o.IgnoreGitPaths, "ignore-git-paths", true, "Ignore git-related files when signing or verifying. [default: true]")
@@ -37,7 +45,7 @@ func (o *CommonModelFlags) AddFlags(cmd *cobra.Command, signatureFlagHelp string
 
 // CommonVerifyFlags contains flags shared by all verification commands
 type CommonVerifyFlags struct {
-	IgnoreUnsignedFiles bool // --ignore-unsigned-files
+	IgnoreUnsignedFiles bool
 }
 
 // AddFlags adds common verification flags to the cobra command
