@@ -17,6 +17,7 @@ package key
 import (
 	"crypto"
 	"fmt"
+	"os"
 
 	"github.com/sigstore/model-signing/pkg/config"
 	"github.com/sigstore/model-signing/pkg/dsse"
@@ -98,7 +99,8 @@ func (v *Verifier) Verify(signature interfaces.Signature) (*manifest.Manifest, e
 		bundle.VerificationMaterial.GetPublicKey().Hint != "" {
 		keyHint := bundle.VerificationMaterial.GetPublicKey().Hint
 		if keyHint != v.keyHash {
-			fmt.Printf("WARNING: Key mismatch: The public key hash in the signature's "+
+			// This warning should always be shown as it indicates a potential issue
+			fmt.Fprintf(os.Stderr, "WARNING: Key mismatch: The public key hash in the signature's "+
 				"verification material (%s) does not match the provided public key (%s). "+
 				"Proceeding with verification anyway.\n", keyHint, v.keyHash)
 		}

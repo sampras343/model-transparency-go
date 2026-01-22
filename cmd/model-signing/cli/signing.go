@@ -24,6 +24,7 @@ import (
 	"github.com/sigstore/model-signing/cmd/model-signing/cli/options"
 	key "github.com/sigstore/model-signing/pkg/signing/key"
 	sigstore "github.com/sigstore/model-signing/pkg/signing/sigstore"
+	"github.com/sigstore/model-signing/pkg/utils"
 )
 
 func NewSigstoreSign() *cobra.Command {
@@ -54,6 +55,8 @@ production one.`
 
 			// Convert CLI options to library options
 			opts := o.ToStandardOptions(modelPath)
+			// Pass logger from root options
+			opts.Logger = utils.NewLogger(ro.Verbose)
 
 			signer, err := sigstore.NewSigstoreSigner(opts)
 			if err != nil {
@@ -64,7 +67,9 @@ production one.`
 			defer cancel()
 
 			status, err := signer.Sign(ctx)
-			fmt.Println("Signing Status: ", status)
+			if !ro.Verbose {
+				fmt.Println(status.Message)
+			}
 			return err
 		},
 	}
@@ -99,6 +104,8 @@ func NewKeySigner() *cobra.Command {
 
 			// Convert CLI options to library options
 			opts := o.ToStandardOptions(modelPath)
+			// Pass logger from root options
+			opts.Logger = utils.NewLogger(ro.Verbose)
 
 			signer, err := key.NewKeySigner(opts)
 			if err != nil {
@@ -109,7 +116,9 @@ func NewKeySigner() *cobra.Command {
 			defer cancel()
 
 			status, err := signer.Sign(ctx)
-			fmt.Println("Signing Status: ", status)
+			if !ro.Verbose {
+				fmt.Println(status.Message)
+			}
 			return err
 		},
 	}

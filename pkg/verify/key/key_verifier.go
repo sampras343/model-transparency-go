@@ -38,13 +38,15 @@ type KeyVerifierOptions struct {
 	AllowSymlinks       bool
 	PublicKeyPath       string
 	IgnoreUnsignedFiles bool
+	Logger              *utils.Logger
 }
 
 // KeyVerifier provides high-level verification with validation.
 //
 //nolint:revive
 type KeyVerifier struct {
-	opts KeyVerifierOptions
+	opts   KeyVerifierOptions
+	logger *utils.Logger
 }
 
 // NewKeyVerifier creates a new high-level key verifier with validation.
@@ -65,7 +67,16 @@ func NewKeyVerifier(opts KeyVerifierOptions) (*KeyVerifier, error) {
 		return nil, err
 	}
 
-	return &KeyVerifier{opts: opts}, nil
+	// Use provided logger or create a default non-verbose one
+	logger := opts.Logger
+	if logger == nil {
+		logger = utils.NewLogger(false)
+	}
+
+	return &KeyVerifier{
+		opts:   opts,
+		logger: logger,
+	}, nil
 }
 
 // Verify performs the complete verification flow.
@@ -77,15 +88,15 @@ func NewKeyVerifier(opts KeyVerifierOptions) (*KeyVerifier, error) {
 // 4. Hashing the model files
 // 5. Comparing actual vs expected manifests
 func (kv *KeyVerifier) Verify(_ context.Context) (verify.Result, error) {
-	// Print verification info
-	fmt.Println("Key-based verification")
-	fmt.Printf("  MODEL_PATH:              %s\n", filepath.Clean(kv.opts.ModelPath))
-	fmt.Printf("  --signature:             %s\n", filepath.Clean(kv.opts.SignaturePath))
-	fmt.Printf("  --ignore-paths:          %v\n", kv.opts.IgnorePaths)
-	fmt.Printf("  --ignore-git-paths:      %v\n", kv.opts.IgnoreGitPaths)
-	fmt.Printf("  --allow-symlinks:        %v\n", kv.opts.AllowSymlinks)
-	fmt.Printf("  --public-key:            %v\n", filepath.Clean(kv.opts.PublicKeyPath))
-	fmt.Printf("  --ignore-unsigned-files: %v\n", kv.opts.IgnoreUnsignedFiles)
+	// Print verification info (debug only)
+	kv.logger.Debugln("Key-based verification")
+	kv.logger.Debug("  MODEL_PATH:              %s", filepath.Clean(kv.opts.ModelPath))
+	kv.logger.Debug("  --signature:             %s", filepath.Clean(kv.opts.SignaturePath))
+	kv.logger.Debug("  --ignore-paths:          %v", kv.opts.IgnorePaths)
+	kv.logger.Debug("  --ignore-git-paths:      %v", kv.opts.IgnoreGitPaths)
+	kv.logger.Debug("  --allow-symlinks:        %v", kv.opts.AllowSymlinks)
+	kv.logger.Debug("  --public-key:            %v", filepath.Clean(kv.opts.PublicKeyPath))
+	kv.logger.Debug("  --ignore-unsigned-files: %v", kv.opts.IgnoreUnsignedFiles)
 
 	// Resolve ignore paths
 	ignorePaths := kv.opts.IgnorePaths

@@ -39,11 +39,13 @@ type SigstoreSignerOptions struct {
 	ClientID              string
 	ClientSecret          string
 	TrustConfigPath       string
+	Logger                *utils.Logger
 }
 
 //nolint:revive
 type SigstoreSigner struct {
-	opts SigstoreSignerOptions
+	opts   SigstoreSignerOptions
+	logger *utils.Logger
 }
 
 func NewSigstoreSigner(opts SigstoreSignerOptions) (*SigstoreSigner, error) {
@@ -59,7 +61,17 @@ func NewSigstoreSigner(opts SigstoreSignerOptions) (*SigstoreSigner, error) {
 	if err := utils.ValidateOptionalFile("trust config", opts.TrustConfigPath); err != nil {
 		return nil, err
 	}
-	return &SigstoreSigner{opts: opts}, nil
+
+	// Use provided logger or create a default non-verbose one
+	logger := opts.Logger
+	if logger == nil {
+		logger = utils.NewLogger(false)
+	}
+
+	return &SigstoreSigner{
+		opts:   opts,
+		logger: logger,
+	}, nil
 }
 
 // Sign performs the complete signing flow.
@@ -70,20 +82,20 @@ func NewSigstoreSigner(opts SigstoreSignerOptions) (*SigstoreSigner, error) {
 // 3. Signing the payload with Sigstore
 // 4. Writing the signature bundle to disk
 func (ss *SigstoreSigner) Sign(_ context.Context) (signing.Result, error) {
-	// Print signing configuration
-	fmt.Println("Sigstore Signing")
-	fmt.Printf("  MODEL_PATH:                 %s\n", filepath.Clean(ss.opts.ModelPath))
-	fmt.Printf("  --signature:                %s\n", filepath.Clean(ss.opts.SignaturePath))
-	fmt.Printf("  --ignore-paths:             %v\n", ss.opts.IgnorePaths)
-	fmt.Printf("  --ignore-git-paths:         %v\n", ss.opts.IgnoreGitPaths)
-	fmt.Printf("  --allow-symlinks:           %v\n", ss.opts.AllowSymlinks)
-	fmt.Printf("  --use-staging:              %v\n", ss.opts.UseStaging)
-	fmt.Printf("  --oauth-force-oob:          %v\n", ss.opts.OAuthForceOob)
-	fmt.Printf("  --use-ambient-credentials:  %v\n", ss.opts.UseAmbientCredentials)
-	fmt.Printf("  --identity-token:           %v\n", utils.MaskToken(ss.opts.IdentityToken))
-	fmt.Printf("  --client-id:                %v\n", ss.opts.ClientID)
-	fmt.Printf("  --client-secret:            %v\n", utils.MaskToken(ss.opts.ClientSecret))
-	fmt.Printf("  --trust-config:             %v\n", ss.opts.TrustConfigPath)
+	// Print signing configuration (debug only)
+	ss.logger.Debugln("Sigstore Signing")
+	ss.logger.Debug("  MODEL_PATH:                %s", filepath.Clean(ss.opts.ModelPath))
+	ss.logger.Debug("  --signature:               %s", filepath.Clean(ss.opts.SignaturePath))
+	ss.logger.Debug("  --ignore-paths:            %v", ss.opts.IgnorePaths)
+	ss.logger.Debug("  --ignore-git-paths:        %v", ss.opts.IgnoreGitPaths)
+	ss.logger.Debug("  --allow-symlinks:          %v", ss.opts.AllowSymlinks)
+	ss.logger.Debug("  --use-staging:             %v", ss.opts.UseStaging)
+	ss.logger.Debug("  --oauth-force-oob:         %v", ss.opts.OAuthForceOob)
+	ss.logger.Debug("  --use-ambient-credentials: %v", ss.opts.UseAmbientCredentials)
+	ss.logger.Debug("  --identity-token:          %v", utils.MaskToken(ss.opts.IdentityToken))
+	ss.logger.Debug("  --client-id:               %v", ss.opts.ClientID)
+	ss.logger.Debug("  --client-secret:           %v", utils.MaskToken(ss.opts.ClientSecret))
+	ss.logger.Debug("  --trust-config:            %v", ss.opts.TrustConfigPath)
 
 	// Resolve ignore paths
 	ignorePaths := ss.opts.IgnorePaths
@@ -91,7 +103,7 @@ func (ss *SigstoreSigner) Sign(_ context.Context) (signing.Result, error) {
 	ignorePaths = append(ignorePaths, ss.opts.SignaturePath)
 
 	// Step 1: Hash the model to create a manifest
-	fmt.Println("\nStep 1: Hashing model...")
+	ss.logger.Debugln("\nStep 1: Hashing model...")
 	hashingConfig := config.NewHashingConfig().
 		SetIgnoredPaths(ignorePaths, ss.opts.IgnoreGitPaths).
 		SetAllowSymlinks(ss.opts.AllowSymlinks)
@@ -103,10 +115,10 @@ func (ss *SigstoreSigner) Sign(_ context.Context) (signing.Result, error) {
 			Message:  fmt.Sprintf("Failed to hash model: %v", err),
 		}, fmt.Errorf("failed to hash model: %w", err)
 	}
-	fmt.Printf("  Hashed %d files\n", len(manifest.ResourceDescriptors()))
+	ss.logger.Debug("  Hashed %d files", len(manifest.ResourceDescriptors()))
 
 	// Step 2: Create payload from manifest
-	fmt.Println("\nStep 2: Creating signing payload...")
+	ss.logger.Debugln("\nStep 2: Creating signing payload...")
 	payload, err := interfaces.NewPayload(manifest)
 	if err != nil {
 		return signing.Result{
@@ -116,7 +128,7 @@ func (ss *SigstoreSigner) Sign(_ context.Context) (signing.Result, error) {
 	}
 
 	// Step 3: Create Sigstore signer and sign the payload
-	fmt.Println("\nStep 3: Signing with Sigstore...")
+	ss.logger.Debugln("\nStep 3: Signing with Sigstore...")
 	signerConfig := SigstoreSignerConfig{
 		TrustRootConfig: config.TrustRootConfig{
 			UseStaging:    ss.opts.UseStaging,
@@ -146,7 +158,7 @@ func (ss *SigstoreSigner) Sign(_ context.Context) (signing.Result, error) {
 	}
 
 	// Step 4: Write signature to file
-	fmt.Println("\nStep 4: Writing signature...")
+	ss.logger.Debugln("\nStep 4: Writing signature...")
 	if err := signature.Write(ss.opts.SignaturePath); err != nil {
 		return signing.Result{
 			Verified: false,
@@ -154,10 +166,10 @@ func (ss *SigstoreSigner) Sign(_ context.Context) (signing.Result, error) {
 		}, fmt.Errorf("failed to write signature: %w", err)
 	}
 
-	fmt.Printf("\nSignature written to: %s\n", ss.opts.SignaturePath)
+	ss.logger.Debug("\nSignature written to: %s", ss.opts.SignaturePath)
 
 	return signing.Result{
 		Verified: true,
-		Message:  "Signing succeeded",
+		Message:  fmt.Sprintf("Successfully signed model and saved signature to %s", ss.opts.SignaturePath),
 	}, nil
 }

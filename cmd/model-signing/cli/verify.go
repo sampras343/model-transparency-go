@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sigstore/model-signing/cmd/model-signing/cli/options"
+	"github.com/sigstore/model-signing/pkg/utils"
 	keyverify "github.com/sigstore/model-signing/pkg/verify/key"
 	sigstore "github.com/sigstore/model-signing/pkg/verify/sigstore"
 )
@@ -48,6 +49,8 @@ signature, verification would fail.`
 
 			// Convert CLI options to library options
 			opts := o.ToStandardOptions(modelPath)
+			// Pass logger from root options
+			opts.Logger = utils.NewLogger(ro.Verbose)
 
 			verifier, err := sigstore.NewSigstoreVerifier(opts)
 			if err != nil {
@@ -58,7 +61,9 @@ signature, verification would fail.`
 			defer cancel()
 
 			status, err := verifier.Verify(ctx)
-			fmt.Println("Verification Status: ", status)
+			if !ro.Verbose {
+				fmt.Println(status.Message)
+			}
 			return err
 		},
 	}
@@ -92,6 +97,8 @@ management protocols.`
 
 			// Convert CLI options to library options
 			opts := o.ToStandardOptions(modelPath)
+			// Pass logger from root options
+			opts.Logger = utils.NewLogger(ro.Verbose)
 
 			verifier, err := keyverify.NewKeyVerifier(opts)
 			if err != nil {
@@ -102,7 +109,9 @@ management protocols.`
 			defer cancel()
 
 			status, err := verifier.Verify(ctx)
-			fmt.Println("Verification Status: ", status)
+			if !ro.Verbose {
+				fmt.Println(status.Message)
+			}
 			return err
 		},
 	}
