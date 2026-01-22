@@ -50,7 +50,7 @@ type SigstoreSigner struct {
 
 func NewSigstoreSigner(opts SigstoreSignerOptions) (*SigstoreSigner, error) {
 	// Validate if required paths exists
-	if err := utils.ValidateFolderExists("model path", opts.ModelPath); err != nil {
+	if err := utils.ValidatePathExists("model path", opts.ModelPath); err != nil {
 		return nil, err
 	}
 	// Validate ignore paths

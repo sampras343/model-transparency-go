@@ -52,7 +52,7 @@ type KeyVerifier struct {
 // NewKeyVerifier creates a new high-level key verifier with validation.
 func NewKeyVerifier(opts KeyVerifierOptions) (*KeyVerifier, error) {
 	// Validate if required paths exists
-	if err := utils.ValidateFolderExists("model path", opts.ModelPath); err != nil {
+	if err := utils.ValidatePathExists("model path", opts.ModelPath); err != nil {
 		return nil, err
 	}
 	if err := utils.ValidateFileExists("signature", opts.SignaturePath); err != nil {
