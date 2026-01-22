@@ -117,10 +117,12 @@ func (sv *SigstoreVerifier) Verify(ctx context.Context) (verify.Result, error) {
 
 	// Create Sigstore verifier
 	verifierConfig := SigstoreVerifierConfig{
-		Identity:      sv.opts.Identity,
-		OIDCIssuer:    sv.opts.IdentityProvider,
-		UseStaging:    sv.opts.UseStaging,
-		TrustRootPath: sv.opts.TrustConfigPath,
+		TrustRootConfig: config.TrustRootConfig{
+			UseStaging:    sv.opts.UseStaging,
+			TrustRootPath: sv.opts.TrustConfigPath,
+		},
+		Identity:   sv.opts.Identity,
+		OIDCIssuer: sv.opts.IdentityProvider,
 	}
 
 	sigstoreVerifier, err := NewVerifier(verifierConfig)

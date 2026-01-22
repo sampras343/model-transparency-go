@@ -118,13 +118,15 @@ func (ss *SigstoreSigner) Sign(_ context.Context) (signing.Result, error) {
 	// Step 3: Create Sigstore signer and sign the payload
 	fmt.Println("\nStep 3: Signing with Sigstore...")
 	signerConfig := SigstoreSignerConfig{
+		TrustRootConfig: config.TrustRootConfig{
+			UseStaging:    ss.opts.UseStaging,
+			TrustRootPath: ss.opts.TrustConfigPath,
+		},
 		UseAmbientCredentials: ss.opts.UseAmbientCredentials,
-		UseStaging:            ss.opts.UseStaging,
 		IdentityToken:         ss.opts.IdentityToken,
 		OAuthForceOob:         ss.opts.OAuthForceOob,
 		ClientID:              ss.opts.ClientID,
 		ClientSecret:          ss.opts.ClientSecret,
-		TrustRootPath:         ss.opts.TrustConfigPath,
 	}
 
 	signer, err := NewLocalSigstoreSigner(signerConfig)

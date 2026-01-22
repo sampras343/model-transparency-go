@@ -39,9 +39,9 @@ func (o *SigstoreSignOptions) AddFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&o.OAuthForceOob, "oauth-force-oob", false, "Force an out-of-band OAuth flow and do not automatically start the default web browser.")
 	cmd.Flags().BoolVar(&o.UseAmbientCredentials, "use-ambient-credentials", false, "Use credentials from ambient environment.")
 	cmd.Flags().StringVar(&o.IdentityToken, "identity-token", "", "Fixed OIDC identity token to use instead of obtaining credentials from OIDC flow or from the environment.")
-	cmd.Flags().StringVar(&o.ClientID, "client-id", "", "The custom OpenID Connect client ID to use during OAuth2/")
-	cmd.Flags().StringVar(&o.ClientSecret, "client-secret", "", "The custom OpenID Connect client secret to use during OAuth2/")
-	cmd.Flags().StringVar(&o.TrustConfigPath, "trust-config", "", "The client trust configuration to use/")
+	cmd.Flags().StringVar(&o.ClientID, "client-id", "", "The custom OpenID Connect client ID to use during OAuth2.")
+	cmd.Flags().StringVar(&o.ClientSecret, "client-secret", "", "The custom OpenID Connect client secret to use during OAuth2.")
+	cmd.Flags().StringVar(&o.TrustConfigPath, "trust-config", "", "The client trust configuration to use.")
 }
 
 type KeySignOptions struct {

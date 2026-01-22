@@ -26,7 +26,7 @@ type SigstoreVerifyOptions struct {
 	CommonVerifyFlags
 	UseStaging       bool   // --use-staging
 	Identity         string // --identity (required)
-	IdentityProvider string // --identity_provider (required)
+	IdentityProvider string // --identity-provider (required)
 	TrustConfigPath  string // --trust-config
 }
 
@@ -37,8 +37,8 @@ func (o *SigstoreVerifyOptions) AddFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&o.UseStaging, "use-staging", false, "Use Sigstore's staging instance.")
 	cmd.Flags().StringVar(&o.Identity, "identity", "", "The expected identity of the signer (e.g., name@example.com).")
 	_ = cmd.MarkFlagRequired("identity")
-	cmd.Flags().StringVar(&o.IdentityProvider, "identity_provider", "", "The expected identity provider (e.g., https://accounts.example.com).")
-	_ = cmd.MarkFlagRequired("identity_provider")
+	cmd.Flags().StringVar(&o.IdentityProvider, "identity-provider", "", "The expected identity provider (e.g., https://accounts.example.com).")
+	_ = cmd.MarkFlagRequired("identity-provider")
 	cmd.Flags().StringVar(&o.TrustConfigPath, "trust-config", "", "Path to custom trust root JSON file.")
 }
 

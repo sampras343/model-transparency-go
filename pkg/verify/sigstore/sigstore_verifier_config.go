@@ -18,12 +18,12 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/sigstore/model-signing/pkg/config"
 	"github.com/sigstore/model-signing/pkg/dsse"
 	"github.com/sigstore/model-signing/pkg/interfaces"
 	"github.com/sigstore/model-signing/pkg/manifest"
 	sign "github.com/sigstore/model-signing/pkg/signature"
 	"github.com/sigstore/model-signing/pkg/utils"
-	"github.com/sigstore/sigstore-go/pkg/root"
 	sigstoreverify "github.com/sigstore/sigstore-go/pkg/verify"
 )
 
@@ -34,6 +34,9 @@ var _ interfaces.SignatureVerifier = (*Verifier)(nil)
 //
 //nolint:revive
 type SigstoreVerifierConfig struct {
+	// Embedded trust root configuration for loading Sigstore trust roots
+	config.TrustRootConfig
+
 	// Identity is the expected identity that signed the model.
 	// This is matched against the certificate's subject.
 	Identity string
@@ -41,15 +44,6 @@ type SigstoreVerifierConfig struct {
 	// OIDCIssuer is the expected OpenID Connect issuer that provided
 	// the certificate used for the signature.
 	OIDCIssuer string
-
-	// UseStaging uses staging configurations instead of production.
-	// Should only be set to true when testing. Default is false.
-	UseStaging bool
-
-	// TrustRootPath is a path to a custom trust root JSON file.
-	// When provided, verification uses this instead of the default
-	// Sigstore trust root.
-	TrustRootPath string
 }
 
 // Verifier verifies Sigstore signatures on model manifests.
@@ -76,28 +70,10 @@ func NewVerifier(config SigstoreVerifierConfig) (*Verifier, error) {
 		return nil, fmt.Errorf("invalid OIDC issuer URL %q: %w", config.OIDCIssuer, err)
 	}
 
-	// Create trust root
-	var trustRoot *root.TrustedRoot
-	var err error
-
-	//nolint:gocritic
-	if config.UseStaging {
-		// TODO: Use staging TUF options when available
-		trustRoot, err = root.FetchTrustedRoot()
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch staging trust root: %w", err)
-		}
-	} else if config.TrustRootPath != "" {
-		trustRoot, err = root.NewTrustedRootFromPath(config.TrustRootPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load trust root from file: %w", err)
-		}
-	} else {
-		// Use production trust root
-		trustRoot, err = root.FetchTrustedRoot()
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch production trust root: %w", err)
-		}
+	// Load trust root using shared configuration primitive
+	trustRoot, err := config.TrustRootConfig.LoadTrustRoot()
+	if err != nil {
+		return nil, err
 	}
 
 	// Create verifier options

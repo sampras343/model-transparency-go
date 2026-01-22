@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/sigstore/model-signing/pkg/config"
 	"github.com/sigstore/model-signing/pkg/interfaces"
 	sign "github.com/sigstore/model-signing/pkg/signature"
 	"github.com/sigstore/model-signing/pkg/utils"
@@ -35,13 +36,14 @@ var _ interfaces.Signer = (*LocalSigstoreSigner)(nil)
 //
 //nolint:revive
 type SigstoreSignerConfig struct {
+	// Embedded trust root configuration for loading Sigstore trust roots
+	config.TrustRootConfig
+
 	UseAmbientCredentials bool
-	UseStaging            bool
 	IdentityToken         string
 	OAuthForceOob         bool
 	ClientID              string
 	ClientSecret          string
-	TrustRootPath         string
 }
 
 // LocalSigstoreSigner signs model manifests using Sigstore.
@@ -51,28 +53,10 @@ type LocalSigstoreSigner struct {
 }
 
 func NewLocalSigstoreSigner(config SigstoreSignerConfig) (*LocalSigstoreSigner, error) {
-	// Create trust root
-	var trustRoot *root.TrustedRoot
-	var err error
-
-	//nolint:gocritic
-	if config.UseStaging {
-		// TODO: Use staging TUF options when available
-		trustRoot, err = root.FetchTrustedRoot()
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch staging trust root: %w", err)
-		}
-	} else if config.TrustRootPath != "" {
-		trustRoot, err = root.NewTrustedRootFromPath(config.TrustRootPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load trust root from file: %w", err)
-		}
-	} else {
-		// Use production trust root
-		trustRoot, err = root.FetchTrustedRoot()
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch production trust root: %w", err)
-		}
+	// Load trust root using shared configuration primitive
+	trustRoot, err := config.TrustRootConfig.LoadTrustRoot()
+	if err != nil {
+		return nil, err
 	}
 
 	return &LocalSigstoreSigner{

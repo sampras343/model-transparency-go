@@ -94,7 +94,9 @@ func (kv *KeyVerifier) Verify(_ context.Context) (verify.Result, error) {
 
 	// Create key verifier
 	verifierConfig := KeyVerifierConfig{
-		PublicKeyPath: kv.opts.PublicKeyPath,
+		KeyConfig: config.KeyConfig{
+			Path: kv.opts.PublicKeyPath,
+		},
 	}
 
 	keyVerifier, err := NewVerifier(verifierConfig)

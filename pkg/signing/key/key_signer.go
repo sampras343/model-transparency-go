@@ -107,8 +107,10 @@ func (ss *KeySigner) Sign(_ context.Context) (signing.Result, error) {
 	// Step 3: Create key signer and sign the payload
 	fmt.Println("\nStep 3: Signing with private key...")
 	signerConfig := KeySignerConfig{
-		PrivateKeyPath: ss.opts.PrivateKeyPath,
-		Password:       ss.opts.Password,
+		KeyConfig: config.KeyConfig{
+			Path:     ss.opts.PrivateKeyPath,
+			Password: ss.opts.Password,
+		},
 	}
 
 	signer, err := NewLocalKeySigner(signerConfig)

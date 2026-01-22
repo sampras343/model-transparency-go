@@ -81,17 +81,16 @@ func (c *Config) Verify(modelPath, signaturePath string) error {
 		}
 	}
 
-	// Add ignore_paths from manifest to hashing config
-	serializationParams := expectedManifest.SerializationParameters()
-	if ignorePaths, ok := serializationParams["ignore_paths"]; ok {
-		if paths, ok := ignorePaths.([]string); ok {
-			absModelPath, err := filepath.Abs(modelPath)
-			if err != nil {
-				return fmt.Errorf("failed to get absolute path for model: %w", err)
-			}
-			c.hashingConfig.AddIgnoredPaths(absModelPath, paths)
-		}
-	}
+	// IMPORTANT: Do NOT automatically apply ignore_paths from the manifest.
+	// The manifest's ignore_paths are part of the signed serialization parameters,
+	// which will be compared during verification. If the user provides different
+	// ignore settings during verification than what was used during signing,
+	// the verification should fail with a manifest mismatch.
+	//
+	// Previously, this code would automatically add the manifest's ignore_paths
+	// to the hashing config, which meant the verifier would always match the
+	// signer's ignore settings, defeating the purpose of verifying the exact
+	// set of files that were signed.
 
 	// Determine which files to hash
 	var filesToHash []string
