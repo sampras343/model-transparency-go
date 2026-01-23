@@ -72,7 +72,7 @@ jobs:
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: model.zip
-          path: model_root/
+          path: model_root
       - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
         with:
           go-version-file: './go.mod'
@@ -82,7 +82,7 @@ jobs:
       - name: store beacon token into oidc-token.txt
         uses: sigstore-conformance/extremely-dangerous-public-oidc-beacon@1e3cabecd3790f48b79a795424e12fa3cb880dcb # main
       - name: Sign the model
-        run: ./model-signing${{ matrix.os == 'windows-latest' && '.exe' || '' }} sign sigstore model_root/ --use-staging --signature model.sig --identity-token $(cat oidc-token.txt)
+        run: ./model-signing${{ matrix.os == 'windows-latest' && '.exe' || '' }} sign sigstore model_root --use-staging --signature model.sig --identity-token $(cat oidc-token.txt)
       - name: upload model signature
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
@@ -110,7 +110,7 @@ jobs:
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: model.zip
-          path: model_root/
+          path: model_root
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: ${{ matrix.signed-with-os }}-model.sig
@@ -122,6 +122,6 @@ jobs:
         run: go build -v -o model-signing${{ matrix.os == 'windows-latest' && '.exe' || '' }} ./cmd/model-signing
       - name: Verify the model
         run: |
-          ./model-signing${{ matrix.os == 'windows-latest' && '.exe' || '' }} verify sigstore model_root/ --use-staging --signature model.sig \
+          ./model-signing${{ matrix.os == 'windows-latest' && '.exe' || '' }} verify sigstore model_root --use-staging --signature model.sig \
             --identity "https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon/.github/workflows/extremely-dangerous-oidc-beacon.yml@refs/heads/main" \
             --identity-provider "https://token.actions.githubusercontent.com"
