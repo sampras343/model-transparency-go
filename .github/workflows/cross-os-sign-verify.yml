@@ -82,7 +82,7 @@ jobs:
       - name: store beacon token into oidc-token.txt
         uses: sigstore-conformance/extremely-dangerous-public-oidc-beacon@1e3cabecd3790f48b79a795424e12fa3cb880dcb # main
       - name: Sign the model
-        run: ./model-signing${{ matrix.os == 'windows-latest' && '.exe' || '' }} sign sigstore model_root/ --use_staging --signature model.sig --identity_token $(cat oidc-token.txt)
+        run: ./model-signing${{ matrix.os == 'windows-latest' && '.exe' || '' }} sign sigstore model_root/ --use-staging --signature model.sig --identity-token $(cat oidc-token.txt)
       - name: upload model signature
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
@@ -122,6 +122,6 @@ jobs:
         run: go build -v -o model-signing${{ matrix.os == 'windows-latest' && '.exe' || '' }} ./cmd/model-signing
       - name: Verify the model
         run: |
-          ./model-signing${{ matrix.os == 'windows-latest' && '.exe' || '' }} verify sigstore model_root/ --use_staging --signature model.sig \
+          ./model-signing${{ matrix.os == 'windows-latest' && '.exe' || '' }} verify sigstore model_root/ --use-staging --signature model.sig \
             --identity "https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon/.github/workflows/extremely-dangerous-oidc-beacon.yml@refs/heads/main" \
-            --identity_provider "https://token.actions.githubusercontent.com"
+            --identity-provider "https://token.actions.githubusercontent.com"
