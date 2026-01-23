@@ -115,6 +115,7 @@ jobs:
         with:
           name: ${{ matrix.signed-with-os }}-model.sig
       - name: Debug - Show directory structure
+        if: runner.debug == '1'
         run: |
           echo "=== Current directory ==="
           pwd
