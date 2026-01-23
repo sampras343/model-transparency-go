@@ -344,18 +344,16 @@ func (v *Verifier) verifyCertificates(verificationMaterial *protobundle.Verifica
 
 // validateSigningUsage checks if the certificate can be used for code signing.
 func validateSigningUsage(cert *x509.Certificate) error {
-	canSign := false
+	// Check KeyUsage extension for DigitalSignature
+	canSign := cert.KeyUsage&x509.KeyUsageDigitalSignature != 0
 
-	// Check KeyUsage extension
-	if cert.KeyUsage&x509.KeyUsageDigitalSignature != 0 {
-		canSign = true
-	}
-
-	// Check ExtendedKeyUsage extension
-	for _, usage := range cert.ExtKeyUsage {
-		if usage == x509.ExtKeyUsageCodeSigning {
-			canSign = true
-			break
+	// Check ExtendedKeyUsage extension for CodeSigning
+	if !canSign {
+		for _, usage := range cert.ExtKeyUsage {
+			if usage == x509.ExtKeyUsageCodeSigning {
+				canSign = true
+				break
+			}
 		}
 	}
 
