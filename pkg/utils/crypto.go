@@ -25,9 +25,9 @@ import (
 	"fmt"
 )
 
-// SignWithKey signs data using the private key.
-//
+// SignWithKey signs data using the provided private key.
 // Supports ECDSA (with ASN.1 encoding), RSA (with PSS padding), and Ed25519 keys.
+// Returns the signature bytes or an error if the key type is unsupported or signing fails.
 func SignWithKey(privateKey crypto.PrivateKey, data []byte) ([]byte, error) {
 	switch key := privateKey.(type) {
 	case *ecdsa.PrivateKey:
@@ -41,9 +41,9 @@ func SignWithKey(privateKey crypto.PrivateKey, data []byte) ([]byte, error) {
 	}
 }
 
-// VerifySignature verifies a signature using the public key.
-//
+// VerifySignature verifies a signature against the message using the provided public key.
 // Supports ECDSA, RSA (tries PSS first, falls back to PKCS1v15), and Ed25519 keys.
+// Returns nil if verification succeeds, or an error if the signature is invalid or key type is unsupported.
 func VerifySignature(publicKey crypto.PublicKey, message, signature []byte) error {
 	switch key := publicKey.(type) {
 	case *ecdsa.PublicKey:
@@ -90,7 +90,8 @@ func signECDSA(key *ecdsa.PrivateKey, data []byte) ([]byte, error) {
 	return signature, nil
 }
 
-// signRSA signs data using an RSA private key with PSS padding.
+// signRSA signs data using an RSA private key with PSS padding and SHA256 hash.
+// Returns the signature bytes or an error if signing fails.
 func signRSA(key *rsa.PrivateKey, data []byte) ([]byte, error) {
 	// Hash the data with SHA256
 	hash := sha256.Sum256(data)
@@ -105,6 +106,7 @@ func signRSA(key *rsa.PrivateKey, data []byte) ([]byte, error) {
 }
 
 // signEd25519 signs data using an Ed25519 private key.
+// Returns the signature bytes.
 func signEd25519(key ed25519.PrivateKey, data []byte) ([]byte, error) {
 	signature := ed25519.Sign(key, data)
 	return signature, nil
@@ -142,7 +144,9 @@ func verifyECDSA(key *ecdsa.PublicKey, message, signature []byte) error {
 	return nil
 }
 
-// verifyRSA verifies an RSA signature.
+// verifyRSA verifies an RSA signature using SHA256 hash.
+// Attempts PSS verification first, falls back to PKCS1v15 if PSS fails.
+// Returns nil if verification succeeds, or an error if both methods fail.
 func verifyRSA(key *rsa.PublicKey, message, signature []byte) error {
 	// Hash the message with SHA256
 	hash := sha256.Sum256(message)
@@ -161,6 +165,7 @@ func verifyRSA(key *rsa.PublicKey, message, signature []byte) error {
 }
 
 // verifyEd25519 verifies an Ed25519 signature.
+// Returns nil if verification succeeds, or an error if the signature is invalid.
 func verifyEd25519(key ed25519.PublicKey, message, signature []byte) error {
 	if !ed25519.Verify(key, message, signature) {
 		return fmt.Errorf("Ed25519 signature verification failed")
@@ -168,9 +173,10 @@ func verifyEd25519(key ed25519.PublicKey, message, signature []byte) error {
 	return nil
 }
 
-// ComputePAE computes the Pre-Authentication Encoding for DSSE.
-//
-// PAE(type, payload) = "DSSEv1" + SP + LEN(type) + SP + type + SP + LEN(payload) + SP + payload
+// ComputePAE computes the Pre-Authentication Encoding for DSSE (Dead Simple Signing Envelope).
+// The encoding format is: "DSSEv1" + SP + LEN(type) + SP + type + SP + LEN(payload) + SP + payload
+// where SP is a space character and LEN is the ASCII decimal length.
+// Returns the PAE as a byte slice.
 func ComputePAE(payloadType string, payload []byte) []byte {
 	pae := []byte("DSSEv1 ")
 	pae = appendLength(pae, len(payloadType))
@@ -184,6 +190,7 @@ func ComputePAE(payloadType string, payload []byte) []byte {
 }
 
 // appendLength appends an ASCII decimal representation of n to buf.
+// Returns the extended buffer.
 func appendLength(buf []byte, n int) []byte {
 	return append(buf, []byte(fmt.Sprintf("%d", n))...)
 }

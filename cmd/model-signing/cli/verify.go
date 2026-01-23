@@ -28,6 +28,11 @@ import (
 	sigstore "github.com/sigstore/model-signing/pkg/verify/sigstore"
 )
 
+// NewSigstoreVerifier creates the sigstore subcommand for model verification.
+// This command verifies models using Sigstore with expected identity and
+// identity provider validation.
+//
+// Returns a *cobra.Command configured for Sigstore-based verification.
 func NewSigstoreVerifier() *cobra.Command {
 	o := &options.SigstoreVerifyOptions{}
 
@@ -71,6 +76,11 @@ signature, verification would fail.`
 	return cmd
 }
 
+// NewKeyVerifier creates the key subcommand for model verification.
+// This command verifies models using a public key that must be paired
+// with the private key used during signing.
+//
+// Returns a *cobra.Command configured for key-based verification.
 func NewKeyVerifier() *cobra.Command {
 	o := &options.KeyVerifyOptions{}
 	long := `Verify using a public key (paired with a private one).
@@ -117,6 +127,11 @@ management protocols.`
 	return cmd
 }
 
+// NewCertificateVerifier creates the certificate subcommand for model verification.
+// This command verifies models using a certificate chain of trust, with the signing
+// certificate encoded in the signature bundle.
+//
+// Returns a *cobra.Command configured for certificate-based verification.
 func NewCertificateVerifier() *cobra.Command {
 	o := &options.CertificateVerifyOptions{}
 	long := `Verify using a certificate.
@@ -163,6 +178,11 @@ func NewCertificateVerifier() *cobra.Command {
 	return cmd
 }
 
+// Verify creates the verify command with all PKI method subcommands.
+// It serves as the parent command for different verification methods (sigstore, key, certificate)
+// and defaults to Sigstore verification when no subcommand is specified.
+//
+// Returns a *cobra.Command with all verification subcommands registered.
 func Verify() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "verify [OPTIONS] PKI_METHOD",

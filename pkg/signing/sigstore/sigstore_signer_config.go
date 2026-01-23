@@ -40,22 +40,26 @@ var _ interfaces.Signer = (*LocalSigstoreSigner)(nil)
 //
 //nolint:revive
 type SigstoreSignerConfig struct {
-	// Embedded trust root configuration for loading Sigstore trust roots
+	// TrustRootConfig provides Sigstore trust root loading functionality.
 	config.TrustRootConfig
 
-	UseAmbientCredentials bool
-	IdentityToken         string
-	OAuthForceOob         bool
-	ClientID              string
-	ClientSecret          string
+	UseAmbientCredentials bool   // UseAmbientCredentials uses OIDC tokens from environment variables.
+	IdentityToken         string // IdentityToken is a pre-obtained OIDC token.
+	OAuthForceOob         bool   // OAuthForceOob forces out-of-band OAuth flow (manual code entry).
+	ClientID              string // ClientID is the OAuth client ID.
+	ClientSecret          string // ClientSecret is the OAuth client secret.
 }
 
-// LocalSigstoreSigner signs model manifests using Sigstore.
+// LocalSigstoreSigner signs model manifests using Sigstore/Fulcio.
+// Implements the interfaces.Signer interface.
 type LocalSigstoreSigner struct {
 	config    SigstoreSignerConfig
 	trustRoot *root.TrustedRoot
 }
 
+// NewLocalSigstoreSigner creates a new Sigstore signer with the given configuration.
+// Loads the trust root for Sigstore verification.
+// Returns an error if trust root loading fails.
 func NewLocalSigstoreSigner(config SigstoreSignerConfig) (*LocalSigstoreSigner, error) {
 	// Load trust root using shared configuration primitive
 	trustRoot, err := config.LoadTrustRoot()
@@ -71,14 +75,16 @@ func NewLocalSigstoreSigner(config SigstoreSignerConfig) (*LocalSigstoreSigner, 
 
 // Sign signs a payload and returns a Sigstore bundle signature.
 //
-// The signing flow:
-// 1. Generate an ephemeral keypair
-// 2. Obtain an OIDC token (from ambient credentials, provided token, or interactive flow)
-// 3. Get a short-lived certificate from Fulcio
-// 4. Create a DSSE envelope with the payload
-// 5. Sign the envelope
-// 6. Log the signature to Rekor for transparency
-// 7. Return a bundle containing everything needed for verification
+// Signing flow:
+// 1. Generates an ephemeral keypair
+// 2. Obtains an OIDC token (from ambient credentials, provided token, or interactive flow)
+// 3. Gets a short-lived certificate from Fulcio
+// 4. Creates a DSSE envelope with the payload
+// 5. Signs the envelope
+// 6. Logs the signature to Rekor for transparency
+// 7. Returns a bundle containing everything needed for verification
+//
+// Returns an error if any step fails.
 func (s *LocalSigstoreSigner) Sign(payload *interfaces.Payload) (interfaces.Signature, error) {
 	ctx := context.Background()
 
@@ -154,10 +160,11 @@ func (s *LocalSigstoreSigner) Sign(payload *interfaces.Payload) (interfaces.Sign
 }
 
 // oobIDTokenGetter implements the out-of-band OAuth flow.
-// It displays the auth URL and prompts the user to manually enter the verification code.
+// Displays the auth URL and prompts the user to manually enter the verification code.
 type oobIDTokenGetter struct{}
 
 // GetIDToken implements the OOB flow without attempting to open a browser.
+// Returns the OIDC ID token or an error if authentication fails.
 func (o *oobIDTokenGetter) GetIDToken(p *oidc.Provider, cfg oauth2.Config) (*oauthflow.OIDCIDToken, error) {
 	// Use the OOB redirect URI which tells the OAuth provider to display the code in the browser
 	cfg.RedirectURL = "urn:ietf:wg:oauth:2.0:oob"
@@ -232,6 +239,7 @@ func (o *oobIDTokenGetter) GetIDToken(p *oidc.Provider, cfg oauth2.Config) (*oau
 }
 
 // randomString generates a cryptographically secure random URL-safe string.
+// Used for OAuth state and nonce parameters.
 func randomString(length int) string {
 	return cryptoutils.GenerateRandomURLSafeString(uint(length))
 }
@@ -239,9 +247,11 @@ func randomString(length int) string {
 // getIDToken obtains an OIDC identity token based on configuration.
 //
 // Priority order:
-// 1. Use provided identity token if available
-// 2. Use ambient credentials if configured
-// 3. Fall back to interactive OAuth flow
+// 1. Uses provided identity token if available
+// 2. Uses ambient credentials if configured
+// 3. Falls back to interactive OAuth flow
+//
+// Returns the ID token string or an error if token acquisition fails.
 func (s *LocalSigstoreSigner) getIDToken(_ context.Context) (string, error) {
 	// If a token is explicitly provided, use it
 	if s.config.IdentityToken != "" {

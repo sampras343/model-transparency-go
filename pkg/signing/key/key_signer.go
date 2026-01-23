@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package key provides local key-based signing implementations.
 package key
 
 import (
@@ -25,24 +26,31 @@ import (
 	"github.com/sigstore/model-signing/pkg/utils"
 )
 
+// KeySignerOptions configures a KeySigner instance.
+//
 //nolint:revive
 type KeySignerOptions struct {
-	ModelPath      string
-	SignaturePath  string
-	IgnorePaths    []string
-	IgnoreGitPaths bool
-	AllowSymlinks  bool
-	PrivateKeyPath string
-	Password       string
-	Logger         *utils.Logger
+	ModelPath      string        // ModelPath is the path to the model directory or file to sign.
+	SignaturePath  string        // SignaturePath is where the signature file will be written.
+	IgnorePaths    []string      // IgnorePaths specifies paths to exclude from hashing.
+	IgnoreGitPaths bool          // IgnoreGitPaths indicates whether to exclude git-ignored files.
+	AllowSymlinks  bool          // AllowSymlinks indicates whether to follow symbolic links.
+	PrivateKeyPath string        // PrivateKeyPath is the path to the private key file.
+	Password       string        // Password is the optional password for the private key.
+	Logger         *utils.Logger // Logger is used for debug and info output.
 }
 
+// KeySigner implements ModelSigner using local private key-based signing.
+//
 //nolint:revive
 type KeySigner struct {
 	opts   KeySignerOptions
 	logger *utils.Logger
 }
 
+// NewKeySigner creates a new KeySigner with the given options.
+// Validates that required paths exist before returning.
+// Returns an error if validation fails.
 func NewKeySigner(opts KeySignerOptions) (*KeySigner, error) {
 	// Validate if required paths exists
 	if err := utils.ValidatePathExists("model path", opts.ModelPath); err != nil {
@@ -70,11 +78,13 @@ func NewKeySigner(opts KeySignerOptions) (*KeySigner, error) {
 
 // Sign performs the complete signing flow.
 //
-// This orchestrates:
+// Orchestrates:
 // 1. Hashing the model to create a manifest
 // 2. Creating a payload from the manifest
-// 3. Signing the payload with Key
+// 3. Signing the payload with the private key
 // 4. Writing the signature bundle to disk
+//
+// Returns a Result with success status and message, or an error if any step fails.
 func (ss *KeySigner) Sign(_ context.Context) (signing.Result, error) {
 	// Print signing configuration (debug only)
 	ss.logger.Debugln("Key-based Signing")
@@ -88,7 +98,7 @@ func (ss *KeySigner) Sign(_ context.Context) (signing.Result, error) {
 
 	// Resolve ignore paths
 	ignorePaths := ss.opts.IgnorePaths
-	// Add signature path to ignore list so we don't try to hash it
+	// Add signature path to ignore list
 	ignorePaths = append(ignorePaths, ss.opts.SignaturePath)
 
 	// Step 1: Hash the model to create a manifest

@@ -16,8 +16,10 @@ package options
 
 import "github.com/spf13/cobra"
 
+// Interface defines the contract for option types that can register
+// their flags with a cobra command.
 type Interface interface {
-	// AddFlags adds this options' flags to the cobra command.
+	// AddFlags adds this option's flags to the cobra command.
 	AddFlags(cmd *cobra.Command)
 }
 

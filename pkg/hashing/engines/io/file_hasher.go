@@ -12,21 +12,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package io provides hash engine interfaces for file-based hashing operations.
+//
+// This package defines specialized interfaces for hash engines that operate on
+// files rather than in-memory data. It provides semantic distinction in APIs
+// that specifically require file-based hashing.
 package io
 
 import (
 	hashengines "github.com/sigstore/model-signing/pkg/hashing/engines"
 )
 
-// FileHasher is a marker interface for hash engines that hash files.
+// FileHasher is a marker interface for hash engines that operate on files.
 //
-// It's intentionally just an alias of HashEngine for now, but it gives
-// you a semantic distinction in APIs that specifically expect file-based
-// hashing rather than arbitrary content hashing.
+// This interface is intentionally an alias of HashEngine, but provides semantic
+// distinction in APIs that specifically require file-based hashing rather than
+// arbitrary in-memory content hashing.
 type FileHasher interface {
 	hashengines.HashEngine
 }
 
+// FileHasherFactory is a function type that creates FileHasher instances for a given file path.
+//
+// The path parameter specifies the file to hash.
+// Returns an error if the file cannot be accessed or the hasher cannot be created.
 type FileHasherFactory func(path string) (FileHasher, error)
 
+// ShardedFileHasherFactory is a function type that creates FileHasher instances for file shards.
+//
+// The path parameter specifies the file to hash.
+// The start and end parameters define the byte range [start, end) within the file to hash.
+// Returns an error if the file cannot be accessed, the range is invalid, or the hasher cannot be created.
 type ShardedFileHasherFactory func(path string, start, end int64) (FileHasher, error)

@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package cli provides the command-line interface for model signing and verification.
+// It defines the root command structure and subcommands for various PKI methods.
 package cli
 
 import (
@@ -30,6 +32,11 @@ var (
 	ro = &options.RootOptions{}
 )
 
+// New creates and returns the root cobra command for the model-signing CLI.
+// It configures persistent flags, output redirection, and adds all subcommands
+// including sign, verify, version, and completion commands.
+//
+// Returns a fully configured *cobra.Command ready for execution.
 func New() *cobra.Command {
 	var (
 		out, stdout *os.File

@@ -21,8 +21,9 @@ import (
 	"github.com/sigstore/model-signing/pkg/manifest"
 )
 
-// VerifySignedContent is a helper for verifiers to extract and validate
-// the payload from a signature.
+// VerifySignedContent extracts and validates the payload from a DSSE signature.
+// Verifies the payload type matches in-toto JSON format and the statement type is correct.
+// Returns the extracted Manifest or an error if validation fails.
 func VerifySignedContent(payloadType string, payload []byte) (*manifest.Manifest, error) {
 	if payloadType != InTotoJSONPayloadType {
 		return nil, fmt.Errorf("expected DSSE payload %s, but got %s", InTotoJSONPayloadType, payloadType)
@@ -45,7 +46,8 @@ func VerifySignedContent(payloadType string, payload []byte) (*manifest.Manifest
 	return DSSEPayloadToManifest(dssePayload)
 }
 
-// hexToBytes converts a hex string to bytes.
+// hexToBytes converts a hexadecimal string to bytes.
+// Returns the decoded bytes or an error if the hex string is invalid or has odd length.
 func hexToBytes(hexStr string) ([]byte, error) {
 	if len(hexStr)%2 != 0 {
 		return nil, fmt.Errorf("hex string has odd length")
@@ -63,7 +65,9 @@ func hexToBytes(hexStr string) ([]byte, error) {
 	return bytes, nil
 }
 
-// maskToken masks sensitive tokens for logging.
+// MaskToken masks sensitive tokens for safe logging.
+// Shows only the first 4 and last 4 characters, replacing the middle with "...".
+// Returns "***" for tokens with 8 or fewer characters, or empty string for empty input.
 func MaskToken(token string) string {
 	if token == "" {
 		return ""

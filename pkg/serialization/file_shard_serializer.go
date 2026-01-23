@@ -27,9 +27,12 @@ import (
 	"github.com/sigstore/model-signing/pkg/manifest"
 )
 
-// Sharded File Serializer produces a manifest recording every file shard.
-// It traverses model directory, splits each file into fixed-size shards and
-// computes digests for each shard in parallel.
+// ShardedFileSerializer serializes ML models at the shard level.
+//
+// It traverses the model directory, splits each file into fixed-size shards,
+// and computes digests for each shard in parallel. The resulting manifest
+// contains one item per shard rather than per file, enabling efficient
+// handling of large model files.
 type ShardedFileSerializer struct {
 	hasherFactory   fileio.ShardedFileHasherFactory
 	maxWorkers      int
@@ -39,11 +42,16 @@ type ShardedFileSerializer struct {
 	hashType        string
 }
 
-// NewShardedFileSerializer initializes a serializer that works at shard level.
+// NewShardedFileSerializer creates a new shard-level serializer.
 //
-// hasherFactory: builds the hash engine used to hash each file shard
-// maxWorkers: maximum number of workers to use in parallel. If <=0 then runtime.NumCPU() is used
-// baseIgnorePaths: paths to ignpre, stored in the serialization metadata
+// Parameters:
+//   - hasherFactory: factory function that creates sharded file hashers for computing shard digests
+//   - maxWorkers: maximum number of parallel workers for hashing; if <=0, uses runtime.NumCPU()
+//   - allowSymlinks: whether to follow symbolic links during traversal
+//   - baseIgnorePaths: paths to always ignore and record in serialization metadata
+//
+// Returns a configured ShardedFileSerializer or an error if the hasherFactory is nil,
+// does not return a proper ShardedFileHasher type, or if the shard size is invalid.
 func NewShardedFileSerializer(
 	hasherFactory fileio.ShardedFileHasherFactory,
 	maxWorkers int,
@@ -84,14 +92,26 @@ func NewShardedFileSerializer(
 	}, nil
 }
 
-// SetAllowSymlinks updates whether following symlinks is allowed.
+// SetAllowSymlinks updates whether symbolic links are followed during serialization.
+//
+// When set to true, symlinks are resolved and their targets are processed.
+// When false, symlinks cause an error during path validation.
 func (s *ShardedFileSerializer) SetAllowSymlinks(allow bool) {
 	s.allowSymlinks = allow
 }
 
-// Serialize implements serialization.Serializer
-// It walks modelPath, generates shard descriptors for each file,
-// hashes them and returns a manifest where each item corresponds to a file shard
+// Serialize walks the model directory and produces a shard-level manifest.
+//
+// It generates shard descriptors for each file (splitting files into fixed-size chunks),
+// computes their digests in parallel, and constructs a manifest with one item per shard.
+// This approach is particularly efficient for large model files.
+//
+// Parameters:
+//   - modelPath: path to the model (file or directory) to serialize
+//   - ignorePaths: additional paths to exclude from serialization
+//
+// Returns the constructed manifest or an error if validation, collection,
+// or hashing fails.
 func (s *ShardedFileSerializer) Serialize(
 	modelPath string,
 	ignorePaths []string,
@@ -134,8 +154,13 @@ type shardDescriptor struct {
 	start, end int64
 }
 
-// collectShards walks modelPath and computes shard descriptors for each file
-// that is not ignored.
+// collectShards walks modelPath and generates shard descriptors for each file.
+//
+// For each regular file that is not ignored, it determines the file size and
+// splits it into fixed-size shards, creating a descriptor for each shard with
+// its start and end byte offsets.
+//
+// Returns the list of shard descriptors or an error if walking or validation fails.
 func (s *ShardedFileSerializer) collectShards(
 	modelPath string,
 	ignorePaths []string,
@@ -190,8 +215,14 @@ func (s *ShardedFileSerializer) collectShards(
 	return shards, nil
 }
 
-// hashShards hashes all shard descriptors using a worker pool bounded by
-// maxWorkers or runtime.NumCPU()
+// hashShards computes digests for all shard descriptors using a worker pool.
+//
+// The worker pool is bounded by maxWorkers (or runtime.NumCPU() if maxWorkers <= 0).
+// Each worker independently hashes shards from the job queue and sends results
+// to a results channel.
+//
+// Returns manifest items for all successfully hashed shards, or the first error
+// encountered during hashing.
 func (s *ShardedFileSerializer) hashShards(
 	modelPath string,
 	shards []shardDescriptor,
@@ -261,6 +292,19 @@ func (s *ShardedFileSerializer) hashShards(
 	return items, nil
 }
 
+// computeShard computes the digest of a single file shard and constructs a manifest item.
+//
+// The file path in the resulting item is relative to modelPath, and the item includes
+// the shard's start and end byte offsets within the file.
+//
+// Parameters:
+//   - modelPath: root path of the model for computing relative paths
+//   - path: absolute path to the file containing this shard
+//   - start: starting byte offset of the shard (inclusive)
+//   - end: ending byte offset of the shard (exclusive)
+//
+// Returns a ShardedFileManifestItem or an error if hasher creation, digest
+// computation, or path relativization fails.
 func (s *ShardedFileSerializer) computeShard(
 	modelPath, path string,
 	start, end int64,
@@ -284,8 +328,17 @@ func (s *ShardedFileSerializer) computeShard(
 	return item, nil
 }
 
+// endpoints generates shard boundary positions from 0 to end at intervals of step.
+//
 // The last value is always exactly end, even if end is not a multiple of step.
-// There is always at least one value if step > 0 and end > 0.
+// This ensures the final shard covers any remaining bytes.
+//
+// Parameters:
+//   - step: size of each shard in bytes
+//   - end: total file size in bytes
+//
+// Returns a slice of endpoint positions, or nil if step or end is non-positive.
+// There is always at least one value if both parameters are positive.
 func endpoints(step, end int64) []int64 {
 	if step <= 0 || end <= 0 {
 		return nil
@@ -298,8 +351,13 @@ func endpoints(step, end int64) []int64 {
 	return out
 }
 
-// For call specific ignore paths, covert each to a path relative to modelPath
-// If relative path does not start with "../", record it
+// buildSerializationIgnorePaths constructs the final list of ignore paths for metadata.
+//
+// Base ignore paths are recorded as-is. Per-call ignorePaths are converted to paths
+// relative to modelPath and appended if they are valid child paths (not parent or
+// outside the model directory).
+//
+// Returns the combined list of ignore paths to record in serialization metadata.
 func (s *ShardedFileSerializer) buildSerializationIgnorePaths(
 	modelPath string,
 	ignorePaths []string,

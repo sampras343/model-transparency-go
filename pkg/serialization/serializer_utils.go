@@ -21,14 +21,24 @@ import (
 	"strings"
 )
 
-// CheckFileOrDirectory checks that the given path is either a file or a directory.
-// There is no support for sockets, pipes, or other special files.
-// Furthermore, this will return an error if the path is a broken symlink,
-// does not exist, or there are permission errors.
-// If allowSymlinks is false (the default), symlinks are rejected even if they
-// ultimately point to a regular file or directory.
+// CheckFileOrDirectory validates that a path is a regular file or directory.
+//
+// This function performs several checks:
+//   - Verifies the path exists and is accessible
+//   - Ensures the path is either a regular file or directory (not a socket, pipe, or special file)
+//   - Optionally validates symlink handling based on allowSymlinks parameter
+//   - When allowSymlinks is false, rejects symlinks even if they point to valid targets
+//   - When allowSymlinks is true, follows symlinks and validates their targets
+//
+// Parameters:
+//   - path: the filesystem path to validate
+//   - allowSymlinks: whether to permit symbolic links
+//
+// Returns nil if the path is valid, or an error describing why it is not.
+// Possible errors include: path does not exist, permission denied, broken symlink,
+// special file type, or symlink when not allowed.
 func CheckFileOrDirectory(path string, allowSymlinks bool) error {
-	// Use Lstat so we can detect symlinks without following them.
+	// Use Lstat to detect symlinks without following them.
 	info, err := os.Lstat(path)
 	if err != nil {
 		return fmt.Errorf("cannot use %q as file or directory: %w", path, err)
@@ -65,10 +75,21 @@ func CheckFileOrDirectory(path string, allowSymlinks bool) error {
 	return nil
 }
 
-// ShouldIgnore determines if the provided path should be ignored during serialization.
+// ShouldIgnore determines whether a path should be excluded from serialization.
 //
-// If an entry in ignorePaths is a directory, all of its children are also ignored.
-// The check is done using path relativity, similar to pathlib.Path.is_relative_to().
+// A path is ignored if it matches or is a descendant of any entry in ignorePaths.
+// When an ignorePaths entry is a directory, all of its children are also ignored.
+// The matching is based on path relativity, similar to Python's pathlib.Path.is_relative_to().
+//
+// Both the target path and ignore paths are converted to absolute paths before comparison
+// to ensure consistent matching regardless of how paths are specified.
+//
+// Parameters:
+//   - path: the path to check for exclusion
+//   - ignorePaths: list of paths that should be ignored
+//
+// Returns true if the path should be ignored, false otherwise.
+// Returns false if ignorePaths is empty or if path conversion to absolute fails.
 func ShouldIgnore(path string, ignorePaths []string) bool {
 	if len(ignorePaths) == 0 {
 		return false
@@ -76,7 +97,6 @@ func ShouldIgnore(path string, ignorePaths []string) bool {
 
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		// If we can't resolve the path, err on the side of not ignoring it.
 		return false
 	}
 

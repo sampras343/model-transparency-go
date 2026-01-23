@@ -86,7 +86,7 @@ func (v *Verifier) Verify(signature interfaces.Signature) (*manifest.Manifest, e
 		return nil, err
 	}
 
-	// Verify we have exactly one signature
+	// Verify exactly one signature
 	// Note: May need to change if we start appending signatures with incremental changes in model
 	if err := dsseEnvelope.ValidateSignatureCount(); err != nil {
 		return nil, err

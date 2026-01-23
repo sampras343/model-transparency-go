@@ -23,22 +23,34 @@ import (
 	"github.com/sigstore/model-signing/pkg/hashing/digests"
 )
 
-// ManifestItem represents an individual object of a model stored as an item
-// in a manifest. It pairs a canonical name with its digest.
+// ManifestItem represents an individual object of a model stored in a manifest.
+//
+// It pairs a canonical name with its cryptographic digest. Implementations
+// include FileManifestItem for complete files and ShardedFileManifestItem
+// for file shards.
 //
 //nolint:revive
 type ManifestItem interface {
+	// Name returns the canonical identifier for this item.
 	Name() string
+
+	// Digest returns the cryptographic hash of this item.
 	Digest() digests.Digest
 }
 
-// FileManifestItem records a filename path identigier with its digest
-// The path is currently stored as Canonical POSIX like form
+// FileManifestItem records a file path identifier with its digest.
+//
+// The path is stored in canonical POSIX-like form using forward slashes
+// as path separators.
 type FileManifestItem struct {
 	path   string
 	digest digests.Digest
 }
 
+// NewFileManifestItem creates a new file manifest item.
+//
+// The path parameter is automatically converted to POSIX form (forward slashes).
+// Returns a FileManifestItem pairing the canonical path with its digest.
 func NewFileManifestItem(path string, digest digests.Digest) *FileManifestItem {
 	key := filepath.ToSlash((path))
 	return &FileManifestItem{
@@ -47,19 +59,22 @@ func NewFileManifestItem(path string, digest digests.Digest) *FileManifestItem {
 	}
 }
 
-// Name returns the canonical identifier for the file (its POSIX path).
+// Name returns the canonical identifier for the file.
+//
+// Returns the file path in POSIX form (forward slash separators).
 func (item *FileManifestItem) Name() string {
 	return item.path
 }
 
-// Digest returns the digest of the file.
+// Digest returns the cryptographic hash of the file.
 func (item *FileManifestItem) Digest() digests.Digest {
 	return item.digest
 }
 
 // ShardedFileManifestItem records a file shard together with its digest.
 //
-// The shard represents the byte range [start, end) of the file.
+// A shard represents a contiguous byte range [start, end) within a file.
+// This is useful for hashing large files in chunks rather than as a whole.
 type ShardedFileManifestItem struct {
 	path   string
 	start  int64
@@ -67,8 +82,11 @@ type ShardedFileManifestItem struct {
 	digest digests.Digest
 }
 
-// NewShardedFileManifestItem builds a manifest item pairing a file shard
-// with its digest. The path is canonicalized to POSIX form.
+// NewShardedFileManifestItem builds a manifest item for a file shard.
+//
+// The path parameter is automatically converted to POSIX form. The start and
+// end parameters define the byte range [start, end) within the file.
+// Returns a ShardedFileManifestItem pairing the shard with its digest.
 func NewShardedFileManifestItem(path string, start, end int64, digest digests.Digest) *ShardedFileManifestItem {
 	canonical := filepath.ToSlash(path)
 	return &ShardedFileManifestItem{
@@ -79,17 +97,22 @@ func NewShardedFileManifestItem(path string, start, end int64, digest digests.Di
 	}
 }
 
-// Name returns the canonical identifier for the shard: "path:start:end".
+// Name returns the canonical identifier for the shard.
+//
+// Returns a string in the format "path:start:end" where path is in POSIX form.
 func (item *ShardedFileManifestItem) Name() string {
 	return fmt.Sprintf("%s:%d:%d", item.path, item.start, item.end)
 }
 
-// Digest returns the digest of the file shard.
+// Digest returns the cryptographic hash of the file shard.
 func (item *ShardedFileManifestItem) Digest() digests.Digest {
 	return item.digest
 }
 
 // parseShardName parses a shard identifier of the form "path:start:end".
+//
+// Returns the path, start offset, end offset, and an error if the format is
+// invalid or the numeric values cannot be parsed.
 func parseShardName(name string) (path string, start, end int64, err error) {
 	parts := strings.Split(name, ":")
 	if len(parts) != 3 {

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package sigstore provides Sigstore/Fulcio-based signing implementations.
 package sigstore
 
 import (
@@ -25,29 +26,36 @@ import (
 	"github.com/sigstore/model-signing/pkg/utils"
 )
 
+// SigstoreSignerOptions configures a SigstoreSigner instance.
+//
 //nolint:revive
 type SigstoreSignerOptions struct {
-	ModelPath             string
-	SignaturePath         string
-	IgnorePaths           []string
-	IgnoreGitPaths        bool
-	AllowSymlinks         bool
-	UseStaging            bool
-	OAuthForceOob         bool
-	UseAmbientCredentials bool
-	IdentityToken         string
-	ClientID              string
-	ClientSecret          string
-	TrustConfigPath       string
-	Logger                *utils.Logger
+	ModelPath             string        // ModelPath is the path to the model directory or file to sign.
+	SignaturePath         string        // SignaturePath is where the signature file will be written.
+	IgnorePaths           []string      // IgnorePaths specifies paths to exclude from hashing.
+	IgnoreGitPaths        bool          // IgnoreGitPaths indicates whether to exclude git-ignored files.
+	AllowSymlinks         bool          // AllowSymlinks indicates whether to follow symbolic links.
+	UseStaging            bool          // UseStaging indicates whether to use Sigstore staging infrastructure.
+	OAuthForceOob         bool          // OAuthForceOob forces out-of-band OAuth flow.
+	UseAmbientCredentials bool          // UseAmbientCredentials uses ambient OIDC credentials instead of interactive OAuth.
+	IdentityToken         string        // IdentityToken is a pre-obtained OIDC identity token.
+	ClientID              string        // ClientID is the OAuth client ID.
+	ClientSecret          string        // ClientSecret is the OAuth client secret.
+	TrustConfigPath       string        // TrustConfigPath is an optional path to custom trust root configuration.
+	Logger                *utils.Logger // Logger is used for debug and info output.
 }
 
+// SigstoreSigner implements ModelSigner using Sigstore/Fulcio signing.
+//
 //nolint:revive
 type SigstoreSigner struct {
 	opts   SigstoreSignerOptions
 	logger *utils.Logger
 }
 
+// NewSigstoreSigner creates a new SigstoreSigner with the given options.
+// Validates that required paths exist before returning.
+// Returns an error if validation fails.
 func NewSigstoreSigner(opts SigstoreSignerOptions) (*SigstoreSigner, error) {
 	// Validate if required paths exists
 	if err := utils.ValidatePathExists("model path", opts.ModelPath); err != nil {
@@ -76,11 +84,13 @@ func NewSigstoreSigner(opts SigstoreSignerOptions) (*SigstoreSigner, error) {
 
 // Sign performs the complete signing flow.
 //
-// This orchestrates:
+// Orchestrates:
 // 1. Hashing the model to create a manifest
 // 2. Creating a payload from the manifest
-// 3. Signing the payload with Sigstore
+// 3. Signing the payload with Sigstore (obtains ephemeral certificate via OIDC)
 // 4. Writing the signature bundle to disk
+//
+// Returns a Result with success status and message, or an error if any step fails.
 func (ss *SigstoreSigner) Sign(_ context.Context) (signing.Result, error) {
 	// Print signing configuration (debug only)
 	ss.logger.Debugln("Sigstore Signing")
@@ -99,7 +109,7 @@ func (ss *SigstoreSigner) Sign(_ context.Context) (signing.Result, error) {
 
 	// Resolve ignore paths
 	ignorePaths := ss.opts.IgnorePaths
-	// Add signature path to ignore list so we don't try to hash it
+	// Add signature path to ignore list
 	ignorePaths = append(ignorePaths, ss.opts.SignaturePath)
 
 	// Step 1: Hash the model to create a manifest

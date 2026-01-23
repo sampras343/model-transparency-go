@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package interfaces defines core abstractions for signing and verification operations.
 package interfaces
 
 // Signature represents a cryptographic signature over a model.
@@ -19,6 +20,7 @@ package interfaces
 // Implementations wrap different signature formats (e.g., Sigstore bundles).
 type Signature interface {
 	// Write serializes the signature to the given path.
+	// Returns an error if writing fails.
 	Write(path string) error
 }
 
@@ -28,6 +30,6 @@ type Signature interface {
 // operation (creates new instances), while Write is an instance method.
 type SignatureReader interface {
 	// Read deserializes a signature from the given path.
-	// Returns a concrete implementation of Signature.
+	// Returns a concrete implementation of Signature or an error if reading fails.
 	Read(path string) (Signature, error)
 }

@@ -25,7 +25,7 @@ import (
 	"github.com/sigstore/model-signing/pkg/manifest"
 )
 
-// Config holds configuration for hashing models.
+// HashingConfig holds configuration for hashing models.
 //
 // It determines which files to hash, how to hash them, and which files to ignore.
 type HashingConfig struct {
@@ -54,7 +54,7 @@ type HashingConfig struct {
 // PathLike is a type alias for path-like strings.
 type PathLike = string
 
-// Common git-related paths to ignore
+// gitRelatedPaths defines common git-related paths to ignore during hashing.
 var gitRelatedPaths = []string{
 	".git",
 	".gitignore",
@@ -64,6 +64,11 @@ var gitRelatedPaths = []string{
 }
 
 // NewHashingConfig creates a new hashing configuration with defaults.
+//
+// Defaults: file serialization, sha256 hash, symlinks disabled,
+// no ignored paths, 8KB chunk size.
+//
+// Returns a HashingConfig ready for customization via method chaining.
 func NewHashingConfig() *HashingConfig {
 	return &HashingConfig{
 		serializationMethod: "files",
@@ -79,6 +84,13 @@ func NewHashingConfig() *HashingConfig {
 // UseFileSerialization configures the hasher to use file-based serialization.
 //
 // In this mode, each file is hashed entirely as a single unit.
+//
+// Parameters:
+//   - hashAlgorithm: Hash algorithm name (e.g., "sha256", "blake2b")
+//   - allowSymlinks: Whether to follow and hash symbolic links
+//   - ignorePaths: Paths to ignore during hashing
+//
+// Returns the HashingConfig for method chaining.
 func (c *HashingConfig) UseFileSerialization(hashAlgorithm string, allowSymlinks bool, ignorePaths []string) *HashingConfig {
 	c.serializationMethod = "files"
 	c.hashAlgorithm = hashAlgorithm
@@ -93,6 +105,14 @@ func (c *HashingConfig) UseFileSerialization(hashAlgorithm string, allowSymlinks
 //
 // In this mode, large files are split into fixed-size shards, and each shard
 // is hashed separately.
+//
+// Parameters:
+//   - hashAlgorithm: Hash algorithm name (e.g., "sha256", "blake2b")
+//   - shardSize: Size of each shard in bytes
+//   - allowSymlinks: Whether to follow and hash symbolic links
+//   - ignorePaths: Paths to ignore during hashing
+//
+// Returns the HashingConfig for method chaining.
 func (c *HashingConfig) UseShardSerialization(hashAlgorithm string, shardSize int64, allowSymlinks bool, ignorePaths []string) *HashingConfig {
 	c.serializationMethod = "shards"
 	c.hashAlgorithm = hashAlgorithm
@@ -108,6 +128,12 @@ func (c *HashingConfig) UseShardSerialization(hashAlgorithm string, shardSize in
 //
 // If ignoreGitPaths is true, common git-related paths are also ignored and
 // stored in the manifest so verification can automatically apply them.
+//
+// Parameters:
+//   - paths: List of paths to ignore (relative to model root)
+//   - ignoreGitPaths: Whether to automatically ignore .git and related paths
+//
+// Returns the HashingConfig for method chaining.
 func (c *HashingConfig) SetIgnoredPaths(paths []string, ignoreGitPaths bool) *HashingConfig {
 	c.ignoredPaths = paths
 	c.ignoreGitPaths = ignoreGitPaths
@@ -123,7 +149,12 @@ func (c *HashingConfig) SetIgnoredPaths(paths []string, ignoreGitPaths bool) *Ha
 // AddIgnoredPaths adds additional paths to the ignore list.
 //
 // The paths are interpreted relative to modelPath.
-// Returns the config for method chaining (builder pattern).
+//
+// Parameters:
+//   - modelPath: Base path for resolving relative paths
+//   - paths: Paths to add to the ignore list (can be absolute or relative)
+//
+// Returns the HashingConfig for method chaining.
 func (c *HashingConfig) AddIgnoredPaths(modelPath string, paths []string) *HashingConfig {
 	for _, p := range paths {
 		// Make path absolute relative to model path if not already absolute
@@ -139,12 +170,19 @@ func (c *HashingConfig) AddIgnoredPaths(modelPath string, paths []string) *Hashi
 }
 
 // SetAllowSymlinks sets whether to follow symbolic links.
+//
+// Returns the HashingConfig for method chaining.
 func (c *HashingConfig) SetAllowSymlinks(allow bool) *HashingConfig {
 	c.allowSymlinks = allow
 	return c
 }
 
 // SetChunkSize sets the chunk size for file reading.
+//
+// A size of 0 means files are read all at once. Non-zero values enable
+// chunked reading for memory efficiency with large files.
+//
+// Returns the HashingConfig for method chaining.
 func (c *HashingConfig) SetChunkSize(size int) *HashingConfig {
 	c.chunkSize = size
 	return c
@@ -154,6 +192,12 @@ func (c *HashingConfig) SetChunkSize(size int) *HashingConfig {
 //
 // If filesToHash is nil, all files in the directory are hashed (subject to ignore rules).
 // If filesToHash is provided, only those specific files are hashed.
+//
+// Parameters:
+//   - modelPath: Path to the model directory to hash
+//   - filesToHash: Optional list of specific files to hash (nil means all files)
+//
+// Returns a Manifest containing all hashed files and their digests.
 func (c *HashingConfig) Hash(modelPath string, filesToHash []string) (*manifest.Manifest, error) {
 	// Get absolute path for model
 	absModelPath, err := filepath.Abs(modelPath)
@@ -209,6 +253,9 @@ func (c *HashingConfig) Hash(modelPath string, filesToHash []string) (*manifest.
 }
 
 // walkDirectory walks the model directory and returns all file paths to hash.
+//
+// Returns a list of absolute file paths that should be hashed, respecting
+// ignore rules and symlink configuration.
 func (c *HashingConfig) walkDirectory(modelPath string) ([]string, error) {
 	var files []string
 
@@ -261,6 +308,8 @@ func (c *HashingConfig) walkDirectory(modelPath string) ([]string, error) {
 }
 
 // shouldIgnorePath checks if a path should be ignored based on configuration.
+//
+// Returns true if the path matches any configured ignore patterns.
 func (c *HashingConfig) shouldIgnorePath(path, modelPath string) bool {
 	// Get relative path from model root
 	relPath, err := filepath.Rel(modelPath, path)
@@ -290,6 +339,8 @@ func (c *HashingConfig) shouldIgnorePath(path, modelPath string) bool {
 }
 
 // hashFiles hashes files using file-based serialization.
+//
+// Returns a list of ManifestItems, one per file.
 func (c *HashingConfig) hashFiles(modelPath string, filePaths []string) ([]manifest.ManifestItem, error) {
 	items := make([]manifest.ManifestItem, 0, len(filePaths))
 
@@ -321,6 +372,9 @@ func (c *HashingConfig) hashFiles(modelPath string, filePaths []string) ([]manif
 }
 
 // hashFilesWithShards hashes files using shard-based serialization.
+//
+// Returns a list of ManifestItems, potentially multiple per file if
+// files are larger than the configured shard size.
 func (c *HashingConfig) hashFilesWithShards(modelPath string, filePaths []string) ([]manifest.ManifestItem, error) {
 	items := make([]manifest.ManifestItem, 0)
 
@@ -371,6 +425,8 @@ func (c *HashingConfig) hashFilesWithShards(modelPath string, filePaths []string
 }
 
 // createFileHasher creates a file hasher based on the configured algorithm.
+//
+// Returns a FileHasher configured with the appropriate hash engine and chunk size.
 func (c *HashingConfig) createFileHasher(filePath string) (hashio.FileHasher, error) {
 	contentHasher, err := c.createContentHasher()
 	if err != nil {
@@ -381,6 +437,13 @@ func (c *HashingConfig) createFileHasher(filePath string) (hashio.FileHasher, er
 }
 
 // createShardedFileHasher creates a sharded file hasher.
+//
+// Parameters:
+//   - filePath: Path to the file to hash
+//   - start: Starting byte offset for this shard
+//   - end: Ending byte offset for this shard
+//
+// Returns a FileHasher configured for the specified shard.
 func (c *HashingConfig) createShardedFileHasher(filePath string, start, end int64) (hashio.FileHasher, error) {
 	contentHasher, err := c.createContentHasher()
 	if err != nil {
@@ -390,7 +453,9 @@ func (c *HashingConfig) createShardedFileHasher(filePath string, start, end int6
 	return hashio.NewShardedFileHasher(filePath, contentHasher, start, end, c.chunkSize, c.shardSize, "")
 }
 
-// createContentHasher creates a streaming hash engine based on the HashingConfigured algorithm.
+// createContentHasher creates a streaming hash engine based on the configured algorithm.
+//
+// Returns a StreamingHashEngine for the configured hash algorithm.
 func (c *HashingConfig) createContentHasher() (hashengines.StreamingHashEngine, error) {
 	// Use the hash engine registry for creating engines
 	return hashengines.Create(c.hashAlgorithm)

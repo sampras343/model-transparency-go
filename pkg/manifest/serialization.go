@@ -20,22 +20,21 @@ import (
 	"github.com/sigstore/model-signing/pkg/hashing/digests"
 )
 
-// SerializationType describes the serialization process that generated
-// the manifest. It records enough parameters to recreate the manifest
-// deterministically from a model.
+// SerializationType describes the serialization process that generated a manifest.
 //
-// Parameters() returns a map that can be serialized (e.g. into JSON),
-// and from which the same SerializationType can be reconstructed.
+// It records sufficient parameters to deterministically recreate the manifest
+// from a model. The Parameters method returns a map that can be serialized
+// (e.g., into JSON) and used to reconstruct the same SerializationType.
 type SerializationType interface {
-	// Method returns the serialization method identifier (e.g. "files", "shards").
+	// Method returns the serialization method identifier (e.g., "files" or "shards").
 	Method() string
 
-	// Parameters returns the arguments of the serialization method as a map.
-	// The returned map is safe to serialize; callers should treat it as
-	// read-only and not retain it for mutation.
+	// Parameters returns the serialization method arguments as a map.
+	// The returned map is safe to serialize. Callers should treat it as
+	// read-only and avoid mutation.
 	Parameters() map[string]any
 
-	// NewItem builds a ManifestItem of the correct type, parsing the given
+	// NewItem builds a ManifestItem of the appropriate type, parsing the given
 	// name according to the serialization method.
 	NewItem(name string, digest digests.Digest) (ManifestItem, error)
 }
@@ -45,8 +44,12 @@ const (
 	shardMethod = "shards"
 )
 
-// SerializationTypeFromArgs reconstructs a SerializationType from a map
-// representation, the inverse of SerializationType.Parameters().
+// SerializationTypeFromArgs reconstructs a SerializationType from a map.
+//
+// This is the inverse of SerializationType.Parameters(). The args map must
+// contain a "method" field indicating the serialization type.
+// Returns the reconstructed SerializationType or an error if the args are
+// invalid or incomplete.
 func SerializationTypeFromArgs(args map[string]any) (SerializationType, error) {
 	rawMethod, ok := args["method"]
 	if !ok {
@@ -68,8 +71,9 @@ func SerializationTypeFromArgs(args map[string]any) (SerializationType, error) {
 	}
 }
 
-// FileSerialization records the manifest serialization type for
-// serialization by files.
+// FileSerialization represents serialization parameters for whole-file hashing.
+//
+// This serialization type hashes entire files without sharding.
 type FileSerialization struct {
 	hashType      string
 	allowSymlinks bool
@@ -77,6 +81,11 @@ type FileSerialization struct {
 }
 
 // NewFileSerialization constructs a FileSerialization instance.
+//
+// The hashType parameter specifies the hash algorithm to use. The allowSymlinks
+// parameter controls whether symbolic links are followed. The ignorePaths slice
+// lists path patterns to exclude from hashing.
+// Returns a new FileSerialization with a copy of the ignorePaths slice.
 func NewFileSerialization(hashType string, allowSymlinks bool, ignorePaths []string) *FileSerialization {
 	pathsCopy := make([]string, len(ignorePaths))
 	copy(pathsCopy, ignorePaths)
@@ -88,12 +97,17 @@ func NewFileSerialization(hashType string, allowSymlinks bool, ignorePaths []str
 	}
 }
 
-// Method implements SerializationType.
+// Method returns the serialization method identifier.
+//
+// Returns "files" for file-based serialization.
 func (s *FileSerialization) Method() string {
 	return fileMethod
 }
 
-// Parameters implements SerializationType.
+// Parameters returns the serialization method arguments as a map.
+//
+// The returned map contains method, hash_type, allow_symlinks, and optionally
+// ignore_paths. Returns a new map with a copy of the ignorePaths slice.
 func (s *FileSerialization) Parameters() map[string]any {
 	params := map[string]any{
 		"method":         s.Method(),
@@ -108,12 +122,17 @@ func (s *FileSerialization) Parameters() map[string]any {
 	return params
 }
 
-// NewItem implements SerializationType.
+// NewItem creates a ManifestItem from a name and digest.
+//
 // For file serialization, the name is treated as a POSIX path.
+// Returns a FileManifestItem.
 func (s *FileSerialization) NewItem(name string, digest digests.Digest) (ManifestItem, error) {
 	return NewFileManifestItem(name, digest), nil
 }
 
+// fileSerializationFromArgs reconstructs a FileSerialization from a parameter map.
+//
+// Returns an error if required fields are missing or have incorrect types.
 func fileSerializationFromArgs(args map[string]any) (*FileSerialization, error) {
 	rawHashType, ok := args["hash_type"]
 	if !ok {
@@ -154,8 +173,10 @@ func fileSerializationFromArgs(args map[string]any) (*FileSerialization, error) 
 	return NewFileSerialization(hashType, allowSymlinks, ignorePaths), nil
 }
 
-// ShardSerialization records the manifest serialization type when
-// files are split into shards of a fixed size.
+// ShardSerialization represents serialization parameters for shard-based hashing.
+//
+// This serialization type splits files into fixed-size shards and hashes each
+// shard independently.
 type ShardSerialization struct {
 	hashType      string
 	shardSize     int64
@@ -164,6 +185,12 @@ type ShardSerialization struct {
 }
 
 // NewShardSerialization constructs a ShardSerialization instance.
+//
+// The hashType parameter specifies the hash algorithm to use. The shardSize
+// parameter sets the size of each shard in bytes. The allowSymlinks parameter
+// controls whether symbolic links are followed. The ignorePaths slice lists
+// path patterns to exclude from hashing.
+// Returns a new ShardSerialization with a copy of the ignorePaths slice.
 func NewShardSerialization(hashType string, shardSize int64, allowSymlinks bool, ignorePaths []string) *ShardSerialization {
 	pathsCopy := make([]string, len(ignorePaths))
 	copy(pathsCopy, ignorePaths)
@@ -176,12 +203,17 @@ func NewShardSerialization(hashType string, shardSize int64, allowSymlinks bool,
 	}
 }
 
-// Method implements SerializationType.
+// Method returns the serialization method identifier.
+//
+// Returns "shards" for shard-based serialization.
 func (s *ShardSerialization) Method() string {
 	return shardMethod
 }
 
-// Parameters implements SerializationType.
+// Parameters returns the serialization method arguments as a map.
+//
+// The returned map contains method, hash_type, shard_size, allow_symlinks,
+// and optionally ignore_paths. Returns a new map with a copy of the ignorePaths slice.
 func (s *ShardSerialization) Parameters() map[string]any {
 	params := map[string]any{
 		"method":         s.Method(),
@@ -197,8 +229,10 @@ func (s *ShardSerialization) Parameters() map[string]any {
 	return params
 }
 
-// NewItem implements SerializationType.
-// For shard serialization, the name must be "path:start:end".
+// NewItem creates a ManifestItem from a name and digest.
+//
+// For shard serialization, the name must be in the format "path:start:end".
+// Returns a ShardedFileManifestItem or an error if the name format is invalid.
 func (s *ShardSerialization) NewItem(name string, digest digests.Digest) (ManifestItem, error) {
 	path, start, end, err := parseShardName(name)
 	if err != nil {
@@ -207,6 +241,9 @@ func (s *ShardSerialization) NewItem(name string, digest digests.Digest) (Manife
 	return NewShardedFileManifestItem(path, start, end, digest), nil
 }
 
+// shardSerializationFromArgs reconstructs a ShardSerialization from a parameter map.
+//
+// Returns an error if required fields are missing or have incorrect types.
 func shardSerializationFromArgs(args map[string]any) (*ShardSerialization, error) {
 	rawHashType, ok := args["hash_type"]
 	if !ok {

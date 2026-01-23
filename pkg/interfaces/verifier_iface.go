@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package interfaces defines core abstractions for signing and verification operations.
 package interfaces
 
 import (
@@ -30,7 +31,7 @@ import (
 // For complete model verification (signature + hashing + comparison),
 // use the higher-level config.Config.Verify() method instead.
 type SignatureVerifier interface {
-	// Verify checks the signature's authenticity and returns the manifest.
-	// Returns an error if verification fails.
+	// Verify checks the signature's authenticity and returns the embedded manifest.
+	// Returns the manifest if verification succeeds, or an error if verification fails.
 	Verify(signature Signature) (*manifest.Manifest, error)
 }

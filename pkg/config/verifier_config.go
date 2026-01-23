@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package config provides configuration types for model signing and verification.
+//
+// This package includes configurations for verifying models against signatures,
+// hashing models with different serialization strategies, and managing cryptographic
+// keys and trust roots.
 package config
 
 import (
@@ -38,6 +43,9 @@ type Config struct {
 }
 
 // NewVerifierConfig creates a new verification configuration with defaults.
+//
+// Returns a Config with no verifier set, no hashing config (auto-guess enabled),
+// and ignoreUnsignedFiles set to false.
 func NewVerifierConfig() *Config {
 	return &Config{
 		hashingConfig:       nil,
@@ -54,6 +62,12 @@ func NewVerifierConfig() *Config {
 // 3. Guesses hashing config if not explicitly set
 // 4. Hashes the model files
 // 5. Compares actual vs expected manifests
+//
+// Parameters:
+//   - modelPath: Path to the model directory or file to verify
+//   - signaturePath: Path to the signature file
+//
+// Returns an error if verification fails at any step.
 func (c *Config) Verify(modelPath, signaturePath string) error {
 	if c.verifier == nil {
 		return fmt.Errorf("attempting to verify with no configured verifier")
@@ -61,7 +75,6 @@ func (c *Config) Verify(modelPath, signaturePath string) error {
 
 	// Read signature from disk
 	// Note: The signature type must match the verifier type
-	// For now, we assume it's a Sigstore signature since that's what we support
 	reader := c.createSignatureReader()
 	signature, err := reader.Read(signaturePath)
 	if err != nil {
@@ -80,18 +93,6 @@ func (c *Config) Verify(modelPath, signaturePath string) error {
 			return fmt.Errorf("failed to determine hashing config: %w", err)
 		}
 	}
-
-	// IMPORTANT: Do NOT automatically apply ignore_paths from the manifest.
-	// The manifest's ignore_paths are part of the signed serialization parameters,
-	// which will be compared during verification. If the user provides different
-	// ignore settings during verification than what was used during signing,
-	// the verification should fail with a manifest mismatch.
-	//
-	// Previously, this code would automatically add the manifest's ignore_paths
-	// to the hashing config, which meant the verifier would always match the
-	// signer's ignore settings, defeating the purpose of verifying the exact
-	// set of files that were signed.
-
 	// Determine which files to hash
 	var filesToHash []string
 	if c.ignoreUnsignedFiles {
@@ -122,6 +123,8 @@ func (c *Config) Verify(modelPath, signaturePath string) error {
 //
 // After calling this method, automatic guessing of the hashing configuration
 // is disabled for this Config instance.
+//
+// Returns the Config for method chaining.
 func (c *Config) SetHashingConfig(hashingConfig *HashingConfig) *Config {
 	c.hashingConfig = hashingConfig
 	return c
@@ -131,6 +134,8 @@ func (c *Config) SetHashingConfig(hashingConfig *HashingConfig) *Config {
 //
 // When enabled, only files present in the manifest are hashed and verified.
 // Files not in the manifest are ignored rather than causing verification to fail.
+//
+// Returns the Config for method chaining.
 func (c *Config) SetIgnoreUnsignedFiles(ignore bool) *Config {
 	c.ignoreUnsignedFiles = ignore
 	return c
@@ -139,6 +144,8 @@ func (c *Config) SetIgnoreUnsignedFiles(ignore bool) *Config {
 // SetVerifier sets the signature verifier to use.
 //
 // This accepts any SignatureVerifier implementation (e.g., Sigstore, certificate-based, key-based).
+//
+// Returns the Config for method chaining.
 func (c *Config) SetVerifier(verifier interfaces.SignatureVerifier) *Config {
 	c.verifier = verifier
 	return c
@@ -149,6 +156,8 @@ func (c *Config) SetVerifier(verifier interfaces.SignatureVerifier) *Config {
 // This is a helper method that returns the correct signature reader type.
 // In the future, this could be made more sophisticated to handle multiple
 // signature formats.
+//
+// Returns a SignatureReader interface implementation.
 func (c *Config) createSignatureReader() interfaces.SignatureReader {
 	// Check if the verifier implements SignatureReader interface
 	// Certificate verifiers implement this to provide their own signature reading
@@ -164,6 +173,8 @@ func (c *Config) createSignatureReader() interfaces.SignatureReader {
 //
 // This parses the serialization parameters in the manifest to reconstruct
 // the hashing configuration that was used during signing.
+//
+// Returns an error if required parameters are missing or invalid.
 func (c *Config) guessHashingConfig(sourceManifest *manifest.Manifest) error {
 	params := sourceManifest.SerializationParameters()
 	extractor := manifest.NewParamExtractor(params)
@@ -215,6 +226,10 @@ func (c *Config) guessHashingConfig(sourceManifest *manifest.Manifest) error {
 }
 
 // getManifestDiff computes the differences between actual and expected manifests.
+//
+// Parameters:
+//   - actual: The manifest computed from the model being verified
+//   - expected: The manifest extracted from the signature
 //
 // Returns a list of human-readable difference messages.
 func (c *Config) getManifestDiff(actual, expected *manifest.Manifest) []string {
@@ -287,6 +302,9 @@ func (c *Config) getManifestDiff(actual, expected *manifest.Manifest) []string {
 }
 
 // formatDiffMessages formats a list of diff messages into a single string.
+//
+// Returns a newline-separated string of all difference messages,
+// or "no differences found" if the list is empty.
 func formatDiffMessages(diffs []string) string {
 	if len(diffs) == 0 {
 		return "no differences found"

@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package main provides the entry point for the model-signing CLI application.
+// It handles command execution and error processing with appropriate exit codes.
 package main
 
 import (
@@ -22,8 +24,12 @@ import (
 	"github.com/sigstore/model-signing/cmd/model-signing/cli"
 )
 
+// ExitCoder represents an error that carries a specific exit code.
+// It extends the error interface to provide custom exit code information
+// for different error conditions.
 type ExitCoder interface {
 	error
+	// ExitCode returns the exit code that should be used when this error occurs.
 	ExitCode() int
 }
 

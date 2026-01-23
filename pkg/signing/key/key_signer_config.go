@@ -34,23 +34,26 @@ var _ interfaces.Signer = (*LocalKeySigner)(nil)
 // Bundle media type for Sigstore bundle v0.3
 const bundleMediaType = "application/vnd.dev.sigstore.bundle.v0.3+json"
 
-// KeySignerConfig holds configuration for creating a Key signer.
+// KeySignerConfig holds configuration for creating a local key signer.
 //
 //nolint:revive
 type KeySignerConfig struct {
-	// Embedded key configuration for loading private keys
+	// KeyConfig provides private key loading functionality.
 	config.KeyConfig
 }
 
-// LocalKeySigner signs model manifests using key.
+// LocalKeySigner signs model manifests using a local private key.
+// Implements the interfaces.Signer interface.
 type LocalKeySigner struct {
 	config     KeySignerConfig
 	privateKey crypto.PrivateKey
 	publicKey  crypto.PublicKey
-	keyHash    string
+	keyHash    string // Hash of public key used as verification material hint
 }
 
 // NewLocalKeySigner creates a new private key signer with the given configuration.
+// Loads and validates the private key, extracts the public key, and computes the key hash.
+// Returns an error if key loading or processing fails.
 func NewLocalKeySigner(cfg KeySignerConfig) (*LocalKeySigner, error) {
 	// Load private key using shared configuration primitive
 	privateKey, err := cfg.LoadPrivateKey()
@@ -80,8 +83,9 @@ func NewLocalKeySigner(cfg KeySignerConfig) (*LocalKeySigner, error) {
 
 // Sign signs a payload and returns a Sigstore bundle signature.
 //
-// This creates a DSSE envelope with the signed payload and wraps it
+// Creates a DSSE envelope with the signed payload and wraps it
 // in a Sigstore bundle format for compatibility with verification.
+// Returns an error if serialization, signing, or bundle creation fails.
 func (s *LocalKeySigner) Sign(payload *interfaces.Payload) (interfaces.Signature, error) {
 	// Convert payload to JSON
 	payloadJSON, err := payload.ToJSON()
@@ -121,7 +125,7 @@ func (s *LocalKeySigner) Sign(payload *interfaces.Payload) (interfaces.Signature
 
 // createVerificationMaterial creates the verification material for the bundle.
 //
-// This includes the public key hint (hash) which can be used to identify
+// Includes the public key hint (hash) which can be used to identify
 // which public key should be used for verification.
 func (s *LocalKeySigner) createVerificationMaterial() *protobundle.VerificationMaterial {
 	return &protobundle.VerificationMaterial{

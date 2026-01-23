@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package certificate provides certificate-based verification implementations.
 package certificate
 
 import (
@@ -31,18 +32,19 @@ var _ verify.ModelVerifier = (*CertificateVerifier)(nil)
 //
 //nolint:revive
 type CertificateVerifierOptions struct {
-	ModelPath           string
-	SignaturePath       string
-	IgnorePaths         []string
-	IgnoreGitPaths      bool
-	AllowSymlinks       bool
-	CertificateChain    []string
-	IgnoreUnsignedFiles bool
-	LogFingerprints     bool
-	Logger              *utils.Logger
+	ModelPath           string        // ModelPath is the path to the model directory or file to verify.
+	SignaturePath       string        // SignaturePath is the path to the signature file.
+	IgnorePaths         []string      // IgnorePaths specifies paths to exclude from verification.
+	IgnoreGitPaths      bool          // IgnoreGitPaths indicates whether to exclude git-ignored files.
+	AllowSymlinks       bool          // AllowSymlinks indicates whether to follow symbolic links.
+	CertificateChain    []string      // CertificateChain is the list of certificate paths for verification.
+	IgnoreUnsignedFiles bool          // IgnoreUnsignedFiles allows verification to succeed even if extra files exist.
+	LogFingerprints     bool          // LogFingerprints indicates whether to log certificate fingerprints.
+	Logger              *utils.Logger // Logger is used for debug and info output.
 }
 
 // CertificateVerifier provides high-level verification with validation.
+// Implements the verify.ModelVerifier interface.
 //
 //nolint:revive
 type CertificateVerifier struct {
@@ -51,6 +53,8 @@ type CertificateVerifier struct {
 }
 
 // NewCertificateVerifier creates a new high-level certificate verifier with validation.
+// Validates that required paths exist before returning.
+// Returns an error if validation fails.
 func NewCertificateVerifier(opts CertificateVerifierOptions) (*CertificateVerifier, error) {
 	// Validate if required paths exists (model can be a file or folder)
 	if err := utils.ValidatePathExists("model path", opts.ModelPath); err != nil {
@@ -84,12 +88,14 @@ func NewCertificateVerifier(opts CertificateVerifierOptions) (*CertificateVerifi
 
 // Verify performs the complete verification flow.
 //
-// This orchestrates:
-// 1. Creating a certificate-based verifier
-// 2. Setting up hashing configuration
-// 3. Verifying the signature cryptographically
-// 4. Hashing the model files
-// 5. Comparing actual vs expected manifests
+// Orchestrates:
+// 1. Creates a certificate-based verifier
+// 2. Sets up hashing configuration
+// 3. Verifies the signature cryptographically using the certificate chain
+// 4. Hashes the model files
+// 5. Compares actual vs expected manifests
+//
+// Returns a Result with success status and message, or an error if verification fails.
 func (cv *CertificateVerifier) Verify(_ context.Context) (verify.Result, error) {
 	cv.logger.Debugln("Certificate-based verification")
 	cv.logger.Debug("  MODEL_PATH:              %s", filepath.Clean(cv.opts.ModelPath))

@@ -18,15 +18,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// CommonModelFlags contains flags shared by all signing and verification commands
+// CommonModelFlags contains flags shared by all signing and verification commands.
+// These flags control model path handling, signature location, and file filtering.
 type CommonModelFlags struct {
-	SignaturePath  string   // --signature SIGNATURE_PATH (required)
-	IgnorePaths    []string // --ignore-paths
-	IgnoreGitPaths bool     // --ignore-git-paths (default true)
-	AllowSymlinks  bool     // --allow-symlinks
+	// SignaturePath specifies the location of the signature file.
+	SignaturePath string
+	// IgnorePaths lists file paths to exclude from signing or verification.
+	IgnorePaths []string
+	// IgnoreGitPaths controls whether git-related files are automatically excluded.
+	IgnoreGitPaths bool
+	// AllowSymlinks determines whether symbolic links should be followed.
+	AllowSymlinks bool
 }
 
-// AddFlagsForSigning adds common model flags for signing commands
+// AddFlagsForSigning adds common model flags for signing commands.
+// The signature flag defaults to "model.sig" and is not required.
 func (o *CommonModelFlags) AddFlagsForSigning(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.SignaturePath, "signature", "model.sig", "Location of the signature file to generate. Defaults to model.sig")
 	cmd.Flags().StringSliceVar(&o.IgnorePaths, "ignore-paths", nil, "File paths to ignore when signing or verifying.")
@@ -34,7 +40,8 @@ func (o *CommonModelFlags) AddFlagsForSigning(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&o.AllowSymlinks, "allow-symlinks", false, "Whether to allow following symlinks when signing or verifying files.")
 }
 
-// AddFlagsForVerify adds common model flags for verification commands
+// AddFlagsForVerify adds common model flags for verification commands.
+// The signature flag is required for verification operations.
 func (o *CommonModelFlags) AddFlagsForVerify(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.SignaturePath, "signature", "", "Location of the signature file to verify. [required]")
 	_ = cmd.MarkFlagRequired("signature")
@@ -43,12 +50,16 @@ func (o *CommonModelFlags) AddFlagsForVerify(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&o.AllowSymlinks, "allow-symlinks", false, "Whether to allow following symlinks when signing or verifying files.")
 }
 
-// CommonVerifyFlags contains flags shared by all verification commands
+// CommonVerifyFlags contains flags shared by all verification commands.
+// These flags control verification behavior for unsigned files.
 type CommonVerifyFlags struct {
+	// IgnoreUnsignedFiles determines whether files present in the model
+	// but not in the signature should be ignored or cause verification to fail.
 	IgnoreUnsignedFiles bool
 }
 
-// AddFlags adds common verification flags to the cobra command
+// AddFlags adds common verification flags to the cobra command.
+// This includes the flag for handling unsigned files during verification.
 func (o *CommonVerifyFlags) AddFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&o.IgnoreUnsignedFiles, "ignore-unsigned-files", true, "Ignore files in model that are not in signature.")
 }
