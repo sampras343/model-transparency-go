@@ -26,21 +26,23 @@ import (
 	"github.com/sigstore/model-signing/pkg/utils"
 )
 
-//nolint:revive
 // KeySignerOptions configures a KeySigner instance.
+//
+//nolint:revive
 type KeySignerOptions struct {
-	ModelPath      string         // ModelPath is the path to the model directory or file to sign.
-	SignaturePath  string         // SignaturePath is where the signature file will be written.
-	IgnorePaths    []string       // IgnorePaths specifies paths to exclude from hashing.
-	IgnoreGitPaths bool           // IgnoreGitPaths indicates whether to exclude git-ignored files.
-	AllowSymlinks  bool           // AllowSymlinks indicates whether to follow symbolic links.
-	PrivateKeyPath string         // PrivateKeyPath is the path to the private key file.
-	Password       string         // Password is the optional password for the private key.
-	Logger         *utils.Logger  // Logger is used for debug and info output.
+	ModelPath      string        // ModelPath is the path to the model directory or file to sign.
+	SignaturePath  string        // SignaturePath is where the signature file will be written.
+	IgnorePaths    []string      // IgnorePaths specifies paths to exclude from hashing.
+	IgnoreGitPaths bool          // IgnoreGitPaths indicates whether to exclude git-ignored files.
+	AllowSymlinks  bool          // AllowSymlinks indicates whether to follow symbolic links.
+	PrivateKeyPath string        // PrivateKeyPath is the path to the private key file.
+	Password       string        // Password is the optional password for the private key.
+	Logger         *utils.Logger // Logger is used for debug and info output.
 }
 
-//nolint:revive
 // KeySigner implements ModelSigner using local private key-based signing.
+//
+//nolint:revive
 type KeySigner struct {
 	opts   KeySignerOptions
 	logger *utils.Logger

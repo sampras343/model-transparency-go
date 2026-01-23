@@ -26,8 +26,9 @@ import (
 	"github.com/sigstore/model-signing/pkg/utils"
 )
 
-//nolint:revive
 // SigstoreSignerOptions configures a SigstoreSigner instance.
+//
+//nolint:revive
 type SigstoreSignerOptions struct {
 	ModelPath             string        // ModelPath is the path to the model directory or file to sign.
 	SignaturePath         string        // SignaturePath is where the signature file will be written.
@@ -44,8 +45,9 @@ type SigstoreSignerOptions struct {
 	Logger                *utils.Logger // Logger is used for debug and info output.
 }
 
-//nolint:revive
 // SigstoreSigner implements ModelSigner using Sigstore/Fulcio signing.
+//
+//nolint:revive
 type SigstoreSigner struct {
 	opts   SigstoreSignerOptions
 	logger *utils.Logger

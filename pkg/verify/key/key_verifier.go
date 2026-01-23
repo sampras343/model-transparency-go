@@ -32,14 +32,14 @@ var _ verify.ModelVerifier = (*KeyVerifier)(nil)
 //
 //nolint:revive
 type KeyVerifierOptions struct {
-	ModelPath           string         // ModelPath is the path to the model directory or file to verify.
-	SignaturePath       string         // SignaturePath is the path to the signature file.
-	IgnorePaths         []string       // IgnorePaths specifies paths to exclude from verification.
-	IgnoreGitPaths      bool           // IgnoreGitPaths indicates whether to exclude git-ignored files.
-	AllowSymlinks       bool           // AllowSymlinks indicates whether to follow symbolic links.
-	PublicKeyPath       string         // PublicKeyPath is the path to the public key file.
-	IgnoreUnsignedFiles bool           // IgnoreUnsignedFiles allows verification to succeed even if extra files exist.
-	Logger              *utils.Logger  // Logger is used for debug and info output.
+	ModelPath           string        // ModelPath is the path to the model directory or file to verify.
+	SignaturePath       string        // SignaturePath is the path to the signature file.
+	IgnorePaths         []string      // IgnorePaths specifies paths to exclude from verification.
+	IgnoreGitPaths      bool          // IgnoreGitPaths indicates whether to exclude git-ignored files.
+	AllowSymlinks       bool          // AllowSymlinks indicates whether to follow symbolic links.
+	PublicKeyPath       string        // PublicKeyPath is the path to the public key file.
+	IgnoreUnsignedFiles bool          // IgnoreUnsignedFiles allows verification to succeed even if extra files exist.
+	Logger              *utils.Logger // Logger is used for debug and info output.
 }
 
 // KeyVerifier provides high-level verification with validation.
