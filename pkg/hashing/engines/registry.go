@@ -12,6 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package hashengines provides a registry for hash engine implementations.
+//
+// The registry allows hash engines to be registered by algorithm name and later
+// retrieved for use. This enables loose coupling between hash algorithm implementations
+// and code that uses them. Registration is thread-safe and typically occurs during
+// package initialization.
 package hashengines
 
 import (
@@ -20,7 +26,9 @@ import (
 	"sync"
 )
 
-// HashEngineFactory is a function that creates a new hash engine.
+// HashEngineFactory is a function type that creates new hash engine instances.
+//
+// Returns a StreamingHashEngine or an error if the engine cannot be created.
 type HashEngineFactory func() (StreamingHashEngine, error)
 
 var (
@@ -39,10 +47,13 @@ func ensureDefaults() {
 	})
 }
 
-// Register registers a new hash engine factory for the given algorithm name.
+// Register registers a hash engine factory for the specified algorithm name.
 //
-// If an engine with the same name is already registered, an error is returned.
-// Algorithm names are case-sensitive.
+// The algorithm parameter specifies the name to register (case-sensitive).
+// The factory parameter is the function to create instances of this hash engine.
+//
+// Returns an error if the algorithm name is empty, the factory is nil, or
+// an engine with this name is already registered.
 func Register(algorithm string, factory HashEngineFactory) error {
 	mu.Lock()
 	defer mu.Unlock()
@@ -63,20 +74,26 @@ func Register(algorithm string, factory HashEngineFactory) error {
 	return nil
 }
 
-// MustRegister registers a hash engine factory or panics on error.
+// MustRegister registers a hash engine factory and panics if registration fails.
 //
-// This is useful for package initialization where registration failure
-// indicates a programming error that should be caught immediately.
+// The algorithm parameter specifies the name to register (case-sensitive).
+// The factory parameter is the function to create instances of this hash engine.
+//
+// This function is intended for package initialization where registration failure
+// indicates a programming error that should halt execution immediately.
+// Panics if registration fails for any reason.
 func MustRegister(algorithm string, factory HashEngineFactory) {
 	if err := Register(algorithm, factory); err != nil {
 		panic(fmt.Sprintf("failed to register hash algorithm %q: %v", algorithm, err))
 	}
 }
 
-// Create creates a new hash engine for the given algorithm.
+// Create creates a new hash engine instance for the specified algorithm.
 //
-// Returns an error if the algorithm is not registered or if the factory
-// fails to create the engine.
+// The algorithm parameter specifies the name of the hash algorithm (case-sensitive).
+//
+// Returns a new StreamingHashEngine instance, or an error if the algorithm is not
+// registered or if the factory fails to create the engine.
 func Create(algorithm string) (StreamingHashEngine, error) {
 	ensureDefaults()
 
@@ -98,7 +115,9 @@ func Create(algorithm string) (StreamingHashEngine, error) {
 	return engine, nil
 }
 
-// SupportedAlgorithms returns a sorted list of registered algorithm names.
+// SupportedAlgorithms returns a sorted list of all registered algorithm names.
+//
+// Returns a slice of algorithm name strings in alphabetical order.
 func SupportedAlgorithms() []string {
 	mu.RLock()
 	defer mu.RUnlock()
@@ -111,7 +130,11 @@ func SupportedAlgorithms() []string {
 	return algorithms
 }
 
-// IsSupported checks if an algorithm is registered.
+// IsSupported checks whether the specified algorithm is registered.
+//
+// The algorithm parameter specifies the name to check (case-sensitive).
+//
+// Returns true if a factory for this algorithm is registered, false otherwise.
 func IsSupported(algorithm string) bool {
 	mu.RLock()
 	defer mu.RUnlock()
@@ -120,10 +143,14 @@ func IsSupported(algorithm string) bool {
 	return exists
 }
 
-// Unregister removes a hash engine from the registry.
+// Unregister removes a hash engine factory from the registry.
 //
-// This is primarily useful for testing. Returns an error if the algorithm
-// is not registered.
+// The algorithm parameter specifies the name to unregister (case-sensitive).
+//
+// This function is primarily useful for testing. In production code, hash engines
+// should remain registered once added.
+//
+// Returns an error if the algorithm is not currently registered.
 func Unregister(algorithm string) error {
 	mu.Lock()
 	defer mu.Unlock()

@@ -75,7 +75,8 @@ type TrustRootConfig struct {
 //  2. TrustRootPath set → Load from specified file path
 //  3. Default → Fetch production trust root from network
 //
-// Returns an error if the selected trust root cannot be loaded.
+// Returns a TrustedRoot containing the loaded trust material,
+// or an error if the selected trust root cannot be loaded.
 func (c *TrustRootConfig) LoadTrustRoot() (*root.TrustedRoot, error) {
 	// Priority 1: Staging environment (for testing)
 	if c.UseStaging {
@@ -125,6 +126,9 @@ type KeyConfig struct {
 //
 // Supports PKCS8, PKCS1, and EC private key formats.
 // Handles both encrypted and unencrypted keys.
+//
+// Returns a crypto.PrivateKey interface containing the loaded key,
+// or an error if the key cannot be loaded or parsed.
 func (c *KeyConfig) LoadPrivateKey() (crypto.PrivateKey, error) {
 	if c.Path == "" {
 		return nil, fmt.Errorf("key path is required")
@@ -180,6 +184,9 @@ func (c *KeyConfig) LoadPrivateKey() (crypto.PrivateKey, error) {
 //
 // Supports PKIX and PKCS1 public key formats.
 // Validates that the key type is supported (ECDSA, RSA, Ed25519).
+//
+// Returns a crypto.PublicKey interface containing the loaded key,
+// or an error if the key cannot be loaded, parsed, or is unsupported.
 func (c *KeyConfig) LoadPublicKey() (crypto.PublicKey, error) {
 	if c.Path == "" {
 		return nil, fmt.Errorf("key path is required")
@@ -209,6 +216,11 @@ func (c *KeyConfig) LoadPublicKey() (crypto.PublicKey, error) {
 }
 
 // ExtractPublicKey extracts the public key from a private key.
+//
+// Supports ECDSA, RSA, and Ed25519 private keys.
+//
+// Returns the corresponding public key, or an error if the
+// private key type is unsupported.
 func ExtractPublicKey(privateKey crypto.PrivateKey) (crypto.PublicKey, error) {
 	switch key := privateKey.(type) {
 	case *ecdsa.PrivateKey:
@@ -226,6 +238,9 @@ func ExtractPublicKey(privateKey crypto.PrivateKey) (crypto.PublicKey, error) {
 //
 // This hash is used as a hint in the verification material to identify which
 // public key was used for signing.
+//
+// Returns the hex-encoded SHA256 hash string, or an error if the key
+// cannot be marshaled.
 func ComputePublicKeyHash(publicKey crypto.PublicKey) (string, error) {
 	// Marshal public key to PKIX format
 	pubKeyBytes, err := x509.MarshalPKIXPublicKey(publicKey)
@@ -248,6 +263,9 @@ func ComputePublicKeyHash(publicKey crypto.PublicKey) (string, error) {
 // ComputePublicKeyHashFromFile computes the SHA256 hash of a PEM-encoded public key file.
 //
 // This is useful for verification material hints when you have the key file path.
+//
+// Returns the hex-encoded SHA256 hash string, or an error if the file
+// cannot be read.
 func ComputePublicKeyHashFromFile(path string) (string, error) {
 	keyBytes, err := os.ReadFile(path)
 	if err != nil {
@@ -259,6 +277,11 @@ func ComputePublicKeyHashFromFile(path string) (string, error) {
 }
 
 // validatePublicKey checks if the public key type is supported.
+//
+// Validates ECDSA curves (P-256, P-384, P-521), RSA keys, and Ed25519 keys.
+//
+// Returns the public key if valid, or an error if the key type or
+// curve is unsupported.
 func validatePublicKey(key interface{}) (crypto.PublicKey, error) {
 	switch k := key.(type) {
 	case *ecdsa.PublicKey:

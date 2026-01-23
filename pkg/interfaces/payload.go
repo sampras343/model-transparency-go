@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package interfaces defines core abstractions for signing and verification operations.
 package interfaces
 
 import (
@@ -28,7 +29,7 @@ import (
 
 // Payload represents an in-toto payload used to represent a model for signing.
 //
-// This payload represents all the objects (files, shards, etc.) of the model
+// The payload represents all objects (files, shards, etc.) of the model
 // paired with their hashes. It can be seen as a serialization of a manifest.
 //
 // The structure follows the in-toto attestation format with:
@@ -37,15 +38,16 @@ import (
 // - predicate: Contains serialization info and the list of resources
 //
 // The global digest in the subject is computed as SHA256 over all individual
-// digests in the order they appear in the predicate
+// digests in the order they appear in the predicate.
 type Payload struct {
 	Statement *intoto.Statement
 }
 
 // NewPayload creates a signing payload from a manifest.
 //
-// It computes a root digest over all resource digests and constructs
+// Computes a root digest over all resource digests and constructs
 // an in-toto statement suitable for signing.
+// Returns a Payload or an error if root digest computation or predicate construction fails.
 func NewPayload(m *manifest.Manifest) (*Payload, error) {
 	// Build resources list and collect digests
 	descriptors := m.ResourceDescriptors()
@@ -105,6 +107,7 @@ func NewPayload(m *manifest.Manifest) (*Payload, error) {
 }
 
 // ToJSON serializes the payload to JSON format suitable for DSSE.
+// Returns the JSON bytes or an error if marshaling fails.
 func (p *Payload) ToJSON() ([]byte, error) {
 	// Use protojson to convert the statement to JSON
 	opts := protojson.MarshalOptions{
@@ -116,6 +119,7 @@ func (p *Payload) ToJSON() ([]byte, error) {
 }
 
 // PayloadFromJSON deserializes a payload from JSON.
+// Returns the deserialized Payload or an error if unmarshaling fails.
 func PayloadFromJSON(data []byte) (*Payload, error) {
 	statement := &intoto.Statement{}
 
@@ -131,7 +135,8 @@ func PayloadFromJSON(data []byte) (*Payload, error) {
 }
 
 // convertToProtoCompatible recursively converts Go types to protobuf-compatible types.
-// structpb.NewStruct doesn't handle typed slices like []string or []map[string]interface{}.
+// Handles typed slices like []string or []map[string]interface{} which structpb.NewStruct cannot process directly.
+// Returns the converted value compatible with protobuf marshaling.
 func convertToProtoCompatible(v interface{}) interface{} {
 	switch val := v.(type) {
 	case map[string]interface{}:

@@ -12,25 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package verify provides high-level model verification orchestration.
 package verify
 
 import "context"
 
 // Result represents the outcome of a verification operation.
 type Result struct {
-	Verified bool
-	Message  string
+	Verified bool   // Verified indicates whether the verification succeeded.
+	Message  string // Message contains a human-readable description of the result.
 }
 
 // ModelVerifier performs complete model verification.
 //
-// This is a high-level interface that orchestrates the full verification workflow:
-// 1. Read and verify signature
-// 2. Hash model files
-// 3. Compare manifests
+// Orchestrates the full verification workflow:
+// 1. Reads and verifies signature cryptographically
+// 2. Hashes model files
+// 3. Compares actual vs expected manifests
 //
 // Unlike interfaces.SignatureVerifier which only handles cryptographic verification,
 // ModelVerifier handles the complete end-to-end verification process.
+// Implementations include KeyVerifier, SigstoreVerifier, and CertificateVerifier.
 type ModelVerifier interface {
+	// Verify executes the complete verification workflow.
+	// Returns a Result indicating success or failure, and an error if verification failed.
 	Verify(ctx context.Context) (Result, error)
 }

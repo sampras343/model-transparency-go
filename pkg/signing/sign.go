@@ -12,20 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package signing provides high-level model signing orchestration.
 package signing
 
 import "context"
 
 // Result represents the outcome of a signing operation.
 type Result struct {
-	Verified bool
-	Message  string
+	Verified bool   // Verified indicates whether the signing operation succeeded.
+	Message  string // Message contains a human-readable description of the result.
 }
 
 // ModelSigner performs complete model signing.
 //
-// This is a high-level interface that orchestrates the full signing workflow:
-// ModelSigner handles the complete end-to-end signing process.
+// Orchestrates the full signing workflow including model hashing, manifest creation,
+// payload construction, cryptographic signing, and signature file writing.
+// Implementations include KeySigner (local key-based) and SigstoreSigner (Sigstore/Fulcio-based).
 type ModelSigner interface {
+	// Sign executes the complete signing workflow.
+	// Returns a Result indicating success or failure, and an error if the operation failed.
 	Sign(ctx context.Context) (Result, error)
 }

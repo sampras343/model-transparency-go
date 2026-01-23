@@ -27,6 +27,11 @@ import (
 	"github.com/sigstore/model-signing/pkg/utils"
 )
 
+// NewSigstoreSign creates the sigstore subcommand for model signing.
+// This command signs models using Sigstore's keyless signing infrastructure
+// with OIDC-based identity verification.
+//
+// Returns a *cobra.Command configured for Sigstore-based signing.
 func NewSigstoreSign() *cobra.Command {
 	o := &options.SigstoreSignOptions{}
 
@@ -78,6 +83,11 @@ production one.`
 	return cmd
 }
 
+// NewKeySigner creates the key subcommand for model signing.
+// This command signs models using a traditional public/private key pair
+// without identity verification or key management.
+//
+// Returns a *cobra.Command configured for key-based signing.
 func NewKeySigner() *cobra.Command {
 	o := &options.KeySignOptions{}
 
@@ -127,6 +137,11 @@ func NewKeySigner() *cobra.Command {
 	return cmd
 }
 
+// NewCertificateSigner creates the certificate subcommand for model signing.
+// This command is currently a stub and returns an error indicating that
+// certificate-based signing is not yet implemented.
+//
+// Returns a *cobra.Command that indicates certificate signing is not available.
 func NewCertificateSigner() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "certificate",
@@ -141,6 +156,11 @@ For more information, see: https://github.com/sigstore/model-signing`,
 	return cmd
 }
 
+// Sign creates the sign command with all PKI method subcommands.
+// It serves as the parent command for different signing methods (sigstore, key, certificate)
+// and defaults to Sigstore signing when no subcommand is specified.
+//
+// Returns a *cobra.Command with all signing subcommands registered.
 func Sign() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sign [OPTIONS] PKI_METHOD",

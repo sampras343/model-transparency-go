@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package utils provides common utilities for logging, validation, cryptographic operations,
+// and data conversion used throughout the model-transparency-go project.
 package utils
 
 import (
@@ -26,9 +28,10 @@ type Logger struct {
 	out     io.Writer
 }
 
-// NewLogger creates a new logger instance.
+// NewLogger creates a new logger instance with the specified verbosity level.
 // If verbose is false, only Info messages are shown.
 // If verbose is true, all messages (Info and Debug) are shown.
+// Returns a configured Logger that writes to os.Stdout.
 func NewLogger(verbose bool) *Logger {
 	return &Logger{
 		verbose: verbose,

@@ -28,15 +28,18 @@ func init() {
 	})
 }
 
-// BLAKE2 is a type alias for GenericHashEngine configured for BLAKE2b.
+// BLAKE2 is a type alias for GenericHashEngine configured for BLAKE2b-512 hashing.
 //
-// This maintains backward compatibility while using the generic implementation
-// to eliminate code duplication.
+// This type maintains backward compatibility while using the generic implementation
+// to eliminate code duplication. BLAKE2b-512 produces 512-bit (64-byte) digests.
 type BLAKE2 = GenericHashEngine
 
-// NewBLAKE2 creates a new BLAKE2b-512 engine.
+// NewBLAKE2 creates a new BLAKE2b-512 hash engine.
 //
-// If initialData is non-nil and non-empty, it is hashed immediately.
+// The initialData parameter contains optional initial bytes to hash immediately.
+// If initialData is non-nil and non-empty, it is written to the hash state.
+//
+// Returns a configured BLAKE2 engine ready to compute BLAKE2b-512 digests.
 func NewBLAKE2(initialData []byte) (*BLAKE2, error) {
 	return NewGenericHashEngine(
 		"blake2b",

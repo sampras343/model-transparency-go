@@ -12,6 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package signature provides a Sigstore bundle-based signature implementation for model signing.
+//
+// This package wraps sigstore-go bundles to provide serialization and deserialization
+// capabilities in the standard Sigstore JSON format. It implements the interfaces.Signature
+// and interfaces.SignatureReader interfaces for compatibility with the model signing framework.
 package signature
 
 import (
@@ -39,16 +44,27 @@ type Signature struct {
 }
 
 // NewSignature creates a new Signature from a Sigstore bundle.
+//
+// The b parameter should be a valid sigstore-go Bundle containing signature data.
+// Returns a new Signature instance wrapping the provided bundle.
 func NewSignature(b *bundle.Bundle) *Signature {
 	return &Signature{bundle: b}
 }
 
 // Bundle returns the underlying Sigstore bundle.
+//
+// Returns the wrapped sigstore-go Bundle instance.
 func (s *Signature) Bundle() *bundle.Bundle {
 	return s.bundle
 }
 
 // Write serializes the signature to a file at the given path.
+//
+// The signature is written in standard Sigstore JSON format with world-readable
+// permissions (0644) as signatures are public artifacts.
+//
+// The path parameter specifies the file path where the signature will be written.
+// Returns an error if marshaling or writing fails.
 func (s *Signature) Write(path string) error {
 	// Convert bundle to JSON
 	jsonBytes, err := s.bundle.MarshalJSON()
@@ -67,6 +83,12 @@ func (s *Signature) Write(path string) error {
 }
 
 // Read deserializes a signature from a file at the given path.
+//
+// The file is expected to contain a Sigstore bundle in JSON format.
+// Unknown fields in the JSON are discarded for forward compatibility.
+//
+// The path parameter specifies the file path to read the signature from.
+// Returns a new Signature instance and an error if reading, unmarshaling, or bundle creation fails.
 func (s *Signature) Read(path string) (interfaces.Signature, error) {
 	// Read file
 	//nolint:gosec

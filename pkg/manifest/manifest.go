@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package manifest provides types and functions for creating and managing
+// model manifests that pair resource identifiers with cryptographic digests.
 package manifest
 
 import (
@@ -21,28 +23,22 @@ import (
 	"github.com/sigstore/model-signing/pkg/hashing/digests"
 )
 
-// A description of any content from any `Manifest`.
-// We aim this to be similar to in-toto's `ResourceDescriptor`. To support
-// cases where in-toto cannot be directly used, we make this a dataclass that
-// can be mapped to in-toto when needed, and used as its own otherwise.
-
-// Not all fields from in-toto are specified at this moment. All fields here
-// must be present, unlike in-toto, where all are optional.
-
+// ResourceDescriptor describes content from a manifest with an identifier and digest.
+//
+// This type is similar to in-toto's ResourceDescriptor but requires all fields
+// to be present, unlike in-toto where fields are optional. It can be mapped to
+// in-toto format when needed for interoperability.
+//
 // See github.com/in-toto/attestation/blob/main/spec/v1/resource_descriptor.md
 // for the in-toto specification.
 type ResourceDescriptor struct {
-	// A string that uniquely identifies this object within the
-	// manifest. Depending on serialized format, users might require the
+	// Identifier is a string that uniquely identifies this object within the
+	// manifest. Depending on the serialized format, users might require the
 	// identifier to be unique across all manifests stored in a system.
-	// Producers and consumers can agree on additional requirements (e.g.,
-	// several descriptors must have a common pattern for the identifier and
-	// the integrity of the model implies integrity of all these items,
-	// ignoring any other descriptor). Corresponds to `name`, `uri`, or
-	// `content` in in-toto specification.
+	// Corresponds to name, uri, or content in the in-toto specification.
 	Identifier string
-	// One digest for the item. Note that unlike in-toto, we only have
-	// one digest for the item and it is always required.
+
+	// Digest is the cryptographic hash of the resource.
 	Digest digests.Digest
 }
 
@@ -58,9 +54,12 @@ type Manifest struct {
 
 // NewManifest builds a manifest from a collection of already hashed objects.
 //
-// modelName is an informative name for the model; changing it does not affect
-// equality. The items slice is converted into a map keyed by each item's
-// canonical Name().
+// The modelName parameter is an informative name for the model; changing it
+// does not affect equality. The items slice is converted into a map keyed by
+// each item's canonical Name(). The serializationType records the method and
+// parameters used to generate the manifest.
+//
+// Returns a new Manifest instance.
 func NewManifest(modelName string, items []ManifestItem, serializationType SerializationType) *Manifest {
 	itemMap := make(map[string]digests.Digest, len(items))
 	for _, it := range items {
@@ -73,14 +72,18 @@ func NewManifest(modelName string, items []ManifestItem, serializationType Seria
 	}
 }
 
-// ModelName returns the (informative) name of the model when serialized.
+// ModelName returns the informative name of the model.
+//
+// This name does not affect manifest equality.
 func (manifest *Manifest) ModelName() string {
 	return manifest.name
 }
 
 // SerializationParameters returns the serialization method and arguments used
-// to build the manifest. The returned map is a shallow copy of the underlying
-// parameters, so callers can safely mutate it.
+// to build the manifest.
+//
+// Returns a shallow copy of the underlying parameters, so callers can safely
+// mutate the returned map without affecting the manifest.
 func (manifest *Manifest) SerializationParameters() map[string]any {
 	params := manifest.serializationType.Parameters()
 	out := make(map[string]any, len(params))
@@ -92,8 +95,9 @@ func (manifest *Manifest) SerializationParameters() map[string]any {
 
 // Equal reports whether two manifests have the same items and digests.
 //
-// This ignores the model name and serialization type identity.
-// only the mapping from identifiers to digests is compared.
+// This comparison ignores the model name and serialization type; only the
+// mapping from identifiers to digests is compared. Returns true if both
+// manifests contain the same identifier-to-digest mappings.
 func (manifest *Manifest) Equal(other *Manifest) bool {
 	if manifest == other {
 		return true
@@ -120,6 +124,8 @@ func (manifest *Manifest) Equal(other *Manifest) bool {
 }
 
 // equalDigest compares two digests by algorithm and value.
+//
+// Returns true if both digests use the same algorithm and have equal values.
 func equalDigest(a, b digests.Digest) bool {
 	if a.Algorithm() != b.Algorithm() {
 		return false
@@ -127,8 +133,10 @@ func equalDigest(a, b digests.Digest) bool {
 	return bytes.Equal(a.Value(), b.Value())
 }
 
-// ResourceDescriptors returns each resource from the manifest, sorted
-// by identifier to provide a stable order.
+// ResourceDescriptors returns each resource from the manifest.
+//
+// Resources are sorted by identifier to provide a stable, deterministic order.
+// Returns a slice of ResourceDescriptor instances.
 //
 //nolint:revive
 func (m *Manifest) ResourceDescriptors() []ResourceDescriptor {

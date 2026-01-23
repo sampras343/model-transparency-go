@@ -39,22 +39,22 @@ var _ interfaces.SignatureReader = (*Verifier)(nil)
 // Ensure CertificateSignature implements interfaces.Signature at compile time.
 var _ interfaces.Signature = (*CertificateSignature)(nil)
 
-// CertificateVerifierConfig holds configuration for creating a certificate verifier.
+// CertificateVerifierConfig configures certificate-based signature verification.
 //
 //nolint:revive
 type CertificateVerifierConfig struct {
-	// CertificateChainPaths contains paths to certificate files that form the
-	// chain of trust. If empty, system root certificates will be used.
+	// CertificateChainPaths contains paths to certificate files forming the chain
+	// of trust. When empty, system root certificates are used.
 	CertificateChainPaths []string
 
-	// LogFingerprints enables logging of certificate fingerprints for debugging.
+	// LogFingerprints enables certificate fingerprint logging for debugging.
 	LogFingerprints bool
 }
 
-// Verifier verifies signatures created with certificates.
+// Verifier verifies certificate-based signatures on model manifests.
 //
-// It validates the certificate chain, checks the cryptographic signature,
-// and extracts the manifest from the signed payload.
+// Verifier validates certificate chains, verifies cryptographic signatures,
+// and extracts manifests from signed payloads.
 type Verifier struct {
 	config     CertificateVerifierConfig
 	certPool   *x509.CertPool
@@ -62,7 +62,9 @@ type Verifier struct {
 	logger     *utils.Logger
 }
 
-// NewVerifier creates a new certificate verifier with the given configuration.
+// NewVerifier creates a certificate verifier with the specified configuration.
+// It loads the certificate chain and initializes the trust pool.
+// Returns an error if certificate loading fails.
 func NewVerifier(cfg CertificateVerifierConfig) (*Verifier, error) {
 	logger := utils.NewLogger(cfg.LogFingerprints)
 

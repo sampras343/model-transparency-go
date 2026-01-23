@@ -23,8 +23,8 @@ import (
 )
 
 // DSSEPayloadToManifest converts a DSSE payload (as a map) to a Manifest.
-//
-// This handles the current v1.0 predicate format.
+// Handles the current v1.0 predicate format with full validation of subjects, digests, and resources.
+// Returns the reconstructed Manifest or an error if the payload is invalid or inconsistent.
 func DSSEPayloadToManifest(dssePayload map[string]interface{}) (*manifest.Manifest, error) {
 	predicateType, ok := dssePayload["predicateType"].(string)
 	if !ok {
@@ -168,10 +168,9 @@ func DSSEPayloadToManifest(dssePayload map[string]interface{}) (*manifest.Manife
 	return manifest.NewManifest(modelName, items, serializationType), nil
 }
 
-// DSSEPayloadToManifestCompat handles the v0.2 experimental format.
-//
-// This format is maintained for backward compatibility with signatures
-// created before v1.0.
+// DSSEPayloadToManifestCompat converts a DSSE payload in the v0.2 experimental format to a Manifest.
+// Maintained for backward compatibility with signatures created before v1.0.
+// Returns a Manifest with placeholder values for missing v0.2 fields, or an error if conversion fails.
 func DSSEPayloadToManifestCompat(dssePayload map[string]interface{}) (*manifest.Manifest, error) {
 	// Model name is not defined in v0.2, use a constant
 	modelName := "compat-undefined-not-present"

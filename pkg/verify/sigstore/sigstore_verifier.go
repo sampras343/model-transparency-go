@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package sigstore provides Sigstore-based verification implementations.
 package sigstore
 
 import (
@@ -32,20 +33,21 @@ var _ verify.ModelVerifier = (*SigstoreVerifier)(nil)
 //
 //nolint:revive
 type SigstoreVerifierOptions struct {
-	ModelPath           string
-	SignaturePath       string
-	IgnorePaths         []string
-	IgnoreGitPaths      bool
-	AllowSymlinks       bool
-	UseStaging          bool
-	Identity            string
-	IdentityProvider    string
-	TrustConfigPath     string
-	IgnoreUnsignedFiles bool
-	Logger              *utils.Logger
+	ModelPath           string        // ModelPath is the path to the model directory or file to verify.
+	SignaturePath       string        // SignaturePath is the path to the signature file.
+	IgnorePaths         []string      // IgnorePaths specifies paths to exclude from verification.
+	IgnoreGitPaths      bool          // IgnoreGitPaths indicates whether to exclude git-ignored files.
+	AllowSymlinks       bool          // AllowSymlinks indicates whether to follow symbolic links.
+	UseStaging          bool          // UseStaging indicates whether to use Sigstore staging infrastructure.
+	Identity            string        // Identity is the expected signer identity (email or URI).
+	IdentityProvider    string        // IdentityProvider is the expected OIDC issuer URL.
+	TrustConfigPath     string        // TrustConfigPath is an optional path to custom trust root configuration.
+	IgnoreUnsignedFiles bool          // IgnoreUnsignedFiles allows verification to succeed even if extra files exist.
+	Logger              *utils.Logger // Logger is used for debug and info output.
 }
 
 // SigstoreVerifier provides high-level verification with validation.
+// Implements the verify.ModelVerifier interface.
 //
 //nolint:revive
 type SigstoreVerifier struct {
@@ -54,6 +56,8 @@ type SigstoreVerifier struct {
 }
 
 // NewSigstoreVerifier creates a new high-level Sigstore verifier with validation.
+// Validates that required paths and options are provided before returning.
+// Returns an error if validation fails.
 func NewSigstoreVerifier(opts SigstoreVerifierOptions) (*SigstoreVerifier, error) {
 	// Validate if required paths exists
 	if err := utils.ValidatePathExists("model path", opts.ModelPath); err != nil {
@@ -100,11 +104,13 @@ func NewSigstoreVerifier(opts SigstoreVerifierOptions) (*SigstoreVerifier, error
 
 // Verify performs the complete verification flow.
 //
-// Verification pattern:
-// 1. Create verifier config
-// 2. Create hashing config
-// 3. Create verification config
-// 4. Execute verification
+// Verification workflow:
+// 1. Creates verifier config
+// 2. Creates hashing config
+// 3. Creates verification config
+// 4. Executes verification
+//
+// Returns a Result with success status and message, or an error if verification fails.
 //
 //nolint:revive
 func (sv *SigstoreVerifier) Verify(ctx context.Context) (verify.Result, error) {
@@ -142,7 +148,6 @@ func (sv *SigstoreVerifier) Verify(ctx context.Context) (verify.Result, error) {
 	}
 
 	// Create hashing config
-	// Note: We don't set specific hashing params here because the Config
 	// will guess them from the signature's manifest
 	hashingConfig := config.NewHashingConfig().
 		SetIgnoredPaths(ignorePaths, sv.opts.IgnoreGitPaths).

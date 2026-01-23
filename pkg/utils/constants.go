@@ -15,15 +15,36 @@
 package utils
 
 const (
+	// InTotoJSONPayloadType is the MIME type for in-toto JSON payloads in DSSE.
 	InTotoJSONPayloadType = "application/vnd.in-toto+json"
-	InTotoStatementType   = "https://in-toto.io/Statement/v1"
-	PredicateType         = "https://model_signing/signature/v1.0"
-	PredicateTypeCompat   = "https://model_signing/Digests/v0.1"
-	IssuerProdURL         = "https://oauth2.sigstore.dev/auth"
-	IssuerStagingURL      = "https://oauth2.sigstage.dev/auth"
-	FulcioProdURL         = "https://fulcio.sigstore.dev"
-	FulcioStagingURL      = "https://fulcio.sigstage.dev"
-	RekorProdURL          = "https://rekor.sigstore.dev"
-	RekorStagingURL       = "https://rekor.sigstage.dev"
-	DefaultClientID       = "sigstore"
+
+	// InTotoStatementType is the statement type URI for in-toto v1 statements.
+	InTotoStatementType = "https://in-toto.io/Statement/v1"
+
+	// PredicateType is the predicate type URI for model signing v1.0 format.
+	PredicateType = "https://model_signing/signature/v1.0"
+
+	// PredicateTypeCompat is the predicate type URI for model signing v0.1 format (deprecated).
+	PredicateTypeCompat = "https://model_signing/Digests/v0.1"
+
+	// IssuerProdURL is the OAuth2 issuer URL for Sigstore production environment.
+	IssuerProdURL = "https://oauth2.sigstore.dev/auth"
+
+	// IssuerStagingURL is the OAuth2 issuer URL for Sigstore staging environment.
+	IssuerStagingURL = "https://oauth2.sigstage.dev/auth"
+
+	// FulcioProdURL is the Fulcio certificate authority URL for production environment.
+	FulcioProdURL = "https://fulcio.sigstore.dev"
+
+	// FulcioStagingURL is the Fulcio certificate authority URL for staging environment.
+	FulcioStagingURL = "https://fulcio.sigstage.dev"
+
+	// RekorProdURL is the Rekor transparency log URL for production environment.
+	RekorProdURL = "https://rekor.sigstore.dev"
+
+	// RekorStagingURL is the Rekor transparency log URL for staging environment.
+	RekorStagingURL = "https://rekor.sigstage.dev"
+
+	// DefaultClientID is the default OAuth2 client ID for Sigstore authentication.
+	DefaultClientID = "sigstore"
 )

@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package serialization provides interfaces and implementations for serializing
+// machine learning models into manifest structures. It supports both file-level
+// and shard-level serialization strategies with configurable hashing and ignore rules.
 package serialization
 
 import (

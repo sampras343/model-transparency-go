@@ -12,6 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package dsse provides utilities for working with Dead Simple Signing Envelope (DSSE) format.
+//
+// This package wraps the go-securesystemslib/dsse library to provide a clean interface
+// for common DSSE operations including payload encoding/decoding, signature extraction,
+// and conversion to Sigstore protobuf format. It is designed for compatibility with
+// sigstore-go bundles while supporting the official Sigstore protobuf specifications.
 package dsse
 
 import (
@@ -36,6 +42,9 @@ type Envelope struct {
 }
 
 // NewEnvelope creates a new DSSE envelope wrapper from a raw envelope.
+//
+// The raw parameter should be a valid DSSE envelope from go-securesystemslib/dsse.
+// Returns a new Envelope instance wrapping the provided raw envelope.
 func NewEnvelope(raw *dsse_lib.Envelope) *Envelope {
 	return &Envelope{raw: raw}
 }
@@ -65,6 +74,8 @@ func ExtractFromBundle(bndl *bundle.Bundle) (*Envelope, error) {
 //
 // The current implementation only supports single-signature envelopes.
 // Multi-signature support may be added in the future.
+//
+// Returns an error if zero or more than one signature is found.
 func (e *Envelope) ValidateSignatureCount() error {
 	if len(e.raw.Signatures) == 0 {
 		return fmt.Errorf("no signatures found in envelope")
@@ -76,6 +87,9 @@ func (e *Envelope) ValidateSignatureCount() error {
 }
 
 // ValidatePayloadType checks that the DSSE payload matches the expected type.
+//
+// The expectedType parameter specifies the required payload type to match against.
+// Returns an error if the envelope's payload type does not match the expected type.
 func (e *Envelope) ValidatePayloadType(expectedType string) error {
 	if e.raw.PayloadType != expectedType {
 		return fmt.Errorf("expected DSSE payload %s, but got %s",
@@ -88,6 +102,8 @@ func (e *Envelope) ValidatePayloadType(expectedType string) error {
 //
 // The DSSE spec requires the payload to be base64-encoded in the envelope.
 // This method decodes it and returns the raw payload bytes.
+//
+// Returns the decoded payload bytes and an error if the payload is empty or decoding fails.
 func (e *Envelope) DecodePayload() ([]byte, error) {
 	if e.raw.Payload == "" {
 		return nil, fmt.Errorf("envelope payload is empty")
@@ -103,11 +119,11 @@ func (e *Envelope) DecodePayload() ([]byte, error) {
 
 // DecodeSignature decodes the base64-encoded signature.
 //
-// Returns the first (and only) signature's bytes.
-// Call ValidateSignatureCount() first to ensure exactly one signature exists.
-//
 // The DSSE spec requires signatures to be base64-encoded in the envelope.
-// This method decodes it and returns the raw signature bytes.
+// This method decodes the first signature and returns the raw signature bytes.
+// Call ValidateSignatureCount first to ensure exactly one signature exists.
+//
+// Returns the decoded signature bytes and an error if no signature is found or decoding fails.
 func (e *Envelope) DecodeSignature() ([]byte, error) {
 	if len(e.raw.Signatures) == 0 {
 		return nil, fmt.Errorf("no signatures found in envelope")
@@ -127,6 +143,8 @@ func (e *Envelope) DecodeSignature() ([]byte, error) {
 }
 
 // PayloadType returns the DSSE payload type.
+//
+// Returns the payload type string from the envelope.
 func (e *Envelope) PayloadType() string {
 	return e.raw.PayloadType
 }
@@ -135,13 +153,18 @@ func (e *Envelope) PayloadType() string {
 //
 // Use this when you need direct access to the envelope structure
 // for operations not covered by the Envelope methods.
+//
+// Returns the raw go-securesystemslib/dsse Envelope instance.
 func (e *Envelope) RawEnvelope() *dsse_lib.Envelope {
 	return e.raw
 }
 
 // CreateEnvelope creates a new DSSE envelope with a single signature.
 //
-// The payload and signature are base64-encoded as required by the DSSE spec.
+// The payloadType parameter specifies the type of the payload (e.g., "application/vnd.in-toto+json").
+// The payload and signature parameters are automatically base64-encoded as required by the DSSE spec.
+//
+// Returns a new Envelope instance containing the encoded payload and signature.
 func CreateEnvelope(payloadType string, payload []byte, signature []byte) *Envelope {
 	envelope := &dsse_lib.Envelope{
 		Payload:     base64.StdEncoding.EncodeToString(payload),
@@ -161,6 +184,8 @@ func CreateEnvelope(payloadType string, payload []byte, signature []byte) *Envel
 // The conversion handles:
 // - Base64 decoding of payload and signatures (protobuf uses raw bytes)
 // - Field name mapping (KeyID -> Keyid)
+//
+// Returns a protobuf Envelope in the official Sigstore format.
 func (e *Envelope) ToProtobuf() *protodsse.Envelope {
 	// Decode payload from base64
 	payloadBytes, err := base64.StdEncoding.DecodeString(e.raw.Payload)

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package key provides local public key-based verification implementations.
 package key
 
 import (
@@ -31,17 +32,18 @@ var _ verify.ModelVerifier = (*KeyVerifier)(nil)
 //
 //nolint:revive
 type KeyVerifierOptions struct {
-	ModelPath           string
-	SignaturePath       string
-	IgnorePaths         []string
-	IgnoreGitPaths      bool
-	AllowSymlinks       bool
-	PublicKeyPath       string
-	IgnoreUnsignedFiles bool
-	Logger              *utils.Logger
+	ModelPath           string         // ModelPath is the path to the model directory or file to verify.
+	SignaturePath       string         // SignaturePath is the path to the signature file.
+	IgnorePaths         []string       // IgnorePaths specifies paths to exclude from verification.
+	IgnoreGitPaths      bool           // IgnoreGitPaths indicates whether to exclude git-ignored files.
+	AllowSymlinks       bool           // AllowSymlinks indicates whether to follow symbolic links.
+	PublicKeyPath       string         // PublicKeyPath is the path to the public key file.
+	IgnoreUnsignedFiles bool           // IgnoreUnsignedFiles allows verification to succeed even if extra files exist.
+	Logger              *utils.Logger  // Logger is used for debug and info output.
 }
 
 // KeyVerifier provides high-level verification with validation.
+// Implements the verify.ModelVerifier interface.
 //
 //nolint:revive
 type KeyVerifier struct {
@@ -50,6 +52,8 @@ type KeyVerifier struct {
 }
 
 // NewKeyVerifier creates a new high-level key verifier with validation.
+// Validates that required paths exist before returning.
+// Returns an error if validation fails.
 func NewKeyVerifier(opts KeyVerifierOptions) (*KeyVerifier, error) {
 	// Validate if required paths exists
 	if err := utils.ValidatePathExists("model path", opts.ModelPath); err != nil {
@@ -81,12 +85,14 @@ func NewKeyVerifier(opts KeyVerifierOptions) (*KeyVerifier, error) {
 
 // Verify performs the complete verification flow.
 //
-// This orchestrates:
-// 1. Creating a key-based verifier
-// 2. Setting up hashing configuration
-// 3. Verifying the signature cryptographically
-// 4. Hashing the model files
-// 5. Comparing actual vs expected manifests
+// Orchestrates:
+// 1. Creates a key-based verifier
+// 2. Sets up hashing configuration
+// 3. Verifies the signature cryptographically
+// 4. Hashes the model files
+// 5. Compares actual vs expected manifests
+//
+// Returns a Result with success status and message, or an error if verification fails.
 func (kv *KeyVerifier) Verify(_ context.Context) (verify.Result, error) {
 	// Print verification info (debug only)
 	kv.logger.Debugln("Key-based verification")
@@ -116,7 +122,6 @@ func (kv *KeyVerifier) Verify(_ context.Context) (verify.Result, error) {
 	}
 
 	// Create hashing config
-	// Note: We don't set specific hashing params here because the Config
 	// will guess them from the signature's manifest
 	hashingConfig := config.NewHashingConfig().
 		SetIgnoredPaths(ignorePaths, kv.opts.IgnoreGitPaths).

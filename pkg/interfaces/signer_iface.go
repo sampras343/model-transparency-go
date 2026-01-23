@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package interfaces defines core abstractions for signing and verification operations.
 package interfaces
 
 // Signer signs a payload and produces a Signature.
 // Each implementation may manage key material differently.
 type Signer interface {
 	// Sign creates a signature over the provided payload.
+	// Returns a Signature or an error if signing fails.
 	Sign(payload *Payload) (Signature, error)
 }

@@ -28,15 +28,18 @@ func init() {
 	})
 }
 
-// SHA256Engine is a type alias for GenericHashEngine configured for SHA256.
+// SHA256Engine is a type alias for GenericHashEngine configured for SHA-256 hashing.
 //
-// This maintains backward compatibility while using the generic implementation
-// to eliminate code duplication.
+// This type maintains backward compatibility while using the generic implementation
+// to eliminate code duplication. SHA-256 produces 256-bit (32-byte) digests.
 type SHA256Engine = GenericHashEngine
 
-// NewSHA256Engine constructs a new SHA256 engine.
+// NewSHA256Engine creates a new SHA-256 hash engine.
 //
-// If initialData is non-nil, it will be written into the hash immediately.
+// The initialData parameter contains optional initial bytes to hash immediately.
+// If initialData is non-nil and non-empty, it is written to the hash state.
+//
+// Returns a configured SHA256Engine ready to compute SHA-256 digests.
 func NewSHA256Engine(initialData []byte) (*SHA256Engine, error) {
 	return NewGenericHashEngine(
 		"sha256",

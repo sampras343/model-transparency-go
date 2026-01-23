@@ -16,22 +16,25 @@ package manifest
 
 import "fmt"
 
-// ParamExtractor helps extract typed values from manifest parameters.
+// ParamExtractor provides type-safe extraction of values from parameter maps.
 //
-// It handles type assertions and conversions, providing consistent error
-// messages when parameters are missing or have incorrect types.
+// It handles type assertions and conversions with consistent error reporting
+// when parameters are missing or have incorrect types.
 type ParamExtractor struct {
 	params map[string]interface{}
 }
 
 // NewParamExtractor creates a new parameter extractor.
+//
+// Returns a ParamExtractor that wraps the provided parameter map.
 func NewParamExtractor(params map[string]interface{}) *ParamExtractor {
 	return &ParamExtractor{params: params}
 }
 
-// GetString extracts a string parameter.
+// GetString extracts a required string parameter.
 //
-// Returns an error if the parameter is missing or not a string.
+// Returns the string value and nil error if the parameter exists and is a string.
+// Returns an empty string and error if the parameter is missing or not a string.
 func (e *ParamExtractor) GetString(key string) (string, error) {
 	value, exists := e.params[key]
 	if !exists {
@@ -48,8 +51,8 @@ func (e *ParamExtractor) GetString(key string) (string, error) {
 
 // GetStringOptional extracts an optional string parameter.
 //
-// Returns empty string if the parameter is missing, or an error if it exists
-// but is not a string.
+// Returns an empty string with nil error if the parameter is missing.
+// Returns an error if the parameter exists but is not a string.
 func (e *ParamExtractor) GetStringOptional(key string) (string, error) {
 	value, exists := e.params[key]
 	if !exists {
@@ -64,9 +67,10 @@ func (e *ParamExtractor) GetStringOptional(key string) (string, error) {
 	return str, nil
 }
 
-// GetBool extracts a boolean parameter.
+// GetBool extracts a required boolean parameter.
 //
-// Returns an error if the parameter is missing or not a boolean.
+// Returns the boolean value and nil error if the parameter exists and is a boolean.
+// Returns false and error if the parameter is missing or not a boolean.
 func (e *ParamExtractor) GetBool(key string) (bool, error) {
 	value, exists := e.params[key]
 	if !exists {
@@ -83,8 +87,8 @@ func (e *ParamExtractor) GetBool(key string) (bool, error) {
 
 // GetBoolOptional extracts an optional boolean parameter.
 //
-// Returns the default value if the parameter is missing, or an error if it
-// exists but is not a boolean.
+// Returns the defaultValue with nil error if the parameter is missing.
+// Returns an error if the parameter exists but is not a boolean.
 func (e *ParamExtractor) GetBoolOptional(key string, defaultValue bool) (bool, error) {
 	value, exists := e.params[key]
 	if !exists {
@@ -99,10 +103,11 @@ func (e *ParamExtractor) GetBoolOptional(key string, defaultValue bool) (bool, e
 	return b, nil
 }
 
-// GetInt64 extracts an int64 parameter with automatic type conversions.
+// GetInt64 extracts a required int64 parameter with automatic type conversions.
 //
 // Supports conversion from int, int64, and float64 types.
-// Returns an error if the parameter is missing or cannot be converted.
+// Returns the converted value and nil error on success.
+// Returns zero and error if the parameter is missing or cannot be converted.
 func (e *ParamExtractor) GetInt64(key string) (int64, error) {
 	value, exists := e.params[key]
 	if !exists {
@@ -123,8 +128,9 @@ func (e *ParamExtractor) GetInt64(key string) (int64, error) {
 
 // GetInt64Optional extracts an optional int64 parameter with type conversions.
 //
-// Returns the default value if the parameter is missing, or an error if it
-// exists but cannot be converted to int64.
+// Supports conversion from int, int64, and float64 types.
+// Returns the defaultValue with nil error if the parameter is missing.
+// Returns an error if the parameter exists but cannot be converted to int64.
 func (e *ParamExtractor) GetInt64Optional(key string, defaultValue int64) (int64, error) {
 	value, exists := e.params[key]
 	if !exists {
@@ -145,9 +151,10 @@ func (e *ParamExtractor) GetInt64Optional(key string, defaultValue int64) (int64
 
 // GetStringSlice extracts a string slice parameter.
 //
-// Handles both []string and []interface{} types, converting []interface{}
-// to []string if all elements are strings.
-// Returns nil for missing parameters (treated as optional).
+// Handles both []string and []interface{} types, automatically converting
+// []interface{} to []string if all elements are strings.
+// Returns nil with nil error if the parameter is missing.
+// Returns an error if the parameter exists but cannot be converted to []string.
 func (e *ParamExtractor) GetStringSlice(key string) ([]string, error) {
 	value, exists := e.params[key]
 	if !exists {
@@ -178,7 +185,7 @@ func (e *ParamExtractor) GetStringSlice(key string) ([]string, error) {
 // GetStringSliceOptional extracts an optional string slice parameter.
 //
 // Returns an empty slice (not nil) if the parameter is missing or extraction fails.
-// This is useful when you want to use the result directly without nil checks.
+// This convenience method is useful when you need a slice value without nil checks.
 func (e *ParamExtractor) GetStringSliceOptional(key string) []string {
 	slice, err := e.GetStringSlice(key)
 	if err != nil {
@@ -190,15 +197,18 @@ func (e *ParamExtractor) GetStringSliceOptional(key string) []string {
 	return slice
 }
 
-// Has checks if a parameter exists.
+// Has checks if a parameter exists in the parameter map.
+//
+// Returns true if the parameter exists, false otherwise.
 func (e *ParamExtractor) Has(key string) bool {
 	_, exists := e.params[key]
 	return exists
 }
 
-// GetRaw returns the raw parameter value.
+// GetRaw returns the raw parameter value without type conversion.
 //
-// This is useful for custom type handling or when you need the original value.
+// Returns the value and true if the parameter exists, or nil and false otherwise.
+// This is useful for custom type handling or accessing the original value.
 func (e *ParamExtractor) GetRaw(key string) (interface{}, bool) {
 	value, exists := e.params[key]
 	return value, exists

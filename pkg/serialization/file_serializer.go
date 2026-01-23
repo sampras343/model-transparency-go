@@ -25,6 +25,10 @@ import (
 	"github.com/sigstore/model-signing/pkg/manifest"
 )
 
+// FileSerializer serializes ML models by hashing individual files.
+// It walks the model directory tree and computes a digest for each file,
+// producing manifest items at the file level. File hashing is performed
+// in parallel using a configurable worker pool.
 type FileSerializer struct {
 	hasherFactory   fileio.FileHasherFactory
 	maxWorkers      int
@@ -33,6 +37,16 @@ type FileSerializer struct {
 	hashType        string
 }
 
+// NewFileSerializer creates a new file-level serializer.
+//
+// Parameters:
+//   - hasherFactory: factory function that creates file hashers for computing digests
+//   - maxWorkers: maximum number of parallel workers for hashing; if <=0, uses runtime.NumCPU()
+//   - allowSymlinks: whether to follow symbolic links during traversal
+//   - baseIgnorePaths: paths to always ignore and record in serialization metadata
+//
+// Returns a configured FileSerializer or an error if the hasherFactory is nil
+// or cannot create a mock hasher to determine the hash type.
 func NewFileSerializer(
 	hasherFactory fileio.FileHasherFactory,
 	maxWorkers int,
@@ -62,11 +76,26 @@ func NewFileSerializer(
 
 }
 
-// SetAllowSymlinks updates whether following symlinks is allowed.
+// SetAllowSymlinks updates whether symbolic links are followed during serialization.
+//
+// When set to true, symlinks are resolved and their targets are processed.
+// When false, symlinks cause an error during path validation.
 func (s *FileSerializer) SetAllowSymlinks(allow bool) {
 	s.allowSymlinks = allow
 }
 
+// Serialize walks the model directory and produces a file-level manifest.
+//
+// It collects all regular files under modelPath (excluding ignored paths),
+// computes their digests in parallel, and constructs a manifest with one
+// item per file. File paths in the manifest are relative to modelPath.
+//
+// Parameters:
+//   - modelPath: path to the model (file or directory) to serialize
+//   - ignorePaths: additional paths to exclude from serialization
+//
+// Returns the constructed manifest or an error if validation, collection,
+// or hashing fails.
 func (s *FileSerializer) Serialize(
 	modelPath string,
 	ignorePaths []string,
@@ -104,7 +133,12 @@ func (s *FileSerializer) Serialize(
 
 }
 
-// Walks the model path and returns the list of files that should be hashed
+// collectFiles walks the model path and returns the list of files to hash.
+//
+// It validates each discovered path and filters out ignored paths, collecting
+// only regular files for hashing.
+//
+// Returns the list of file paths or an error if walking or validation fails.
 func (s *FileSerializer) collectFiles(
 	modelPath string,
 	ignorePaths []string,
@@ -133,7 +167,14 @@ func (s *FileSerializer) collectFiles(
 	return files, nil
 }
 
-// Hashes the given file paths using a worker pool limited to max workers
+// hashFiles computes digests for the given file paths using a worker pool.
+//
+// The worker pool is bounded by maxWorkers (or runtime.NumCPU() if maxWorkers <= 0).
+// Each worker independently hashes files from the job queue and sends results
+// to a results channel.
+//
+// Returns manifest items for all successfully hashed files, or the first error
+// encountered during hashing.
 func (s *FileSerializer) hashFiles(
 	modelPath string,
 	filePaths []string,
@@ -206,8 +247,12 @@ func (s *FileSerializer) hashFiles(
 	return items, nil
 }
 
-// Computes the digest of path and returns the FileManifestItem whose
-// name is the path relative to the modelPath
+// computeHash computes the digest of a single file and constructs a manifest item.
+//
+// The file path in the resulting item is relative to modelPath.
+//
+// Returns a FileManifestItem containing the relative path and digest, or an error
+// if hasher creation, digest computation, or path relativization fails.
 func (s *FileSerializer) computeHash(
 	modelPath, path string,
 ) (manifest.ManifestItem, error) {
@@ -231,9 +276,13 @@ func (s *FileSerializer) computeHash(
 	return item, nil
 }
 
-// Records ignore paths in the serialization metadata
-// base ignore paths are recorded as-is
-// per-call ignorePaths are converted to paths relative to modelPath and appended
+// buildSerializationIgnorePaths constructs the final list of ignore paths for metadata.
+//
+// Base ignore paths are recorded as-is. Per-call ignorePaths are converted to paths
+// relative to modelPath and appended if they are valid child paths (not parent or
+// outside the model directory).
+//
+// Returns the combined list of ignore paths to record in serialization metadata.
 func (s *FileSerializer) buildSerializationIgnorePaths(
 	modelPath string,
 	ignorePaths []string,
@@ -263,14 +312,24 @@ func (s *FileSerializer) buildSerializationIgnorePaths(
 	return recorded
 }
 
-// hasParent reports whether rel starts with "../" (POSIX semantics).
+// hasParent reports whether rel starts with "../" indicating a parent directory reference.
+//
+// This check uses OS-specific path separators to identify paths that point outside
+// the model directory.
+//
+// Returns true if rel begins with a parent directory reference, false otherwise.
 func hasParent(rel string) bool {
 	// filepath.Rel uses OS-specific separators, but in practice this
 	// check only needs to disqualify paths that start with "../" or its OS-equivalent
 	return len(rel) >= 3 && rel[:3] == ".."+string(filepath.Separator)
 }
 
-// Obtaining model name from the model path
+// deriveModelName extracts the model name from the model path.
+//
+// It uses the base name of the path. If the base name is ".", "..", or empty,
+// it attempts to derive the name from the absolute path.
+//
+// Returns the derived model name.
 func deriveModelName(modelPath string) string {
 	base := filepath.Base(modelPath)
 	if base == "" || base == "." || base == ".." {
