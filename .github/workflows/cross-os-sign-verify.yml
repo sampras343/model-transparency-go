@@ -114,6 +114,28 @@ jobs:
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: ${{ matrix.signed-with-os }}-model.sig
+      - name: Debug - Show directory structure
+        run: |
+          echo "=== Current directory ==="
+          pwd
+          echo ""
+          echo "=== Root directory contents ==="
+          ls -la
+          echo ""
+          echo "=== Tree structure (if available) ==="
+          if command -v tree >/dev/null 2>&1; then
+            tree -L 3
+          else
+            echo "Tree command not available, using find instead:"
+            find . -maxdepth 3 -type f -o -type d | sort
+          fi
+          echo ""
+          echo "=== Looking for model files ==="
+          find . -name "d0" -o -name "d1" -o -name "f0" -o -name "f00" 2>/dev/null | head -20
+          echo ""
+          echo "=== Signature file ==="
+          ls -la model.sig 2>/dev/null || echo "model.sig not found in current directory"
+          find . -name "model.sig" 2>/dev/null
       - name: Setup go
         uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
         with:
