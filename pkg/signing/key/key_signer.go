@@ -45,7 +45,7 @@ type KeySigner struct {
 
 func NewKeySigner(opts KeySignerOptions) (*KeySigner, error) {
 	// Validate if required paths exists
-	if err := utils.ValidateFolderExists("model path", opts.ModelPath); err != nil {
+	if err := utils.ValidatePathExists("model path", opts.ModelPath); err != nil {
 		return nil, err
 	}
 	if err := utils.ValidateFileExists("private key", opts.PrivateKeyPath); err != nil {
