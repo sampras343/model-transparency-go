@@ -36,8 +36,8 @@ var _ interfaces.SignatureVerifier = (*Verifier)(nil)
 // Ensure Verifier implements interfaces.SignatureReader at compile time.
 var _ interfaces.SignatureReader = (*Verifier)(nil)
 
-// Ensure CertificateSignature implements interfaces.SignatureReader at compile time.
-var _ interfaces.SignatureReader = (*CertificateSignature)(nil)
+// Ensure CertificateSignature implements interfaces.Signature at compile time.
+var _ interfaces.Signature = (*CertificateSignature)(nil)
 
 // CertificateVerifierConfig holds configuration for creating a certificate verifier.
 //
@@ -115,37 +115,34 @@ func NewVerifier(cfg CertificateVerifierConfig) (*Verifier, error) {
 	}, nil
 }
 
-// Read provides signature reading capability, implementing interfaces.SignatureReader.
-// This allows the verifier to provide its own signature reading logic.
+// Read reads a certificate signature from a file, implementing interfaces.SignatureReader.
+//
+// This reads the bundle directly as protobuf, which is necessary for v0.3 bundles
+// with certificate chains (sigstore-go's bundle.NewBundle() rejects these).
 func (v *Verifier) Read(path string) (interfaces.Signature, error) {
-	certSig := &CertificateSignature{}
-	return certSig.Read(path)
+	bundle, err := readProtobufBundle(path)
+	if err != nil {
+		return nil, err
+	}
+	return NewCertificateSignature(bundle), nil
 }
 
-// Write is not supported for certificate verifiers.
-func (v *Verifier) Write(path string) error {
-	return fmt.Errorf("writing signatures not supported for certificate verifiers")
-}
-
-// Verify verifies the signature and returns the manifest.
+// Verify implements interfaces.SignatureVerifier.
 //
+// NOTE: This method exists only for interface compliance. It extracts the bundle
+// from the CertificateSignature wrapper and delegates to verifyWithHybridStrategy.
 // This performs:
-// 1. Certificate chain validation
-// 2. Cryptographic signature verification
-// 3. Manifest extraction and validation
-//
-// Strategy:
-// - For v0.3 bundles with multiple certificates: uses custom verification
-//   (sigstore-go rejects multi-cert chains in v0.3)
-// - For other cases: attempts sigstore-go first for better validation,
-//   falls back to custom logic if needed
+//  1. Certificate chain validation
+//  2. Cryptographic signature verification
+//  3. Manifest extraction and validation
 func (v *Verifier) Verify(signature interfaces.Signature) (*manifest.Manifest, error) {
-	// Check if this is a CertificateSignature with bundle
-	if certSig, ok := signature.(*CertificateSignature); ok {
-		return v.verifyWithHybridStrategy(certSig.bundle)
+	// Unwrap the CertificateSignature to get the bundle
+	certSig, ok := signature.(*CertificateSignature)
+	if !ok {
+		return nil, fmt.Errorf("certificate verification requires CertificateSignature, got %T", signature)
 	}
 
-	return nil, fmt.Errorf("certificate verification requires CertificateSignature")
+	return v.verifyWithHybridStrategy(certSig.bundle)
 }
 
 // VerifyFromPath verifies a signature file directly without going through bundle validation.
@@ -437,33 +434,39 @@ func readProtobufBundle(path string) (*protobundle.Bundle, error) {
 	return protoBundle, nil
 }
 
-// CertificateSignature wraps a protobuf bundle for certificate verification.
+// CertificateSignature is a minimal wrapper around protobuf bundles.
 //
-// This uses a hybrid verification strategy:
-// - Detects bundle version and certificate chain characteristics
-// - Uses custom verification for v0.3 bundles with certificate chains
-//   (sigstore-go rejects multi-cert chains in v0.3)
-// - Provides infrastructure for future sigstore-go integration when it supports
-//   certificate-based verification with custom CA trust roots
+// This type exists ONLY to satisfy the interfaces.Signature interface,
+// which requires a Write() method. It has no other purpose and adds no value
+// beyond interface compliance.
+//
+// IMPORTANT: This is an implementation detail. External code should NOT use
+// CertificateSignature directly. Instead, use Verifier.VerifyFromPath() which
+// bypasses the need for this wrapper entirely.
+//
+// Why this exists:
+//   - interfaces.SignatureVerifier requires Verify(signature Signature)
+//   - interfaces.Signature requires Write(path string) error
+//   - Certificate verification doesn't write signatures (read-only)
+//   - This wrapper provides a stub Write() to satisfy the interface
+//
+// Architecture note: The SignatureVerifier interface assumes a read-then-verify
+// pattern that doesn't fit certificate verification well. VerifyFromPath() is
+// the proper API for certificate verification.
+// nolint: revive
 type CertificateSignature struct {
 	bundle *protobundle.Bundle
 }
 
-// NewCertificateSignature creates a signature from a protobuf bundle.
+// NewCertificateSignature creates a signature wrapper from a protobuf bundle.
+// This is only used internally by Verifier.Read() for interface compliance.
 func NewCertificateSignature(bundle *protobundle.Bundle) *CertificateSignature {
 	return &CertificateSignature{bundle: bundle}
 }
 
-// Write is not implemented for certificate signatures.
+// Write always returns an error - certificate signatures are read-only.
+// This method exists only to satisfy the interfaces.Signature interface.
+// nolint: revive // stub only
 func (s *CertificateSignature) Write(path string) error {
-	return fmt.Errorf("writing certificate signatures not supported")
-}
-
-// Read reads a certificate signature from a file as raw protobuf.
-func (s *CertificateSignature) Read(path string) (interfaces.Signature, error) {
-	bundle, err := readProtobufBundle(path)
-	if err != nil {
-		return nil, err
-	}
-	return NewCertificateSignature(bundle), nil
+	return fmt.Errorf("certificate signatures are read-only and cannot be written")
 }
