@@ -36,7 +36,8 @@ jobs:
         id: model
         run: |
           set -e
-          MODEL_ROOT=$(mktemp --directory)
+          MODEL_ROOT="model_root"
+          mkdir -p "$MODEL_ROOT"
           echo "root=$MODEL_ROOT" >> "$GITHUB_OUTPUT"
           for i in {0..1}; do
               DIR="${MODEL_ROOT}/d${i}"
