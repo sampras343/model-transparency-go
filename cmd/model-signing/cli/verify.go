@@ -23,6 +23,7 @@ import (
 
 	"github.com/sigstore/model-signing/cmd/model-signing/cli/options"
 	"github.com/sigstore/model-signing/pkg/utils"
+	cert "github.com/sigstore/model-signing/pkg/verify/certificate"
 	keyverify "github.com/sigstore/model-signing/pkg/verify/key"
 	sigstore "github.com/sigstore/model-signing/pkg/verify/sigstore"
 )
@@ -47,9 +48,7 @@ signature, verification would fail.`
 		RunE: func(cmd *cobra.Command, args []string) error {
 			modelPath := args[0]
 
-			// Convert CLI options to library options
 			opts := o.ToStandardOptions(modelPath)
-			// Pass logger from root options
 			opts.Logger = utils.NewLogger(ro.Verbose)
 
 			verifier, err := sigstore.NewSigstoreVerifier(opts)
@@ -95,9 +94,7 @@ management protocols.`
 		RunE: func(cmd *cobra.Command, args []string) error {
 			modelPath := args[0]
 
-			// Convert CLI options to library options
 			opts := o.ToStandardOptions(modelPath)
-			// Pass logger from root options
 			opts.Logger = utils.NewLogger(ro.Verbose)
 
 			verifier, err := keyverify.NewKeyVerifier(opts)
@@ -121,10 +118,8 @@ management protocols.`
 }
 
 func NewCertificateVerifier() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "certificate",
-		Short: "Verify using a certificate",
-		Long: `Verify using a certificate.
+	o := &options.CertificateVerifyOptions{}
+	long := `Verify using a certificate.
 
     Verifies the integrity of model at MODEL_PATH, according to
     signature from SIGNATURE_PATH (given via --signature option). Files in
@@ -135,12 +130,36 @@ func NewCertificateVerifier() *cobra.Command {
     certificate chain, using --certificate-chain (this option can be repeated
     as needed, or all certificates could be placed in a single file).
 
-    Note that we don't offer certificate and key management protocols.`,
-		//nolint:revive
+    Note that we don't offer certificate and key management protocols.`
+
+	cmd := &cobra.Command{
+		Use:   "certificate [OPTIONS] MODEL_PATH",
+		Short: "Verify using a certificate.",
+		Long:  long,
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("certificate verification is not yet implemented\n\nPlease use 'sigstore' verification instead")
+			modelPath := args[0]
+
+			opts := o.ToStandardOptions(modelPath)
+			opts.Logger = utils.NewLogger(ro.Verbose)
+
+			verifier, err := cert.NewCertificateVerifier(opts)
+			if err != nil {
+				return err
+			}
+
+			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
+			defer cancel()
+
+			status, err := verifier.Verify(ctx)
+			if !ro.Verbose {
+				fmt.Println(status.Message)
+			}
+			return err
 		},
 	}
+
+	o.AddFlags(cmd)
 	return cmd
 }
 
@@ -171,9 +190,9 @@ Use each subcommand's --help option for details on each mode.`,
 	}
 
 	// Add PKI subcommands. Each owns its own flags.
-	cmd.AddCommand(NewSigstoreVerifier())    // full implementation
-	cmd.AddCommand(NewKeyVerifier())         // full implementation
-	cmd.AddCommand(NewCertificateVerifier()) // stub for now
+	cmd.AddCommand(NewSigstoreVerifier())
+	cmd.AddCommand(NewKeyVerifier())
+	cmd.AddCommand(NewCertificateVerifier())
 
 	return cmd
 }

@@ -150,8 +150,13 @@ func (c *Config) SetVerifier(verifier interfaces.SignatureVerifier) *Config {
 // In the future, this could be made more sophisticated to handle multiple
 // signature formats.
 func (c *Config) createSignatureReader() interfaces.SignatureReader {
-	// For now, we only support Sigstore signatures
-	// This would need to be extended if we support other signature types
+	// Check if the verifier implements SignatureReader interface
+	// Certificate verifiers implement this to provide their own signature reading
+	if reader, ok := c.verifier.(interfaces.SignatureReader); ok {
+		return reader
+	}
+
+	// For other verifiers, use standard Sigstore signature
 	return &sign.Signature{}
 }
 
