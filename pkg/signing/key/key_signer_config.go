@@ -31,9 +31,6 @@ import (
 // Ensure LocalKeySigner implements interfaces.Signer at compile time.
 var _ interfaces.Signer = (*LocalKeySigner)(nil)
 
-// Bundle media type for Sigstore bundle v0.3
-const bundleMediaType = "application/vnd.dev.sigstore.bundle.v0.3+json"
-
 // KeySignerConfig holds configuration for creating a local key signer.
 //
 //nolint:revive
@@ -107,7 +104,7 @@ func (s *LocalKeySigner) Sign(payload *interfaces.Payload) (interfaces.Signature
 
 	// Create Sigstore bundle with verification material
 	protoBundle := &protobundle.Bundle{
-		MediaType:            bundleMediaType,
+		MediaType:            utils.BundleMediaType,
 		VerificationMaterial: s.createVerificationMaterial(),
 		Content: &protobundle.Bundle_DsseEnvelope{
 			DsseEnvelope: envelope.ToProtobuf(),
