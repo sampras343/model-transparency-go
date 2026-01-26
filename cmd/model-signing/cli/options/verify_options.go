@@ -23,60 +23,49 @@ import (
 )
 
 // SigstoreVerifyOptions holds the command-line options for Sigstore-based verification.
-// It embeds CommonModelFlags and CommonVerifyFlags, and adds Sigstore-specific configuration.
 type SigstoreVerifyOptions struct {
-	CommonModelFlags
-	CommonVerifyFlags
-	// UseStaging specifies whether to use Sigstore's staging environment.
-	UseStaging bool
+	ModelPathFlags
+	SignatureInputFlags
+	SigstoreFlags
+	IgnoreUnsignedFlags
 	// Identity specifies the expected identity of the signer (e.g., email address).
 	Identity string
 	// IdentityProvider specifies the expected identity provider URL.
 	IdentityProvider string
-	// TrustConfigPath provides a path to a custom trust root JSON file.
-	TrustConfigPath string
 }
 
 // AddFlags adds Sigstore verification flags to the cobra command.
-// This includes common model flags, common verify flags, and Sigstore-specific options.
-// The identity and identity-provider flags are marked as required.
 func (o *SigstoreVerifyOptions) AddFlags(cmd *cobra.Command) {
-	o.AddFlagsForVerify(cmd)
-	o.CommonVerifyFlags.AddFlags(cmd)
+	AddAllFlags(cmd, &o.ModelPathFlags, &o.SignatureInputFlags, &o.SigstoreFlags, &o.IgnoreUnsignedFlags)
 
-	cmd.Flags().BoolVar(&o.UseStaging, "use-staging", false, "Use Sigstore's staging instance.")
 	cmd.Flags().StringVar(&o.Identity, "identity", "", "The expected identity of the signer (e.g., name@example.com).")
 	_ = cmd.MarkFlagRequired("identity")
 	cmd.Flags().StringVar(&o.IdentityProvider, "identity-provider", "", "The expected identity provider (e.g., https://accounts.example.com).")
 	_ = cmd.MarkFlagRequired("identity-provider")
-	cmd.Flags().StringVar(&o.TrustConfigPath, "trust-config", "", "Path to custom trust root JSON file.")
 }
 
 // KeyVerifyOptions holds the command-line options for key-based verification.
-// It embeds CommonModelFlags and CommonVerifyFlags, and adds key-specific configuration.
 type KeyVerifyOptions struct {
-	CommonModelFlags
-	CommonVerifyFlags
+	ModelPathFlags
+	SignatureInputFlags
+	IgnoreUnsignedFlags
 	// PublicKeyPath provides the path to the public key file for verification.
 	PublicKeyPath string
 }
 
 // AddFlags adds key-based verification flags to the cobra command.
-// This includes common model flags, common verify flags, and key-specific options.
-// The public-key flag is marked as required.
 func (o *KeyVerifyOptions) AddFlags(cmd *cobra.Command) {
-	o.AddFlagsForVerify(cmd)
-	o.CommonVerifyFlags.AddFlags(cmd)
+	AddAllFlags(cmd, &o.ModelPathFlags, &o.SignatureInputFlags, &o.IgnoreUnsignedFlags)
 
 	cmd.Flags().StringVar(&o.PublicKeyPath, "public-key", "", "Location of the public key file to verify.")
 	_ = cmd.MarkFlagRequired("public-key")
 }
 
 // CertificateVerifyOptions holds the command-line options for certificate-based verification.
-// It embeds CommonModelFlags and CommonVerifyFlags, and adds certificate-specific configuration.
 type CertificateVerifyOptions struct {
-	CommonModelFlags
-	CommonVerifyFlags
+	ModelPathFlags
+	SignatureInputFlags
+	IgnoreUnsignedFlags
 	// CertificateChain provides file paths for the certificate chain of trust.
 	CertificateChain []string
 	// LogFingerprints enables logging of SHA256 fingerprints for all certificates.
@@ -84,13 +73,10 @@ type CertificateVerifyOptions struct {
 }
 
 // AddFlags adds certificate-based verification flags to the cobra command.
-// This includes common model flags, common verify flags, and certificate-specific options.
 func (o *CertificateVerifyOptions) AddFlags(cmd *cobra.Command) {
-	o.AddFlagsForVerify(cmd)
-	o.CommonVerifyFlags.AddFlags(cmd)
+	AddAllFlags(cmd, &o.ModelPathFlags, &o.SignatureInputFlags, &o.IgnoreUnsignedFlags)
 
 	cmd.Flags().StringSliceVar(&o.CertificateChain, "certificate-chain", nil, "File paths of certificate chain of trust (can be repeated or comma-separated)")
-
 	cmd.Flags().BoolVar(&o.LogFingerprints, "log-fingerprints", false, "Log SHA256 fingerprints of all certificates")
 }
 
@@ -103,15 +89,15 @@ func (o *CertificateVerifyOptions) AddFlags(cmd *cobra.Command) {
 func (o *SigstoreVerifyOptions) ToStandardOptions(modelPath string) sigstore.SigstoreVerifierOptions {
 	return sigstore.SigstoreVerifierOptions{
 		ModelPath:           modelPath,
-		SignaturePath:       o.SignaturePath,
-		IgnorePaths:         o.IgnorePaths,
-		IgnoreGitPaths:      o.IgnoreGitPaths,
-		AllowSymlinks:       o.AllowSymlinks,
-		UseStaging:          o.UseStaging,
+		SignaturePath:       o.SignatureInputFlags.SignaturePath,
+		IgnorePaths:         o.ModelPathFlags.IgnorePaths,
+		IgnoreGitPaths:      o.ModelPathFlags.IgnoreGitPaths,
+		AllowSymlinks:       o.ModelPathFlags.AllowSymlinks,
+		UseStaging:          o.SigstoreFlags.UseStaging,
 		Identity:            o.Identity,
 		IdentityProvider:    o.IdentityProvider,
-		TrustConfigPath:     o.TrustConfigPath,
-		IgnoreUnsignedFiles: o.IgnoreUnsignedFiles,
+		TrustConfigPath:     o.SigstoreFlags.TrustConfigPath,
+		IgnoreUnsignedFiles: o.IgnoreUnsignedFlags.IgnoreUnsignedFiles,
 	}
 }
 
@@ -124,12 +110,12 @@ func (o *SigstoreVerifyOptions) ToStandardOptions(modelPath string) sigstore.Sig
 func (o *KeyVerifyOptions) ToStandardOptions(modelPath string) key.KeyVerifierOptions {
 	return key.KeyVerifierOptions{
 		ModelPath:           modelPath,
-		SignaturePath:       o.SignaturePath,
-		IgnorePaths:         o.IgnorePaths,
-		IgnoreGitPaths:      o.IgnoreGitPaths,
-		AllowSymlinks:       o.AllowSymlinks,
+		SignaturePath:       o.SignatureInputFlags.SignaturePath,
+		IgnorePaths:         o.ModelPathFlags.IgnorePaths,
+		IgnoreGitPaths:      o.ModelPathFlags.IgnoreGitPaths,
+		AllowSymlinks:       o.ModelPathFlags.AllowSymlinks,
 		PublicKeyPath:       o.PublicKeyPath,
-		IgnoreUnsignedFiles: o.IgnoreUnsignedFiles,
+		IgnoreUnsignedFiles: o.IgnoreUnsignedFlags.IgnoreUnsignedFiles,
 	}
 }
 
@@ -142,12 +128,12 @@ func (o *KeyVerifyOptions) ToStandardOptions(modelPath string) key.KeyVerifierOp
 func (o *CertificateVerifyOptions) ToStandardOptions(modelPath string) cert.CertificateVerifierOptions {
 	return cert.CertificateVerifierOptions{
 		ModelPath:           modelPath,
-		SignaturePath:       o.SignaturePath,
-		IgnorePaths:         o.IgnorePaths,
-		IgnoreGitPaths:      o.IgnoreGitPaths,
-		AllowSymlinks:       o.AllowSymlinks,
+		SignaturePath:       o.SignatureInputFlags.SignaturePath,
+		IgnorePaths:         o.ModelPathFlags.IgnorePaths,
+		IgnoreGitPaths:      o.ModelPathFlags.IgnoreGitPaths,
+		AllowSymlinks:       o.ModelPathFlags.AllowSymlinks,
 		CertificateChain:    o.CertificateChain,
-		IgnoreUnsignedFiles: o.IgnoreUnsignedFiles,
+		IgnoreUnsignedFiles: o.IgnoreUnsignedFlags.IgnoreUnsignedFiles,
 		LogFingerprints:     o.LogFingerprints,
 	}
 }

@@ -22,11 +22,10 @@ import (
 )
 
 // SigstoreSignOptions holds the command-line options for Sigstore-based signing.
-// It embeds CommonModelFlags and adds Sigstore-specific configuration options.
 type SigstoreSignOptions struct {
-	CommonModelFlags
-	// UseStaging specifies whether to use Sigstore's staging environment.
-	UseStaging bool
+	ModelPathFlags
+	SignatureOutputFlags
+	SigstoreFlags
 	// OAuthForceOob forces an out-of-band OAuth flow without opening a browser.
 	OAuthForceOob bool
 	// UseAmbientCredentials enables using credentials from the ambient environment.
@@ -37,43 +36,17 @@ type SigstoreSignOptions struct {
 	ClientID string
 	// ClientSecret specifies a custom OpenID Connect client secret for OAuth2.
 	ClientSecret string
-	// TrustConfigPath provides a path to a custom client trust configuration file.
-	TrustConfigPath string
 }
 
 // AddFlags adds Sigstore signing flags to the cobra command.
-// This includes both common model flags and Sigstore-specific options.
 func (o *SigstoreSignOptions) AddFlags(cmd *cobra.Command) {
-	o.AddFlagsForSigning(cmd)
+	AddAllFlags(cmd, &o.ModelPathFlags, &o.SignatureOutputFlags, &o.SigstoreFlags)
 
-	cmd.Flags().BoolVar(&o.UseStaging, "use-staging", false, "Use Sigstore's staging instance.")
 	cmd.Flags().BoolVar(&o.OAuthForceOob, "oauth-force-oob", false, "Force an out-of-band OAuth flow and do not automatically start the default web browser.")
 	cmd.Flags().BoolVar(&o.UseAmbientCredentials, "use-ambient-credentials", false, "Use credentials from ambient environment.")
 	cmd.Flags().StringVar(&o.IdentityToken, "identity-token", "", "Fixed OIDC identity token to use instead of obtaining credentials from OIDC flow or from the environment.")
 	cmd.Flags().StringVar(&o.ClientID, "client-id", "", "The custom OpenID Connect client ID to use during OAuth2.")
 	cmd.Flags().StringVar(&o.ClientSecret, "client-secret", "", "The custom OpenID Connect client secret to use during OAuth2.")
-	cmd.Flags().StringVar(&o.TrustConfigPath, "trust-config", "", "The client trust configuration to use.")
-}
-
-// KeySignOptions holds the command-line options for key-based signing.
-// It embeds CommonModelFlags and adds key-specific configuration options.
-type KeySignOptions struct {
-	CommonModelFlags
-	// Password specifies the password for encrypted private keys.
-	Password string
-	// PrivateKeyPath provides the path to the PEM-encoded private key file.
-	PrivateKeyPath string
-}
-
-// AddFlags adds key-based signing flags to the cobra command.
-// This includes both common model flags and key-specific options.
-// The private-key flag is marked as required.
-func (o *KeySignOptions) AddFlags(cmd *cobra.Command) {
-	o.AddFlagsForSigning(cmd)
-
-	cmd.Flags().StringVar(&o.PrivateKeyPath, "private-key", "", "Path to the private key, as a PEM-encoded file. [required]")
-	_ = cmd.MarkFlagRequired("private-key")
-	cmd.Flags().StringVar(&o.Password, "password", "", "Password for the key encryption, if any.")
 }
 
 // ToStandardOptions converts CLI options to library options for Sigstore signing.
@@ -85,18 +58,40 @@ func (o *KeySignOptions) AddFlags(cmd *cobra.Command) {
 func (o *SigstoreSignOptions) ToStandardOptions(modelPath string) sigstore.SigstoreSignerOptions {
 	return sigstore.SigstoreSignerOptions{
 		ModelPath:             modelPath,
-		SignaturePath:         o.SignaturePath,
-		IgnorePaths:           o.IgnorePaths,
-		IgnoreGitPaths:        o.IgnoreGitPaths,
-		AllowSymlinks:         o.AllowSymlinks,
-		UseStaging:            o.UseStaging,
+		SignaturePath:         o.SignatureOutputFlags.SignaturePath,
+		IgnorePaths:           o.ModelPathFlags.IgnorePaths,
+		IgnoreGitPaths:        o.ModelPathFlags.IgnoreGitPaths,
+		AllowSymlinks:         o.ModelPathFlags.AllowSymlinks,
+		UseStaging:            o.SigstoreFlags.UseStaging,
 		OAuthForceOob:         o.OAuthForceOob,
 		UseAmbientCredentials: o.UseAmbientCredentials,
 		IdentityToken:         o.IdentityToken,
 		ClientID:              o.ClientID,
 		ClientSecret:          o.ClientSecret,
-		TrustConfigPath:       o.TrustConfigPath,
+		TrustConfigPath:       o.SigstoreFlags.TrustConfigPath,
 	}
+}
+
+// KeySignOptions holds the command-line options for key-based signing.
+// It embeds composable flag groups and adds key-specific configuration options.
+type KeySignOptions struct {
+	ModelPathFlags
+	SignatureOutputFlags
+	// Password specifies the password for encrypted private keys.
+	Password string
+	// PrivateKeyPath provides the path to the PEM-encoded private key file.
+	PrivateKeyPath string
+}
+
+// AddFlags adds key-based signing flags to the cobra command.
+// This includes model path flags, signature output flags, and key-specific options.
+// The private-key flag is marked as required.
+func (o *KeySignOptions) AddFlags(cmd *cobra.Command) {
+	AddAllFlags(cmd, &o.ModelPathFlags, &o.SignatureOutputFlags)
+
+	cmd.Flags().StringVar(&o.PrivateKeyPath, "private-key", "", "Path to the private key, as a PEM-encoded file. [required]")
+	_ = cmd.MarkFlagRequired("private-key")
+	cmd.Flags().StringVar(&o.Password, "password", "", "Password for the key encryption, if any.")
 }
 
 // ToStandardOptions converts CLI options to library options for key-based signing.
@@ -108,11 +103,24 @@ func (o *SigstoreSignOptions) ToStandardOptions(modelPath string) sigstore.Sigst
 func (o *KeySignOptions) ToStandardOptions(modelPath string) key.KeySignerOptions {
 	return key.KeySignerOptions{
 		ModelPath:      modelPath,
-		SignaturePath:  o.SignaturePath,
-		IgnorePaths:    o.IgnorePaths,
-		IgnoreGitPaths: o.IgnoreGitPaths,
-		AllowSymlinks:  o.AllowSymlinks,
+		SignaturePath:  o.SignatureOutputFlags.SignaturePath,
+		IgnorePaths:    o.ModelPathFlags.IgnorePaths,
+		IgnoreGitPaths: o.ModelPathFlags.IgnoreGitPaths,
+		AllowSymlinks:  o.ModelPathFlags.AllowSymlinks,
 		PrivateKeyPath: o.PrivateKeyPath,
 		Password:       o.Password,
 	}
+}
+
+// CertificateSignOptions holds the command-line options for certificate-based signing.
+// It embeds composable flag groups and adds cert-specific configuration options.
+type CertificateSignOptions struct {
+	ModelPathFlags
+	SignatureOutputFlags
+	// PrivateKeyPath provides the path to the PEM-encoded private key file.
+	PrivateKeyPath string
+	// SigningCertificate provides the path to the PEM-encoded signing certificate file.
+	SigningCertificate string
+	// CertificateChain provides file paths for the certificate chain of trust.
+	CertificateChain []string
 }
