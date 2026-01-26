@@ -39,6 +39,7 @@ var _ interfaces.Signature = (*CertificateSignature)(nil)
 //
 // This type bypasses sigstore-go's bundle validation which rejects v0.3 bundles
 // with X509 certificate chains. It serializes the protobuf bundle directly.
+// nolint:revive
 type CertificateSignature struct {
 	bundle *protobundle.Bundle
 }
