@@ -86,6 +86,7 @@ func (o *CertificateVerifyOptions) AddFlags(cmd *cobra.Command) {
 //
 // The modelPath parameter specifies the path to the model to be verified.
 // Returns a SigstoreVerifierOptions struct with all fields populated from CLI flags.
+// nolint:staticcheck
 func (o *SigstoreVerifyOptions) ToStandardOptions(modelPath string) sigstore.SigstoreVerifierOptions {
 	return sigstore.SigstoreVerifierOptions{
 		ModelPath:           modelPath,
@@ -107,6 +108,7 @@ func (o *SigstoreVerifyOptions) ToStandardOptions(modelPath string) sigstore.Sig
 //
 // The modelPath parameter specifies the path to the model to be verified.
 // Returns a KeyVerifierOptions struct with all fields populated from CLI flags.
+// nolint:staticcheck
 func (o *KeyVerifyOptions) ToStandardOptions(modelPath string) key.KeyVerifierOptions {
 	return key.KeyVerifierOptions{
 		ModelPath:           modelPath,
@@ -125,6 +127,7 @@ func (o *KeyVerifyOptions) ToStandardOptions(modelPath string) key.KeyVerifierOp
 //
 // The modelPath parameter specifies the path to the model to be verified.
 // Returns a CertificateVerifierOptions struct with all fields populated from CLI flags.
+// nolint:staticcheck
 func (o *CertificateVerifyOptions) ToStandardOptions(modelPath string) cert.CertificateVerifierOptions {
 	return cert.CertificateVerifierOptions{
 		ModelPath:           modelPath,

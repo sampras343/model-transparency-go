@@ -56,6 +56,7 @@ func (o *SigstoreSignOptions) AddFlags(cmd *cobra.Command) {
 //
 // The modelPath parameter specifies the path to the model to be signed.
 // Returns a SigstoreSignerOptions struct with all fields populated from CLI flags.
+// nolint:staticcheck
 func (o *SigstoreSignOptions) ToStandardOptions(modelPath string) sigstore.SigstoreSignerOptions {
 	return sigstore.SigstoreSignerOptions{
 		ModelPath:             modelPath,
@@ -101,6 +102,7 @@ func (o *KeySignOptions) AddFlags(cmd *cobra.Command) {
 //
 // The modelPath parameter specifies the path to the model to be signed.
 // Returns a KeySignerOptions struct with all fields populated from CLI flags.
+// nolint:staticcheck
 func (o *KeySignOptions) ToStandardOptions(modelPath string) key.KeySignerOptions {
 	return key.KeySignerOptions{
 		ModelPath:      modelPath,
@@ -146,6 +148,7 @@ func (o *CertificateSignOptions) AddFlags(cmd *cobra.Command) {
 //
 // The modelPath parameter specifies the path to the model to be signed.
 // Returns a CertificateSignOptions struct with all fields populated from CLI flags.
+// nolint:staticcheck
 func (o *CertificateSignOptions) ToStandardOptions(modelPath string) cert.CertificateSignerOptions {
 	return cert.CertificateSignerOptions{
 		ModelPath:              modelPath,
