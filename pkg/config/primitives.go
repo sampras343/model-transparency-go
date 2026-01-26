@@ -301,3 +301,134 @@ func validatePublicKey(key interface{}) (crypto.PublicKey, error) {
 		return nil, fmt.Errorf("unsupported public key type: %T", key)
 	}
 }
+
+// LoadCertificate loads a single X509 certificate from a PEM-encoded file.
+//
+// Returns the parsed certificate, or an error if the file cannot be read
+// or the certificate cannot be parsed.
+func LoadCertificate(path string) (*x509.Certificate, error) {
+	if path == "" {
+		return nil, fmt.Errorf("certificate path is required")
+	}
+
+	pemBytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read certificate file: %w", err)
+	}
+
+	block, _ := pem.Decode(pemBytes)
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode PEM block from certificate file")
+	}
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse certificate: %w", err)
+	}
+
+	return cert, nil
+}
+
+// LoadCertificateChain loads multiple X509 certificates from PEM-encoded files.
+// Each file may contain one or more certificates.
+//
+// Returns the list of parsed certificates, or an error if any file cannot be read
+// or any certificate cannot be parsed.
+func LoadCertificateChain(paths []string) ([]*x509.Certificate, error) {
+	var certificates []*x509.Certificate
+
+	for _, path := range paths {
+		pemBytes, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read certificate chain file %s: %w", path, err)
+		}
+
+		// Parse all certificates in the file
+		certs, err := ParseCertificates(pemBytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse certificates from %s: %w", path, err)
+		}
+
+		certificates = append(certificates, certs...)
+	}
+
+	return certificates, nil
+}
+
+// ParseCertificates parses one or more PEM-encoded certificates from raw bytes.
+// Supports files with multiple concatenated PEM certificate blocks.
+// Falls back to DER format if no PEM blocks are found.
+//
+// Returns the list of parsed certificates, or an error if parsing fails.
+func ParseCertificates(certBytes []byte) ([]*x509.Certificate, error) {
+	var certs []*x509.Certificate
+
+	// Try parsing as PEM-encoded certificates
+	// Multiple certificates may be in the same file
+	remaining := certBytes
+	for {
+		block, rest := pem.Decode(remaining)
+		if block == nil {
+			break
+		}
+
+		if block.Type == "CERTIFICATE" {
+			cert, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse PEM certificate: %w", err)
+			}
+			certs = append(certs, cert)
+		}
+
+		remaining = rest
+	}
+
+	if len(certs) > 0 {
+		return certs, nil
+	}
+
+	// If no PEM blocks found, try parsing as raw DER
+	cert, err := x509.ParseCertificate(certBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse certificate (tried both PEM and DER formats): %w", err)
+	}
+
+	return []*x509.Certificate{cert}, nil
+}
+
+// ValidatePublicKeysMatch validates that two public keys are equal.
+// Supports ECDSA, RSA, and Ed25519 key types.
+//
+// Returns an error if the keys don't match or are of different types.
+func ValidatePublicKeysMatch(keyFromPrivate, keyFromCert crypto.PublicKey) error {
+	switch priv := keyFromPrivate.(type) {
+	case *ecdsa.PublicKey:
+		pub, ok := keyFromCert.(*ecdsa.PublicKey)
+		if !ok {
+			return fmt.Errorf("public key type mismatch: private key is ECDSA, certificate is %T", keyFromCert)
+		}
+		if !priv.Equal(pub) {
+			return fmt.Errorf("the public key from the certificate does not match the public key paired with the private key")
+		}
+	case *rsa.PublicKey:
+		pub, ok := keyFromCert.(*rsa.PublicKey)
+		if !ok {
+			return fmt.Errorf("public key type mismatch: private key is RSA, certificate is %T", keyFromCert)
+		}
+		if !priv.Equal(pub) {
+			return fmt.Errorf("the public key from the certificate does not match the public key paired with the private key")
+		}
+	case ed25519.PublicKey:
+		pub, ok := keyFromCert.(ed25519.PublicKey)
+		if !ok {
+			return fmt.Errorf("public key type mismatch: private key is Ed25519, certificate is %T", keyFromCert)
+		}
+		if !priv.Equal(pub) {
+			return fmt.Errorf("the public key from the certificate does not match the public key paired with the private key")
+		}
+	default:
+		return fmt.Errorf("unsupported public key type: %T", keyFromPrivate)
+	}
+
+	return nil
+}

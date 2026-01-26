@@ -47,4 +47,7 @@ const (
 
 	// DefaultClientID is the default OAuth2 client ID for Sigstore authentication.
 	DefaultClientID = "sigstore"
+
+	// Bundle media type for Sigstore bundle v0.3
+	BundleMediaType = "application/vnd.dev.sigstore.bundle.v0.3+json"
 )
