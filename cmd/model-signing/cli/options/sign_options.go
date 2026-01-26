@@ -17,6 +17,7 @@ package options
 import (
 	"github.com/spf13/cobra"
 
+	cert "github.com/sigstore/model-signing/pkg/signing/certificate"
 	key "github.com/sigstore/model-signing/pkg/signing/key"
 	sigstore "github.com/sigstore/model-signing/pkg/signing/sigstore"
 )
@@ -119,8 +120,41 @@ type CertificateSignOptions struct {
 	SignatureOutputFlags
 	// PrivateKeyPath provides the path to the PEM-encoded private key file.
 	PrivateKeyPath string
-	// SigningCertificate provides the path to the PEM-encoded signing certificate file.
-	SigningCertificate string
+	// SigningCertificatePath provides the path to the PEM-encoded signing certificate file.
+	SigningCertificatePath string
 	// CertificateChain provides file paths for the certificate chain of trust.
 	CertificateChain []string
+}
+
+// AddFlags adds cert-based signing flags to the cobra command.
+// The private-key flag is marked as required.
+func (o *CertificateSignOptions) AddFlags(cmd *cobra.Command) {
+	AddAllFlags(cmd, &o.ModelPathFlags, &o.SignatureOutputFlags)
+
+	cmd.Flags().StringVar(&o.PrivateKeyPath, "private-key", "", "Path to the private key, as a PEM-encoded file. [required]")
+	_ = cmd.MarkFlagRequired("private-key")
+
+	cmd.Flags().StringVar(&o.SigningCertificatePath, "signing-certificate", "", "Path to the signing certificate, as a PEM-encoded file. [required]")
+	_ = cmd.MarkFlagRequired("signing-certificate")
+
+	cmd.Flags().StringSliceVar(&o.CertificateChain, "certificate-chain", nil, "File paths of certificate chain of trust (can be repeated or comma-separated)")
+}
+
+// ToStandardOptions converts CLI options to library options for cert-based signing.
+// It maps command-line flags to the standard CertificateSignOptions structure
+// used by the signing library.
+//
+// The modelPath parameter specifies the path to the model to be signed.
+// Returns a CertificateSignOptions struct with all fields populated from CLI flags.
+func (o *CertificateSignOptions) ToStandardOptions(modelPath string) cert.CertificateSignerOptions {
+	return cert.CertificateSignerOptions{
+		ModelPath:              modelPath,
+		SignaturePath:          o.SignatureOutputFlags.SignaturePath,
+		IgnorePaths:            o.ModelPathFlags.IgnorePaths,
+		IgnoreGitPaths:         o.ModelPathFlags.IgnoreGitPaths,
+		AllowSymlinks:          o.ModelPathFlags.AllowSymlinks,
+		PrivateKeyPath:         o.PrivateKeyPath,
+		CertificateChain:       o.CertificateChain,
+		SigningCertificatePath: o.SigningCertificatePath,
+	}
 }
