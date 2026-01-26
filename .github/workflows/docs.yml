@@ -25,7 +25,6 @@ permissions: {}
 
 jobs:
   build:
-    if: github.repository == 'sigstore/model-transparency'  # Don't do this in forks
     runs-on: ubuntu-latest
     permissions:
       contents: read
