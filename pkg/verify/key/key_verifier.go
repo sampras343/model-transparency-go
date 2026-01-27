@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"github.com/sigstore/model-signing/pkg/config"
+	"github.com/sigstore/model-signing/pkg/oci"
 	"github.com/sigstore/model-signing/pkg/utils"
 	"github.com/sigstore/model-signing/pkg/verify"
 )
@@ -66,9 +67,12 @@ func NewKeyVerifier(opts KeyVerifierOptions) (*KeyVerifier, error) {
 		return nil, err
 	}
 
-	// Validate ignore paths using new validation utilities
-	if err := utils.ValidateMultiple("ignore paths", opts.IgnorePaths, utils.PathTypeAny); err != nil {
-		return nil, err
+	// Validate ignore paths only for non-OCI manifests
+	// For OCI manifests, ignore paths refer to layer entries, not local files
+	if !oci.IsOCIManifest(opts.ModelPath) {
+		if err := utils.ValidateMultiple("ignore paths", opts.IgnorePaths, utils.PathTypeAny); err != nil {
+			return nil, err
+		}
 	}
 
 	// Use provided logger or create a default non-verbose one
@@ -121,19 +125,45 @@ func (kv *KeyVerifier) Verify(_ context.Context) (verify.Result, error) {
 		return verify.Result{}, fmt.Errorf("failed to create key verifier: %w", err)
 	}
 
-	// Create hashing config
-	// will guess them from the signature's manifest
+	// Check if the model path is an OCI manifest
+	if oci.IsOCIManifest(kv.opts.ModelPath) {
+		kv.logger.Debug("  Detected OCI manifest: %s", kv.opts.ModelPath)
+
+		// Load and validate OCI manifest
+		ociManifest, err := oci.LoadAndValidateManifest(kv.opts.ModelPath)
+		if err != nil {
+			return verify.Result{
+				Verified: false,
+				Message:  fmt.Sprintf("Failed to load OCI manifest: %v", err),
+			}, fmt.Errorf("failed to load OCI manifest: %w", err)
+		}
+
+		// Create verification config and verify OCI manifest with ignore paths
+		verifyConfig := config.NewVerifierConfig().SetVerifier(keyVerifier)
+
+		if err := verifyConfig.VerifyOCIManifestWithIgnore(ociManifest, kv.opts.SignaturePath, true, ignorePaths); err != nil {
+			return verify.Result{
+				Verified: false,
+				Message:  err.Error(),
+			}, err
+		}
+
+		return verify.Result{
+			Verified: true,
+			Message:  "Verification succeeded (OCI manifest)",
+		}, nil
+	}
+
+	// Standard directory verification
 	hashingConfig := config.NewHashingConfig().
 		SetIgnoredPaths(ignorePaths, kv.opts.IgnoreGitPaths).
 		SetAllowSymlinks(kv.opts.AllowSymlinks)
 
-	// Create verification config
 	verifyConfig := config.NewVerifierConfig().
 		SetVerifier(keyVerifier).
 		SetHashingConfig(hashingConfig).
 		SetIgnoreUnsignedFiles(kv.opts.IgnoreUnsignedFiles)
 
-	// Perform verification
 	if err := verifyConfig.Verify(kv.opts.ModelPath, kv.opts.SignaturePath); err != nil {
 		return verify.Result{
 			Verified: false,
