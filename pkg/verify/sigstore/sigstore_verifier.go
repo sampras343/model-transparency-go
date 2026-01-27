@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 
 	"github.com/sigstore/model-signing/pkg/config"
+	"github.com/sigstore/model-signing/pkg/oci"
 	"github.com/sigstore/model-signing/pkg/utils"
 	"github.com/sigstore/model-signing/pkg/verify"
 )
@@ -80,9 +81,12 @@ func NewSigstoreVerifier(opts SigstoreVerifierOptions) (*SigstoreVerifier, error
 		return nil, fmt.Errorf("invalid identity provider %q: %w", opts.IdentityProvider, err)
 	}
 
-	// Validate ignore paths using new validation utilities
-	if err := utils.ValidateMultiple("ignore paths", opts.IgnorePaths, utils.PathTypeAny); err != nil {
-		return nil, err
+	// Validate ignore paths only for non-OCI manifests
+	// For OCI manifests, ignore paths refer to layer entries, not local files
+	if !oci.IsOCIManifest(opts.ModelPath) {
+		if err := utils.ValidateMultiple("ignore paths", opts.IgnorePaths, utils.PathTypeAny); err != nil {
+			return nil, err
+		}
 	}
 
 	// Validate trust config path if provided
@@ -105,10 +109,10 @@ func NewSigstoreVerifier(opts SigstoreVerifierOptions) (*SigstoreVerifier, error
 // Verify performs the complete verification flow.
 //
 // Verification workflow:
-// 1. Creates verifier config
-// 2. Creates hashing config
-// 3. Creates verification config
-// 4. Executes verification
+// 1. Detects if the model path is an OCI manifest or a directory
+// 2. Creates verifier config
+// 3. For OCI manifests: verifies signature and compares with OCI layer digests
+// 4. For directories: creates hashing config, hashes files, and compares
 //
 // Returns a Result with success status and message, or an error if verification fails.
 //
@@ -147,19 +151,45 @@ func (sv *SigstoreVerifier) Verify(ctx context.Context) (verify.Result, error) {
 		return verify.Result{}, fmt.Errorf("failed to create Sigstore verifier: %w", err)
 	}
 
-	// Create hashing config
-	// will guess them from the signature's manifest
+	// Check if the model path is an OCI manifest
+	if oci.IsOCIManifest(sv.opts.ModelPath) {
+		sv.logger.Debug("  Detected OCI manifest: %s", sv.opts.ModelPath)
+
+		// Load and validate OCI manifest
+		ociManifest, err := oci.LoadAndValidateManifest(sv.opts.ModelPath)
+		if err != nil {
+			return verify.Result{
+				Verified: false,
+				Message:  fmt.Sprintf("Failed to load OCI manifest: %v", err),
+			}, fmt.Errorf("failed to load OCI manifest: %w", err)
+		}
+
+		// Create verification config and verify OCI manifest with ignore paths
+		verifyConfig := config.NewVerifierConfig().SetVerifier(sigstoreVerifier)
+
+		if err := verifyConfig.VerifyOCIManifestWithIgnore(ociManifest, sv.opts.SignaturePath, true, ignorePaths); err != nil {
+			return verify.Result{
+				Verified: false,
+				Message:  err.Error(),
+			}, err
+		}
+
+		return verify.Result{
+			Verified: true,
+			Message:  "Verification succeeded (OCI manifest)",
+		}, nil
+	}
+
+	// Standard directory verification
 	hashingConfig := config.NewHashingConfig().
 		SetIgnoredPaths(ignorePaths, sv.opts.IgnoreGitPaths).
 		SetAllowSymlinks(sv.opts.AllowSymlinks)
 
-	// Create verification config
 	verifyConfig := config.NewVerifierConfig().
 		SetVerifier(sigstoreVerifier).
 		SetHashingConfig(hashingConfig).
 		SetIgnoreUnsignedFiles(sv.opts.IgnoreUnsignedFiles)
 
-	// Perform verification
 	if err := verifyConfig.Verify(sv.opts.ModelPath, sv.opts.SignaturePath); err != nil {
 		return verify.Result{
 			Verified: false,

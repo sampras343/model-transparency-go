@@ -91,7 +91,7 @@ type IgnoreUnsignedFlags struct {
 // AddFlags adds common verification flags to the cobra command.
 // This includes the flag for handling unsigned files during verification.
 func (o *IgnoreUnsignedFlags) AddFlags(cmd *cobra.Command) {
-	cmd.Flags().BoolVar(&o.IgnoreUnsignedFiles, "ignore-unsigned-files", true, "Ignore files in model that are not in signature.")
+	cmd.Flags().BoolVar(&o.IgnoreUnsignedFiles, "ignore-unsigned-files", false, "Ignore files in model that are not in signature. By default, verification fails if extra files exist.")
 }
 
 // AddAllFlags is a helper function to register multiple flag groups at once.
