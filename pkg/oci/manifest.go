@@ -31,10 +31,10 @@ import (
 // ImageManifest represents an OCI image manifest structure.
 // See https://github.com/opencontainers/image-spec/blob/main/manifest.md
 type ImageManifest struct {
-	SchemaVersion int              `json:"schemaVersion"`
-	MediaType     string           `json:"mediaType,omitempty"`
-	Config        Descriptor       `json:"config"`
-	Layers        []Descriptor     `json:"layers"`
+	SchemaVersion int               `json:"schemaVersion"`
+	MediaType     string            `json:"mediaType,omitempty"`
+	Config        Descriptor        `json:"config"`
+	Layers        []Descriptor      `json:"layers"`
 	Annotations   map[string]string `json:"annotations,omitempty"`
 }
 
