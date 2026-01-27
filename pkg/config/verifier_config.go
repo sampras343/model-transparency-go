@@ -27,6 +27,7 @@ import (
 
 	"github.com/sigstore/model-signing/pkg/interfaces"
 	"github.com/sigstore/model-signing/pkg/manifest"
+	"github.com/sigstore/model-signing/pkg/oci"
 	sign "github.com/sigstore/model-signing/pkg/signature"
 )
 
@@ -311,4 +312,68 @@ func formatDiffMessages(diffs []string) string {
 	}
 
 	return strings.Join(diffs, "\n")
+}
+
+// VerifyOCIManifest verifies that an OCI image manifest conforms to a signature.
+//
+// This method verifies a signature against an OCI image manifest without
+// requiring the actual model files. It extracts the expected manifest from
+// the signature and compares it with a manifest created from the OCI image
+// manifest layers.
+//
+// Parameters:
+//   - ociManifest: The parsed OCI image manifest
+//   - signaturePath: Path to the signature file
+//   - includeConfig: Whether to include the config blob digest in comparison
+//
+// Returns an error if verification fails.
+func (c *Config) VerifyOCIManifest(ociManifest *oci.ImageManifest, signaturePath string, includeConfig bool) error {
+	return c.VerifyOCIManifestWithIgnore(ociManifest, signaturePath, includeConfig, nil)
+}
+
+// VerifyOCIManifestWithIgnore verifies that an OCI image manifest conforms to a signature,
+// filtering out layers that match the ignore paths.
+//
+// This method verifies a signature against an OCI image manifest without
+// requiring the actual model files. It extracts the expected manifest from
+// the signature and compares it with a manifest created from the OCI image
+// manifest layers.
+//
+// Parameters:
+//   - ociManifest: The parsed OCI image manifest
+//   - signaturePath: Path to the signature file
+//   - includeConfig: Whether to include the config blob digest in comparison
+//   - ignorePaths: List of paths/filenames to exclude from verification
+//
+// Returns an error if verification fails.
+func (c *Config) VerifyOCIManifestWithIgnore(ociManifest *oci.ImageManifest, signaturePath string, includeConfig bool, ignorePaths []string) error {
+	if c.verifier == nil {
+		return fmt.Errorf("attempting to verify with no configured verifier")
+	}
+
+	// Read signature from disk
+	reader := c.createSignatureReader()
+	signature, err := reader.Read(signaturePath)
+	if err != nil {
+		return fmt.Errorf("failed to read signature: %w", err)
+	}
+
+	// Verify signature and extract expected manifest
+	expectedManifest, err := c.verifier.Verify(signature)
+	if err != nil {
+		return fmt.Errorf("signature verification failed: %w", err)
+	}
+
+	// Create manifest from OCI layers with ignore paths
+	actualManifest, err := oci.CreateManifestFromOCILayersWithIgnore(ociManifest, "", includeConfig, ignorePaths)
+	if err != nil {
+		return fmt.Errorf("failed to create manifest from OCI layers: %w", err)
+	}
+
+	// Compare manifests
+	if err := oci.CompareManifests(actualManifest, expectedManifest); err != nil {
+		return err
+	}
+
+	return nil
 }
