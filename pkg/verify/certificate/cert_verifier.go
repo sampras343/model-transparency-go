@@ -73,8 +73,8 @@ func NewCertificateVerifier(opts CertificateVerifierOptions) (*CertificateVerifi
 		}
 	}
 
-	// Validate certificate chains using new validation utilities
-	if err := utils.ValidateMultiple("certificate chain", opts.CertificateChain, utils.PathTypeAny); err != nil {
+	// Validate certificate chains
+	if err := utils.ValidateMultiple("certificate chain", opts.CertificateChain, utils.PathTypeFile); err != nil {
 		return nil, err
 	}
 
