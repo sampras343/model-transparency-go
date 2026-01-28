@@ -102,12 +102,18 @@ func (s *LocalKeySigner) Sign(payload *interfaces.Payload) (interfaces.Signature
 	// Create DSSE envelope using the shared dsse package
 	envelope := dsse.CreateEnvelope(utils.InTotoJSONPayloadType, payloadJSON, signatureBytes)
 
+	// Convert envelope to protobuf format
+	protoEnvelope, err := envelope.ToProtobuf()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert envelope to protobuf: %w", err)
+	}
+
 	// Create Sigstore bundle with verification material
 	protoBundle := &protobundle.Bundle{
 		MediaType:            utils.BundleMediaType,
 		VerificationMaterial: s.createVerificationMaterial(),
 		Content: &protobundle.Bundle_DsseEnvelope{
-			DsseEnvelope: envelope.ToProtobuf(),
+			DsseEnvelope: protoEnvelope,
 		},
 	}
 

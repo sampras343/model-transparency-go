@@ -17,6 +17,7 @@ package dsse
 import (
 	"encoding/base64"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	dsse_lib "github.com/secure-systems-lab/go-securesystemslib/dsse"
@@ -84,7 +85,10 @@ func TestToProtobuf(t *testing.T) {
 	signature := []byte("test-signature-bytes")
 
 	envelope := CreateEnvelope(payloadType, payload, signature)
-	protoEnvelope := envelope.ToProtobuf()
+	protoEnvelope, err := envelope.ToProtobuf()
+	if err != nil {
+		t.Fatalf("ToProtobuf failed: %v", err)
+	}
 
 	if protoEnvelope == nil {
 		t.Fatal("Expected non-nil protobuf envelope")
@@ -134,7 +138,10 @@ func TestToProtobuf_MultipleSignatures(t *testing.T) {
 	}
 
 	envelope := &Envelope{raw: rawEnvelope}
-	protoEnvelope := envelope.ToProtobuf()
+	protoEnvelope, err := envelope.ToProtobuf()
+	if err != nil {
+		t.Fatalf("ToProtobuf failed: %v", err)
+	}
 
 	if len(protoEnvelope.Signatures) != 2 {
 		t.Fatalf("Expected 2 signatures, got %d", len(protoEnvelope.Signatures))
@@ -245,7 +252,10 @@ func TestEnvelope_Integration(t *testing.T) {
 	envelope := CreateEnvelope(payloadType, payload, signature)
 
 	// Convert to protobuf
-	protoEnvelope := envelope.ToProtobuf()
+	protoEnvelope, err := envelope.ToProtobuf()
+	if err != nil {
+		t.Fatalf("ToProtobuf failed: %v", err)
+	}
 
 	// Verify everything is correct
 	if protoEnvelope.PayloadType != payloadType {
@@ -292,7 +302,10 @@ func TestEnvelope_LargePayload(t *testing.T) {
 	}
 
 	envelope := CreateEnvelope("test/type", largePayload, []byte("sig"))
-	protoEnvelope := envelope.ToProtobuf()
+	protoEnvelope, err := envelope.ToProtobuf()
+	if err != nil {
+		t.Fatalf("ToProtobuf failed: %v", err)
+	}
 
 	// Verify payload is correctly encoded/decoded
 	if len(protoEnvelope.Payload) != len(largePayload) {
@@ -311,7 +324,10 @@ func TestEnvelope_LargePayload(t *testing.T) {
 func TestEnvelope_EmptySignature(t *testing.T) {
 	// Test with empty signature
 	envelope := CreateEnvelope("test/type", []byte("payload"), []byte{})
-	protoEnvelope := envelope.ToProtobuf()
+	protoEnvelope, err := envelope.ToProtobuf()
+	if err != nil {
+		t.Fatalf("ToProtobuf failed: %v", err)
+	}
 
 	if len(protoEnvelope.Signatures) != 1 {
 		t.Fatalf("Expected 1 signature, got %d", len(protoEnvelope.Signatures))
@@ -319,5 +335,87 @@ func TestEnvelope_EmptySignature(t *testing.T) {
 
 	if len(protoEnvelope.Signatures[0].Sig) != 0 {
 		t.Errorf("Expected empty signature, got %d bytes", len(protoEnvelope.Signatures[0].Sig))
+	}
+}
+
+func TestToProtobuf_InvalidPayloadBase64(t *testing.T) {
+	// Create envelope with invalid base64 payload
+	rawEnvelope := &dsse_lib.Envelope{
+		Payload:     "not-valid-base64!!!", // Invalid base64
+		PayloadType: "test/type",
+		Signatures: []dsse_lib.Signature{
+			{
+				Sig:   base64.StdEncoding.EncodeToString([]byte("sig")),
+				KeyID: "",
+			},
+		},
+	}
+
+	envelope := &Envelope{raw: rawEnvelope}
+	_, err := envelope.ToProtobuf()
+
+	if err == nil {
+		t.Fatal("Expected error for invalid payload base64, got nil")
+	}
+
+	// Verify error message mentions payload
+	if !strings.Contains(err.Error(), "payload") {
+		t.Errorf("Expected error message to mention 'payload', got: %v", err)
+	}
+}
+
+func TestToProtobuf_InvalidSignatureBase64(t *testing.T) {
+	// Create envelope with valid payload but invalid signature base64
+	rawEnvelope := &dsse_lib.Envelope{
+		Payload:     base64.StdEncoding.EncodeToString([]byte("valid payload")),
+		PayloadType: "test/type",
+		Signatures: []dsse_lib.Signature{
+			{
+				Sig:   "not-valid-base64!!!", // Invalid base64
+				KeyID: "key1",
+			},
+		},
+	}
+
+	envelope := &Envelope{raw: rawEnvelope}
+	_, err := envelope.ToProtobuf()
+
+	if err == nil {
+		t.Fatal("Expected error for invalid signature base64, got nil")
+	}
+
+	// Verify error message mentions signature
+	if !strings.Contains(err.Error(), "signature") {
+		t.Errorf("Expected error message to mention 'signature', got: %v", err)
+	}
+}
+
+func TestToProtobuf_InvalidSignatureBase64_SecondSignature(t *testing.T) {
+	// Create envelope with multiple signatures where second one is invalid
+	rawEnvelope := &dsse_lib.Envelope{
+		Payload:     base64.StdEncoding.EncodeToString([]byte("valid payload")),
+		PayloadType: "test/type",
+		Signatures: []dsse_lib.Signature{
+			{
+				Sig:   base64.StdEncoding.EncodeToString([]byte("sig1")),
+				KeyID: "key1",
+			},
+			{
+				Sig:   "invalid-base64!!!", // Invalid base64
+				KeyID: "key2",
+			},
+		},
+	}
+
+	envelope := &Envelope{raw: rawEnvelope}
+	_, err := envelope.ToProtobuf()
+
+	if err == nil {
+		t.Fatal("Expected error for invalid signature base64, got nil")
+	}
+
+	// Verify error message mentions signature index
+	if !strings.Contains(err.Error(), "signature 1") {
+		t.Errorf("Expected error message to mention 'signature 1', got: %v", err)
 	}
 }

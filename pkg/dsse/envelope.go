@@ -186,12 +186,11 @@ func CreateEnvelope(payloadType string, payload []byte, signature []byte) *Envel
 // - Field name mapping (KeyID -> Keyid)
 //
 // Returns a protobuf Envelope in the official Sigstore format.
-func (e *Envelope) ToProtobuf() *protodsse.Envelope {
+func (e *Envelope) ToProtobuf() (*protodsse.Envelope, error) {
 	// Decode payload from base64
 	payloadBytes, err := base64.StdEncoding.DecodeString(e.raw.Payload)
 	if err != nil {
-		// Should never happen if envelope was created properly
-		payloadBytes = []byte{}
+		return nil, fmt.Errorf("failed to decode payload from base64: %w", err)
 	}
 
 	// Convert signatures
@@ -199,7 +198,7 @@ func (e *Envelope) ToProtobuf() *protodsse.Envelope {
 	for i, sig := range e.raw.Signatures {
 		sigBytes, err := base64.StdEncoding.DecodeString(sig.Sig)
 		if err != nil {
-			sigBytes = []byte{}
+			return nil, fmt.Errorf("failed to decode signature %d from base64: %w", i, err)
 		}
 
 		signatures[i] = &protodsse.Signature{
@@ -212,5 +211,5 @@ func (e *Envelope) ToProtobuf() *protodsse.Envelope {
 		Payload:     payloadBytes,
 		PayloadType: e.raw.PayloadType,
 		Signatures:  signatures,
-	}
+	}, nil
 }
