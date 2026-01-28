@@ -370,10 +370,38 @@ func (c *Config) VerifyOCIManifestWithIgnore(ociManifest *oci.ImageManifest, sig
 		return fmt.Errorf("failed to create manifest from OCI layers: %w", err)
 	}
 
+	// Filter actual manifest to only include files that are present in the expected manifest (signature)
+	if c.ignoreUnsignedFiles {
+		actualManifest = filterManifestToExpected(actualManifest, expectedManifest)
+	}
+
 	// Compare manifests
 	if err := oci.CompareManifests(actualManifest, expectedManifest); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// filterManifestToExpected filters the actual manifest to only include items
+// that are present in the expected manifest.
+func filterManifestToExpected(actual, expected *manifest.Manifest) *manifest.Manifest {
+	// Build set of expected identifiers
+	expectedIDs := make(map[string]bool)
+	for _, rd := range expected.ResourceDescriptors() {
+		expectedIDs[rd.Identifier] = true
+	}
+
+	// Filter actual items to only those in expected
+	var filteredItems []manifest.ManifestItem
+	for _, rd := range actual.ResourceDescriptors() {
+		if expectedIDs[rd.Identifier] {
+			filteredItems = append(filteredItems, manifest.NewFileManifestItem(rd.Identifier, rd.Digest))
+		}
+	}
+
+	// Use a default serialization type
+	serializationType := manifest.NewFileSerialization("sha256", false, nil)
+
+	return manifest.NewManifest(actual.ModelName(), filteredItems, serializationType)
 }

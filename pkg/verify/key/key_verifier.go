@@ -139,7 +139,9 @@ func (kv *KeyVerifier) Verify(_ context.Context) (verify.Result, error) {
 		}
 
 		// Create verification config and verify OCI manifest with ignore paths
-		verifyConfig := config.NewVerifierConfig().SetVerifier(keyVerifier)
+		verifyConfig := config.NewVerifierConfig().
+			SetVerifier(keyVerifier).
+			SetIgnoreUnsignedFiles(kv.opts.IgnoreUnsignedFiles)
 
 		if err := verifyConfig.VerifyOCIManifestWithIgnore(ociManifest, kv.opts.SignaturePath, true, ignorePaths); err != nil {
 			return verify.Result{

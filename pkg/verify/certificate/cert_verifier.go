@@ -141,7 +141,9 @@ func (cv *CertificateVerifier) Verify(_ context.Context) (verify.Result, error) 
 		}
 
 		// Create verification config and verify OCI manifest with ignore paths
-		verifyConfig := config.NewVerifierConfig().SetVerifier(certVerifier)
+		verifyConfig := config.NewVerifierConfig().
+			SetVerifier(certVerifier).
+			SetIgnoreUnsignedFiles(cv.opts.IgnoreUnsignedFiles)
 
 		if err := verifyConfig.VerifyOCIManifestWithIgnore(ociManifest, cv.opts.SignaturePath, true, ignorePaths); err != nil {
 			return verify.Result{
