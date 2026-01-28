@@ -14,10 +14,7 @@
 
 package utils
 
-import (
-	"encoding/hex"
-	"testing"
-)
+import "testing"
 
 func TestDSSEPayloadToManifest_ValidPayload(t *testing.T) {
 	// Create a minimal valid payload
@@ -329,82 +326,6 @@ func TestDSSEPayloadToManifest_CompatFallback(t *testing.T) {
 	if manifest.ModelName() != "compat-undefined-not-present" {
 		t.Error("Expected compat fallback to be used")
 	}
-}
-
-func TestHexToBytesInternal(t *testing.T) {
-	tests := []struct {
-		name     string
-		hexStr   string
-		expected []byte
-		wantErr  bool
-	}{
-		{
-			name:     "valid lowercase hex",
-			hexStr:   "0a1b2c3d",
-			expected: []byte{0x0a, 0x1b, 0x2c, 0x3d},
-			wantErr:  false,
-		},
-		{
-			name:     "valid uppercase hex",
-			hexStr:   "0A1B2C3D",
-			expected: []byte{0x0a, 0x1b, 0x2c, 0x3d},
-			wantErr:  false,
-		},
-		{
-			name:     "empty string",
-			hexStr:   "",
-			expected: []byte{},
-			wantErr:  false,
-		},
-		{
-			name:     "odd length",
-			hexStr:   "abc",
-			expected: nil,
-			wantErr:  true,
-		},
-		{
-			name:     "invalid hex chars",
-			hexStr:   "zzzz",
-			expected: nil,
-			wantErr:  true,
-		},
-		{
-			name:     "sha256 hash",
-			hexStr:   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-			expected: mustDecodeHex("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
-			wantErr:  false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := hexToBytes(tt.hexStr)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("hexToBytes() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !tt.wantErr {
-				if len(got) != len(tt.expected) {
-					t.Errorf("hexToBytes() length = %d, want %d", len(got), len(tt.expected))
-					return
-				}
-				for i := range got {
-					if got[i] != tt.expected[i] {
-						t.Errorf("hexToBytes() byte[%d] = 0x%02x, want 0x%02x", i, got[i], tt.expected[i])
-					}
-				}
-			}
-		})
-	}
-}
-
-// Helper function for tests
-func mustDecodeHex(s string) []byte {
-	b, err := hex.DecodeString(s)
-	if err != nil {
-		panic(err)
-	}
-	return b
 }
 
 func TestVerifySignedContent_ValidPayload(t *testing.T) {
