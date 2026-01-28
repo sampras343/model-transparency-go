@@ -24,6 +24,7 @@ import (
 )
 
 // VerifyOptions contains options for verifying a model.
+// nolint:revive
 type VerifyOptions struct {
 	ModelPath           string
 	SignaturePath       string
@@ -42,6 +43,7 @@ type VerifyOptions struct {
 // 4. Performs the appropriate verification
 //
 // Returns a Result indicating success or failure.
+// nolint:revive
 func VerifyModel(verifier interfaces.SignatureVerifier, opts VerifyOptions, logger *utils.Logger) (Result, error) {
 	// Copy ignore paths to avoid mutating caller's slice
 	ignorePaths := append([]string{}, opts.IgnorePaths...)

@@ -37,4 +37,3 @@ func TestMaskToken(t *testing.T) {
 		})
 	}
 }
-

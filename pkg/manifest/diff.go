@@ -20,6 +20,7 @@ import "sort"
 // It contains structured information about files that differ between
 // an actual manifest (computed from the model) and an expected manifest
 // (extracted from a signature).
+// nolint:revive
 type ManifestDiff struct {
 	// ExtraFiles contains identifiers of files present in actual but not in expected.
 	ExtraFiles []string

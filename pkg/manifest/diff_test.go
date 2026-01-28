@@ -170,7 +170,7 @@ func TestComputeDiff_MultipleDifferences(t *testing.T) {
 	actual := NewManifest("test-model", actualItems, serType)
 
 	expectedItems := []ManifestItem{
-		NewFileManifestItem("common.txt", digest1), // mismatch
+		NewFileManifestItem("common.txt", digest1),  // mismatch
 		NewFileManifestItem("missing.txt", digest2), // missing
 	}
 	expected := NewManifest("test-model", expectedItems, serType)
