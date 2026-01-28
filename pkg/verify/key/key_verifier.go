@@ -108,11 +108,6 @@ func (kv *KeyVerifier) Verify(_ context.Context) (verify.Result, error) {
 	kv.logger.Debug("  --public-key:            %v", filepath.Clean(kv.opts.PublicKeyPath))
 	kv.logger.Debug("  --ignore-unsigned-files: %v", kv.opts.IgnoreUnsignedFiles)
 
-	// Resolve ignore paths
-	ignorePaths := append([]string{}, kv.opts.IgnorePaths...)
-	// Add signature path to ignore list
-	ignorePaths = append(ignorePaths, kv.opts.SignaturePath)
-
 	// Create key verifier
 	verifierConfig := KeyVerifierConfig{
 		KeyConfig: config.KeyConfig{
@@ -125,56 +120,13 @@ func (kv *KeyVerifier) Verify(_ context.Context) (verify.Result, error) {
 		return verify.Result{}, fmt.Errorf("failed to create key verifier: %w", err)
 	}
 
-	// Check if the model path is an OCI manifest
-	if oci.IsOCIManifest(kv.opts.ModelPath) {
-		kv.logger.Debug("  Detected OCI manifest: %s", kv.opts.ModelPath)
-
-		// Load and validate OCI manifest
-		ociManifest, err := oci.LoadAndValidateManifest(kv.opts.ModelPath)
-		if err != nil {
-			return verify.Result{
-				Verified: false,
-				Message:  fmt.Sprintf("Failed to load OCI manifest: %v", err),
-			}, fmt.Errorf("failed to load OCI manifest: %w", err)
-		}
-
-		// Create verification config and verify OCI manifest with ignore paths
-		verifyConfig := config.NewVerifierConfig().
-			SetVerifier(keyVerifier).
-			SetIgnoreUnsignedFiles(kv.opts.IgnoreUnsignedFiles)
-
-		if err := verifyConfig.VerifyOCIManifestWithIgnore(ociManifest, kv.opts.SignaturePath, true, ignorePaths); err != nil {
-			return verify.Result{
-				Verified: false,
-				Message:  err.Error(),
-			}, err
-		}
-
-		return verify.Result{
-			Verified: true,
-			Message:  "Verification succeeded (OCI manifest)",
-		}, nil
-	}
-
-	// Standard directory verification
-	hashingConfig := config.NewHashingConfig().
-		SetIgnoredPaths(ignorePaths, kv.opts.IgnoreGitPaths).
-		SetAllowSymlinks(kv.opts.AllowSymlinks)
-
-	verifyConfig := config.NewVerifierConfig().
-		SetVerifier(keyVerifier).
-		SetHashingConfig(hashingConfig).
-		SetIgnoreUnsignedFiles(kv.opts.IgnoreUnsignedFiles)
-
-	if err := verifyConfig.Verify(kv.opts.ModelPath, kv.opts.SignaturePath); err != nil {
-		return verify.Result{
-			Verified: false,
-			Message:  err.Error(),
-		}, err
-	}
-
-	return verify.Result{
-		Verified: true,
-		Message:  "Verification succeeded",
-	}, nil
+	// Use shared helper for verification
+	return verify.VerifyModel(keyVerifier, verify.VerifyOptions{
+		ModelPath:           kv.opts.ModelPath,
+		SignaturePath:       kv.opts.SignaturePath,
+		IgnorePaths:         kv.opts.IgnorePaths,
+		IgnoreGitPaths:      kv.opts.IgnoreGitPaths,
+		AllowSymlinks:       kv.opts.AllowSymlinks,
+		IgnoreUnsignedFiles: kv.opts.IgnoreUnsignedFiles,
+	}, kv.logger)
 }

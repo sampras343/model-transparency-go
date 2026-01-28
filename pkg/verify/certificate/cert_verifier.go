@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/sigstore/model-signing/pkg/config"
 	"github.com/sigstore/model-signing/pkg/oci"
 	"github.com/sigstore/model-signing/pkg/utils"
 	"github.com/sigstore/model-signing/pkg/verify"
@@ -111,11 +110,6 @@ func (cv *CertificateVerifier) Verify(_ context.Context) (verify.Result, error) 
 	cv.logger.Debug("  --log-fingerprints:      %v", cv.opts.LogFingerprints)
 	cv.logger.Debug("  --ignore-unsigned-files: %v", cv.opts.IgnoreUnsignedFiles)
 
-	// Resolve ignore paths
-	ignorePaths := append([]string{}, cv.opts.IgnorePaths...)
-	// Add signature path to ignore list
-	ignorePaths = append(ignorePaths, cv.opts.SignaturePath)
-
 	// Create certificate verifier
 	verifierConfig := CertificateVerifierConfig{
 		CertificateChainPaths: cv.opts.CertificateChain,
@@ -127,56 +121,13 @@ func (cv *CertificateVerifier) Verify(_ context.Context) (verify.Result, error) 
 		return verify.Result{}, fmt.Errorf("failed to create certificate verifier: %w", err)
 	}
 
-	// Check if the model path is an OCI manifest
-	if oci.IsOCIManifest(cv.opts.ModelPath) {
-		cv.logger.Debug("  Detected OCI manifest: %s", cv.opts.ModelPath)
-
-		// Load and validate OCI manifest
-		ociManifest, err := oci.LoadAndValidateManifest(cv.opts.ModelPath)
-		if err != nil {
-			return verify.Result{
-				Verified: false,
-				Message:  fmt.Sprintf("Failed to load OCI manifest: %v", err),
-			}, fmt.Errorf("failed to load OCI manifest: %w", err)
-		}
-
-		// Create verification config and verify OCI manifest with ignore paths
-		verifyConfig := config.NewVerifierConfig().
-			SetVerifier(certVerifier).
-			SetIgnoreUnsignedFiles(cv.opts.IgnoreUnsignedFiles)
-
-		if err := verifyConfig.VerifyOCIManifestWithIgnore(ociManifest, cv.opts.SignaturePath, true, ignorePaths); err != nil {
-			return verify.Result{
-				Verified: false,
-				Message:  err.Error(),
-			}, err
-		}
-
-		return verify.Result{
-			Verified: true,
-			Message:  "Verification succeeded (OCI manifest)",
-		}, nil
-	}
-
-	// Standard directory verification
-	hashingConfig := config.NewHashingConfig().
-		SetIgnoredPaths(ignorePaths, cv.opts.IgnoreGitPaths).
-		SetAllowSymlinks(cv.opts.AllowSymlinks)
-
-	verifyConfig := config.NewVerifierConfig().
-		SetVerifier(certVerifier).
-		SetHashingConfig(hashingConfig).
-		SetIgnoreUnsignedFiles(cv.opts.IgnoreUnsignedFiles)
-
-	if err := verifyConfig.Verify(cv.opts.ModelPath, cv.opts.SignaturePath); err != nil {
-		return verify.Result{
-			Verified: false,
-			Message:  err.Error(),
-		}, err
-	}
-
-	return verify.Result{
-		Verified: true,
-		Message:  "Verification succeeded",
-	}, nil
+	// Use shared helper for verification
+	return verify.VerifyModel(certVerifier, verify.VerifyOptions{
+		ModelPath:           cv.opts.ModelPath,
+		SignaturePath:       cv.opts.SignaturePath,
+		IgnorePaths:         cv.opts.IgnorePaths,
+		IgnoreGitPaths:      cv.opts.IgnoreGitPaths,
+		AllowSymlinks:       cv.opts.AllowSymlinks,
+		IgnoreUnsignedFiles: cv.opts.IgnoreUnsignedFiles,
+	}, cv.logger)
 }
