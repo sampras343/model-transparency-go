@@ -165,7 +165,9 @@ func (sv *SigstoreVerifier) Verify(ctx context.Context) (verify.Result, error) {
 		}
 
 		// Create verification config and verify OCI manifest with ignore paths
-		verifyConfig := config.NewVerifierConfig().SetVerifier(sigstoreVerifier)
+		verifyConfig := config.NewVerifierConfig().
+			SetVerifier(sigstoreVerifier).
+			SetIgnoreUnsignedFiles(sv.opts.IgnoreUnsignedFiles)
 
 		if err := verifyConfig.VerifyOCIManifestWithIgnore(ociManifest, sv.opts.SignaturePath, true, ignorePaths); err != nil {
 			return verify.Result{
