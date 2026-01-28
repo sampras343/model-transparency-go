@@ -102,7 +102,7 @@ func (ss *KeySigner) Sign(_ context.Context) (signing.Result, error) {
 	ss.logger.Debug("  --password:         %v", utils.MaskToken(ss.opts.Password))
 
 	// Resolve ignore paths
-	ignorePaths := ss.opts.IgnorePaths
+	ignorePaths := append([]string{}, ss.opts.IgnorePaths...)
 	// Add signature path to ignore list
 	ignorePaths = append(ignorePaths, ss.opts.SignaturePath)
 

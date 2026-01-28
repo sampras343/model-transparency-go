@@ -109,7 +109,7 @@ func (kv *KeyVerifier) Verify(_ context.Context) (verify.Result, error) {
 	kv.logger.Debug("  --ignore-unsigned-files: %v", kv.opts.IgnoreUnsignedFiles)
 
 	// Resolve ignore paths
-	ignorePaths := kv.opts.IgnorePaths
+	ignorePaths := append([]string{}, kv.opts.IgnorePaths...)
 	// Add signature path to ignore list
 	ignorePaths = append(ignorePaths, kv.opts.SignaturePath)
 

@@ -113,7 +113,7 @@ func (ss *SigstoreSigner) Sign(_ context.Context) (signing.Result, error) {
 	ss.logger.Debug("  --trust-config:            %v", ss.opts.TrustConfigPath)
 
 	// Resolve ignore paths
-	ignorePaths := ss.opts.IgnorePaths
+	ignorePaths := append([]string{}, ss.opts.IgnorePaths...)
 	// Add signature path to ignore list
 	ignorePaths = append(ignorePaths, ss.opts.SignaturePath)
 

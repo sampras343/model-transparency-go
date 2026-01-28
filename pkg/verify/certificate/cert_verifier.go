@@ -112,7 +112,7 @@ func (cv *CertificateVerifier) Verify(_ context.Context) (verify.Result, error) 
 	cv.logger.Debug("  --ignore-unsigned-files: %v", cv.opts.IgnoreUnsignedFiles)
 
 	// Resolve ignore paths
-	ignorePaths := cv.opts.IgnorePaths
+	ignorePaths := append([]string{}, cv.opts.IgnorePaths...)
 	// Add signature path to ignore list
 	ignorePaths = append(ignorePaths, cv.opts.SignaturePath)
 

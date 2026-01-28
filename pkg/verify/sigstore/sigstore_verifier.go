@@ -132,7 +132,7 @@ func (sv *SigstoreVerifier) Verify(ctx context.Context) (verify.Result, error) {
 	sv.logger.Debug("  --trust-config:          %v", sv.opts.TrustConfigPath)
 
 	// Resolve ignore paths
-	ignorePaths := sv.opts.IgnorePaths
+	ignorePaths := append([]string{}, sv.opts.IgnorePaths...)
 	// Add signature path to ignore list
 	ignorePaths = append(ignorePaths, sv.opts.SignaturePath)
 
