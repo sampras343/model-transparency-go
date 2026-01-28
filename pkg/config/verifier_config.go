@@ -22,7 +22,6 @@ package config
 import (
 	"fmt"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/sigstore/model-signing/pkg/interfaces"
@@ -234,69 +233,33 @@ func (c *Config) guessHashingConfig(sourceManifest *manifest.Manifest) error {
 //
 // Returns a list of human-readable difference messages.
 func (c *Config) getManifestDiff(actual, expected *manifest.Manifest) []string {
+	diff := manifest.ComputeDiff(actual, expected)
+
 	var diffs []string
 
-	// Build maps of identifier -> digest
-	actualHashes := make(map[string]string)
-	for _, rd := range actual.ResourceDescriptors() {
-		actualHashes[rd.Identifier] = rd.Digest.Hex()
-	}
-
-	expectedHashes := make(map[string]string)
-	for _, rd := range expected.ResourceDescriptors() {
-		expectedHashes[rd.Identifier] = rd.Digest.Hex()
-	}
-
-	// Find extra files in actual model
-	extraFiles := make([]string, 0)
-	for id := range actualHashes {
-		if _, exists := expectedHashes[id]; !exists {
-			extraFiles = append(extraFiles, id)
-		}
-	}
-	if len(extraFiles) > 0 {
-		sort.Strings(extraFiles)
+	if len(diff.ExtraFiles) > 0 {
 		diffs = append(diffs, fmt.Sprintf(
 			"Extra files found in model '%s': %v",
 			actual.ModelName(),
-			extraFiles,
+			diff.ExtraFiles,
 		))
 	}
 
-	// Find missing files in actual model
-	missingFiles := make([]string, 0)
-	for id := range expectedHashes {
-		if _, exists := actualHashes[id]; !exists {
-			missingFiles = append(missingFiles, id)
-		}
-	}
-	if len(missingFiles) > 0 {
-		sort.Strings(missingFiles)
+	if len(diff.MissingFiles) > 0 {
 		diffs = append(diffs, fmt.Sprintf(
 			"Missing files in model '%s': %v",
 			actual.ModelName(),
-			missingFiles,
+			diff.MissingFiles,
 		))
 	}
 
-	// Find files with hash mismatches
-	commonFiles := make([]string, 0)
-	for id := range actualHashes {
-		if _, exists := expectedHashes[id]; exists {
-			commonFiles = append(commonFiles, id)
-		}
-	}
-	sort.Strings(commonFiles)
-
-	for _, id := range commonFiles {
-		if actualHashes[id] != expectedHashes[id] {
-			diffs = append(diffs, fmt.Sprintf(
-				"Hash mismatch for '%s': Expected '%s', Actual '%s'",
-				id,
-				expectedHashes[id],
-				actualHashes[id],
-			))
-		}
+	for _, m := range diff.Mismatches {
+		diffs = append(diffs, fmt.Sprintf(
+			"Hash mismatch for '%s': Expected '%s', Actual '%s'",
+			m.Identifier,
+			m.ExpectedHash,
+			m.ActualHash,
+		))
 	}
 
 	return diffs

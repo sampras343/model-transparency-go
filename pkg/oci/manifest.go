@@ -236,41 +236,21 @@ func CompareManifests(actual, expected *manifest.Manifest) error {
 		return nil
 	}
 
-	// Build detailed diff
-	actualHashes := make(map[string]string)
-	for _, rd := range actual.ResourceDescriptors() {
-		actualHashes[rd.Identifier] = rd.Digest.Hex()
-	}
-
-	expectedHashes := make(map[string]string)
-	for _, rd := range expected.ResourceDescriptors() {
-		expectedHashes[rd.Identifier] = rd.Digest.Hex()
-	}
+	diff := manifest.ComputeDiff(actual, expected)
 
 	var diffs []string
 
-	// Find extra files in actual
-	for id := range actualHashes {
-		if _, exists := expectedHashes[id]; !exists {
-			diffs = append(diffs, fmt.Sprintf("extra file in actual: %s", id))
-		}
+	for _, id := range diff.ExtraFiles {
+		diffs = append(diffs, fmt.Sprintf("extra file in actual: %s", id))
 	}
 
-	// Find missing files in actual
-	for id := range expectedHashes {
-		if _, exists := actualHashes[id]; !exists {
-			diffs = append(diffs, fmt.Sprintf("missing file in actual: %s", id))
-		}
+	for _, id := range diff.MissingFiles {
+		diffs = append(diffs, fmt.Sprintf("missing file in actual: %s", id))
 	}
 
-	// Find hash mismatches
-	for id, expectedHash := range expectedHashes {
-		if actualHash, exists := actualHashes[id]; exists {
-			if actualHash != expectedHash {
-				diffs = append(diffs, fmt.Sprintf("hash mismatch for %s: expected %s, got %s",
-					id, expectedHash[:16]+"...", actualHash[:16]+"..."))
-			}
-		}
+	for _, m := range diff.Mismatches {
+		diffs = append(diffs, fmt.Sprintf("hash mismatch for %s: expected %s, got %s",
+			m.Identifier, truncateHash(m.ExpectedHash), truncateHash(m.ActualHash)))
 	}
 
 	if len(diffs) == 0 {
@@ -278,6 +258,14 @@ func CompareManifests(actual, expected *manifest.Manifest) error {
 	}
 
 	return fmt.Errorf("signature mismatch: %s", strings.Join(diffs, "; "))
+}
+
+// truncateHash shortens a hash for display, showing first 16 chars with "...".
+func truncateHash(hash string) string {
+	if len(hash) > 16 {
+		return hash[:16] + "..."
+	}
+	return hash
 }
 
 // CreateManifestFromOCILayers creates a model signing manifest from an OCI image manifest.
