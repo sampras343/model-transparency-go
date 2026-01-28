@@ -21,8 +21,6 @@ import (
 	"path/filepath"
 
 	"github.com/sigstore/model-signing/pkg/config"
-	"github.com/sigstore/model-signing/pkg/interfaces"
-	"github.com/sigstore/model-signing/pkg/manifest"
 	"github.com/sigstore/model-signing/pkg/oci"
 	"github.com/sigstore/model-signing/pkg/signing"
 	"github.com/sigstore/model-signing/pkg/utils"
@@ -51,7 +49,7 @@ type CertificateSigner struct {
 	logger *utils.Logger
 }
 
-// NewKeySigner creates a new KeySigner with the given options.
+// NewCertificateSigner creates a new CertificateSigner with the given options.
 // Validates that required paths exist before returning.
 // Returns an error if validation fails.
 func NewCertificateSigner(opts CertificateSignerOptions) (*CertificateSigner, error) {
@@ -106,71 +104,30 @@ func (ss *CertificateSigner) Sign(_ context.Context) (signing.Result, error) {
 	ss.logger.Debug("  --signing-certificate:  %v", ss.opts.SigningCertificatePath)
 	ss.logger.Debug("  --certificate-chain:    %v", ss.opts.CertificateChain)
 
-	// Resolve ignore paths
-	ignorePaths := ss.opts.IgnorePaths
-	// Add signature path to ignore list
-	ignorePaths = append(ignorePaths, ss.opts.SignaturePath)
-
 	// Step 1: Hash the model to create a manifest
 	ss.logger.Debugln("\nStep 1: Hashing model...")
-
-	var modelManifest *manifest.Manifest
-	var err error
-
-	// Check if the model path is an OCI manifest
-	if oci.IsOCIManifest(ss.opts.ModelPath) {
-		ss.logger.Debug("  Detected OCI manifest: %s", ss.opts.ModelPath)
-
-		ociManifest, loadErr := oci.LoadManifest(ss.opts.ModelPath)
-		if loadErr != nil {
-			return signing.Result{
-				Verified: false,
-				Message:  fmt.Sprintf("Failed to load OCI manifest: %v", loadErr),
-			}, fmt.Errorf("failed to load OCI manifest: %w", loadErr)
-		}
-
-		// Validate the OCI manifest
-		if validateErr := ociManifest.Validate(); validateErr != nil {
-			return signing.Result{
-				Verified: false,
-				Message:  fmt.Sprintf("Invalid OCI manifest: %v", validateErr),
-			}, fmt.Errorf("invalid OCI manifest: %w", validateErr)
-		}
-
-		// Create manifest from OCI layers with ignore paths
-		modelName := oci.ModelNameFromPath(ss.opts.ModelPath)
-		modelManifest, err = oci.CreateManifestFromOCILayersWithIgnore(ociManifest, modelName, true, ignorePaths)
-		if err != nil {
-			return signing.Result{
-				Verified: false,
-				Message:  fmt.Sprintf("Failed to create manifest from OCI layers: %v", err),
-			}, fmt.Errorf("failed to create manifest from OCI layers: %w", err)
-		}
-		ss.logger.Debug("  Created manifest from %d OCI layers", len(modelManifest.ResourceDescriptors()))
-	} else {
-		// Standard model directory hashing
-		hashingConfig := config.NewHashingConfig().
-			SetIgnoredPaths(ignorePaths, ss.opts.IgnoreGitPaths).
-			SetAllowSymlinks(ss.opts.AllowSymlinks)
-
-		modelManifest, err = hashingConfig.Hash(ss.opts.ModelPath, nil)
-		if err != nil {
-			return signing.Result{
-				Verified: false,
-				Message:  fmt.Sprintf("Failed to hash model: %v", err),
-			}, fmt.Errorf("failed to hash model: %w", err)
-		}
-		ss.logger.Debug("  Hashed %d files", len(modelManifest.ResourceDescriptors()))
+	modelManifest, _, err := signing.BuildManifest(signing.ManifestOptions{
+		ModelPath:      ss.opts.ModelPath,
+		IgnorePaths:    ss.opts.IgnorePaths,
+		SignaturePath:  ss.opts.SignaturePath,
+		IgnoreGitPaths: ss.opts.IgnoreGitPaths,
+		AllowSymlinks:  ss.opts.AllowSymlinks,
+	}, ss.logger)
+	if err != nil {
+		return signing.Result{
+			Verified: false,
+			Message:  fmt.Sprintf("Failed to build manifest: %v", err),
+		}, err
 	}
 
 	// Step 2: Create payload from manifest
 	ss.logger.Debugln("\nStep 2: Creating signing payload...")
-	payload, err := interfaces.NewPayload(modelManifest)
+	payload, err := signing.CreatePayload(modelManifest)
 	if err != nil {
 		return signing.Result{
 			Verified: false,
 			Message:  fmt.Sprintf("Failed to create payload: %v", err),
-		}, fmt.Errorf("failed to create payload: %w", err)
+		}, err
 	}
 
 	// Step 3: Create certificate signer and sign the payload
@@ -202,11 +159,11 @@ func (ss *CertificateSigner) Sign(_ context.Context) (signing.Result, error) {
 
 	// Step 4: Write signature to disk
 	ss.logger.Debugln("\nStep 4: Writing signature to disk...")
-	if err := signature.Write(ss.opts.SignaturePath); err != nil {
+	if err := signing.WriteSignature(signature, ss.opts.SignaturePath); err != nil {
 		return signing.Result{
 			Verified: false,
 			Message:  fmt.Sprintf("Failed to write signature: %v", err),
-		}, fmt.Errorf("failed to write signature: %w", err)
+		}, err
 	}
 	ss.logger.Debug("  Signature written to: %s", ss.opts.SignaturePath)
 

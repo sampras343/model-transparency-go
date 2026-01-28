@@ -46,25 +46,6 @@ func VerifySignedContent(payloadType string, payload []byte) (*manifest.Manifest
 	return DSSEPayloadToManifest(dssePayload)
 }
 
-// hexToBytes converts a hexadecimal string to bytes.
-// Returns the decoded bytes or an error if the hex string is invalid or has odd length.
-func hexToBytes(hexStr string) ([]byte, error) {
-	if len(hexStr)%2 != 0 {
-		return nil, fmt.Errorf("hex string has odd length")
-	}
-
-	bytes := make([]byte, len(hexStr)/2)
-	for i := 0; i < len(hexStr); i += 2 {
-		var b byte
-		_, err := fmt.Sscanf(hexStr[i:i+2], "%02x", &b)
-		if err != nil {
-			return nil, fmt.Errorf("invalid hex at position %d: %w", i, err)
-		}
-		bytes[i/2] = b
-	}
-	return bytes, nil
-}
-
 // MaskToken masks sensitive tokens for safe logging.
 // Shows only the first 4 and last 4 characters, replacing the middle with "...".
 // Returns "***" for tokens with 8 or fewer characters, or empty string for empty input.

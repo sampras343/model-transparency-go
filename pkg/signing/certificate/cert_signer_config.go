@@ -159,6 +159,12 @@ func (s *LocalCertificateSigner) Sign(payload *interfaces.Payload) (interfaces.S
 	// Create DSSE envelope using the shared dsse package
 	envelope := dsse.CreateEnvelope(utils.InTotoJSONPayloadType, payloadJSON, signatureBytes)
 
+	// Convert envelope to protobuf format
+	protoEnvelope, err := envelope.ToProtobuf()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert envelope to protobuf: %w", err)
+	}
+
 	// Create Sigstore bundle with verification material
 	// Note: We use protobuf bundle directly instead of sigstore-go's bundle.NewBundle()
 	// because sigstore-go validates that v0.3 bundles cannot have X509 certificate chains.
@@ -166,7 +172,7 @@ func (s *LocalCertificateSigner) Sign(payload *interfaces.Payload) (interfaces.S
 		MediaType:            utils.BundleMediaType,
 		VerificationMaterial: s.createVerificationMaterial(),
 		Content: &protobundle.Bundle_DsseEnvelope{
-			DsseEnvelope: envelope.ToProtobuf(),
+			DsseEnvelope: protoEnvelope,
 		},
 	}
 

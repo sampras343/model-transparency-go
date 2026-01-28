@@ -15,6 +15,7 @@
 package utils
 
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/sigstore/model-signing/pkg/hashing/digests"
@@ -137,7 +138,7 @@ func DSSEPayloadToManifest(dssePayload map[string]interface{}) (*manifest.Manife
 		}
 
 		// Parse digest from hex
-		digestBytes, err := hexToBytes(digestValue)
+		digestBytes, err := hex.DecodeString(digestValue)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse digest for %s: %w", name, err)
 		}
@@ -222,7 +223,7 @@ func DSSEPayloadToManifestCompat(dssePayload map[string]interface{}) (*manifest.
 			return nil, fmt.Errorf("subject digest sha256 missing or not a string")
 		}
 
-		digestBytes, err := hexToBytes(digestValue)
+		digestBytes, err := hex.DecodeString(digestValue)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse digest for %s: %w", name, err)
 		}
