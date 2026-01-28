@@ -37,13 +37,11 @@ var (
 	initOnce sync.Once
 )
 
-// ensureDefaults registers default hash engines on first use.
-// This avoids import cycles by not importing memory package at package init time.
-func ensureDefaults() {
+// initRegistry is a placeholder for lazy initialization.
+// Default hash engines are registered by their respective packages' init() functions
+func initRegistry() {
 	initOnce.Do(func() {
-		// Default engines will be registered by their respective packages
-		// when they are imported. This allows the registry to exist without
-		// creating import cycles.
+		// No-op: engines self-register via their init() functions.
 	})
 }
 
@@ -95,7 +93,7 @@ func MustRegister(algorithm string, factory HashEngineFactory) {
 // Returns a new StreamingHashEngine instance, or an error if the algorithm is not
 // registered or if the factory fails to create the engine.
 func Create(algorithm string) (StreamingHashEngine, error) {
-	ensureDefaults()
+	initRegistry()
 
 	mu.RLock()
 	factory, exists := registry[algorithm]
