@@ -22,6 +22,8 @@ import (
 
 	"github.com/sigstore/model-signing/pkg/config"
 	"github.com/sigstore/model-signing/pkg/interfaces"
+	"github.com/sigstore/model-signing/pkg/manifest"
+	"github.com/sigstore/model-signing/pkg/oci"
 	"github.com/sigstore/model-signing/pkg/signing"
 	"github.com/sigstore/model-signing/pkg/utils"
 )
@@ -63,9 +65,12 @@ func NewCertificateSigner(opts CertificateSignerOptions) (*CertificateSigner, er
 	if err := utils.ValidateFileExists("signing certificate", opts.SigningCertificatePath); err != nil {
 		return nil, err
 	}
-	// Validate ignore paths
-	if err := utils.ValidateMultiple("ignore paths", opts.IgnorePaths, utils.PathTypeAny); err != nil {
-		return nil, err
+	// Validate ignore paths only for non-OCI manifests
+	// For OCI manifests, ignore paths refer to layer entries, not local files
+	if !oci.IsOCIManifest(opts.ModelPath) {
+		if err := utils.ValidateMultiple("ignore paths", opts.IgnorePaths, utils.PathTypeAny); err != nil {
+			return nil, err
+		}
 	}
 
 	// Use provided logger or create a default non-verbose one
@@ -108,22 +113,59 @@ func (ss *CertificateSigner) Sign(_ context.Context) (signing.Result, error) {
 
 	// Step 1: Hash the model to create a manifest
 	ss.logger.Debugln("\nStep 1: Hashing model...")
-	hashingConfig := config.NewHashingConfig().
-		SetIgnoredPaths(ignorePaths, ss.opts.IgnoreGitPaths).
-		SetAllowSymlinks(ss.opts.AllowSymlinks)
 
-	manifest, err := hashingConfig.Hash(ss.opts.ModelPath, nil)
-	if err != nil {
-		return signing.Result{
-			Verified: false,
-			Message:  fmt.Sprintf("Failed to hash model: %v", err),
-		}, fmt.Errorf("failed to hash model: %w", err)
+	var modelManifest *manifest.Manifest
+	var err error
+
+	// Check if the model path is an OCI manifest
+	if oci.IsOCIManifest(ss.opts.ModelPath) {
+		ss.logger.Debug("  Detected OCI manifest: %s", ss.opts.ModelPath)
+
+		ociManifest, loadErr := oci.LoadManifest(ss.opts.ModelPath)
+		if loadErr != nil {
+			return signing.Result{
+				Verified: false,
+				Message:  fmt.Sprintf("Failed to load OCI manifest: %v", loadErr),
+			}, fmt.Errorf("failed to load OCI manifest: %w", loadErr)
+		}
+
+		// Validate the OCI manifest
+		if validateErr := ociManifest.Validate(); validateErr != nil {
+			return signing.Result{
+				Verified: false,
+				Message:  fmt.Sprintf("Invalid OCI manifest: %v", validateErr),
+			}, fmt.Errorf("invalid OCI manifest: %w", validateErr)
+		}
+
+		// Create manifest from OCI layers with ignore paths
+		modelName := oci.ModelNameFromPath(ss.opts.ModelPath)
+		modelManifest, err = oci.CreateManifestFromOCILayersWithIgnore(ociManifest, modelName, true, ignorePaths)
+		if err != nil {
+			return signing.Result{
+				Verified: false,
+				Message:  fmt.Sprintf("Failed to create manifest from OCI layers: %v", err),
+			}, fmt.Errorf("failed to create manifest from OCI layers: %w", err)
+		}
+		ss.logger.Debug("  Created manifest from %d OCI layers", len(modelManifest.ResourceDescriptors()))
+	} else {
+		// Standard model directory hashing
+		hashingConfig := config.NewHashingConfig().
+			SetIgnoredPaths(ignorePaths, ss.opts.IgnoreGitPaths).
+			SetAllowSymlinks(ss.opts.AllowSymlinks)
+
+		modelManifest, err = hashingConfig.Hash(ss.opts.ModelPath, nil)
+		if err != nil {
+			return signing.Result{
+				Verified: false,
+				Message:  fmt.Sprintf("Failed to hash model: %v", err),
+			}, fmt.Errorf("failed to hash model: %w", err)
+		}
+		ss.logger.Debug("  Hashed %d files", len(modelManifest.ResourceDescriptors()))
 	}
-	ss.logger.Debug("  Hashed %d files", len(manifest.ResourceDescriptors()))
 
 	// Step 2: Create payload from manifest
 	ss.logger.Debugln("\nStep 2: Creating signing payload...")
-	payload, err := interfaces.NewPayload(manifest)
+	payload, err := interfaces.NewPayload(modelManifest)
 	if err != nil {
 		return signing.Result{
 			Verified: false,
