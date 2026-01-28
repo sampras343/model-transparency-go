@@ -355,16 +355,25 @@ func filterManifestToExpected(actual, expected *manifest.Manifest) *manifest.Man
 		expectedIDs[rd.Identifier] = true
 	}
 
-	// Filter actual items to only those in expected
+	// Reconstruct the serialization type from the actual manifest's parameters.
+	serializationType, err := manifest.SerializationTypeFromArgs(actual.SerializationParameters())
+	if err != nil {
+		// Fall back to default file serialization if reconstruction fails.
+		serializationType = manifest.NewFileSerialization("sha256", false, nil)
+	}
+
+	// Filter actual items to only those in expected, using the serialization
 	var filteredItems []manifest.ManifestItem
 	for _, rd := range actual.ResourceDescriptors() {
 		if expectedIDs[rd.Identifier] {
-			filteredItems = append(filteredItems, manifest.NewFileManifestItem(rd.Identifier, rd.Digest))
+			item, err := serializationType.NewItem(rd.Identifier, rd.Digest)
+			if err != nil {
+				// Fall back to file item if parsing fails
+				item = manifest.NewFileManifestItem(rd.Identifier, rd.Digest)
+			}
+			filteredItems = append(filteredItems, item)
 		}
 	}
-
-	// Use a default serialization type
-	serializationType := manifest.NewFileSerialization("sha256", false, nil)
 
 	return manifest.NewManifest(actual.ModelName(), filteredItems, serializationType)
 }
