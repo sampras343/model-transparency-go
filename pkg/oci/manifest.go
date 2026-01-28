@@ -231,7 +231,11 @@ func CreateManifestFromPath(path string, includeConfig bool) (*manifest.Manifest
 
 // CompareManifests compares two manifests and returns a detailed error if they differ.
 // Returns nil if the manifests are equal.
+// Returns an error if actual or expected is nil.
 func CompareManifests(actual, expected *manifest.Manifest) error {
+	if actual == nil || expected == nil {
+		return fmt.Errorf("CompareManifests requires both manifests to be non-nil")
+	}
 	if actual.Equal(expected) {
 		return nil
 	}

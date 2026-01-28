@@ -392,8 +392,11 @@ func (c *HashingConfig) hashFilesWithShards(modelPath string, filePaths []string
 		}
 		fileSize := fileInfo.Size()
 
-		// Calculate number of shards
+		// Calculate number of shards (at least 1 for empty files)
 		numShards := (fileSize + c.shardSize - 1) / c.shardSize
+		if numShards == 0 {
+			numShards = 1 // Empty files produce one shard with empty content
+		}
 
 		// Hash each shard
 		for i := int64(0); i < numShards; i++ {

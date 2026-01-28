@@ -56,7 +56,11 @@ func (d *ManifestDiff) IsEmpty() bool {
 //   - expected: The manifest extracted from the signature
 //
 // Returns a ManifestDiff containing all differences, with slices sorted alphabetically.
+// If actual or expected is nil, returns an empty diff; callers should avoid passing nil.
 func ComputeDiff(actual, expected *Manifest) *ManifestDiff {
+	if actual == nil || expected == nil {
+		return &ManifestDiff{ExtraFiles: []string{}, MissingFiles: []string{}, Mismatches: []HashMismatch{}}
+	}
 	diff := &ManifestDiff{
 		ExtraFiles:   []string{},
 		MissingFiles: []string{},

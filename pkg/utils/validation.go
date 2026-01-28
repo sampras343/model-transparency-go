@@ -81,8 +81,14 @@ func (v *PathValidator) Validate() error {
 }
 
 // ValidateMultiple validates multiple paths of the same type.
-// Empty paths in the slice are rejected. If any path fails validation, the first error is returned.
-// Returns nil if all paths are valid, or an error describing the first validation failure.
+//
+// A nil or empty slice is considered valid and returns nil immediately.
+// This allows optional path lists (e.g., ignore paths, certificate chains) to be empty.
+// Empty string paths within the slice are rejected.
+// If any path fails validation, the first error is returned.
+//
+// Returns nil if the slice is empty or all paths are valid,
+// or an error describing the first validation failure.
 func ValidateMultiple(fieldName string, paths []string, pathType PathType) error {
 	for i, path := range paths {
 		if path == "" {
