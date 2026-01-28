@@ -49,7 +49,7 @@ type CertificateSigner struct {
 	logger *utils.Logger
 }
 
-// NewKeySigner creates a new KeySigner with the given options.
+// NewCertificateSigner creates a new CertificateSigner with the given options.
 // Validates that required paths exist before returning.
 // Returns an error if validation fails.
 func NewCertificateSigner(opts CertificateSignerOptions) (*CertificateSigner, error) {
