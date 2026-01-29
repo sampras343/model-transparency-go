@@ -74,3 +74,24 @@ jobs:
 
       - name: Run interoperability tests
         run: ./scripts/tests/test-interoperability.sh
+
+  hardening-tests:
+    name: Hardening tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        with:
+          go-version-file: './go.mod'
+          check-latest: true
+
+      - name: Build model-signing binary
+        run: go build -o scripts/tests/model-signing ./cmd/model-signing
+
+      - name: Run hardening tests
+        run: ./scripts/tests/test-hardening.sh
