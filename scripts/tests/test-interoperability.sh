@@ -81,7 +81,7 @@ echo "  Python: Verifying signature..."
 if ! model_signing \
 	verify key \
 	--signature "${GO_SIG_KEY}" \
-	--public-key "${DIR}/keys/certificate/signing-key-pub.pem" \
+	--public_key "${DIR}/keys/certificate/signing-key-pub.pem" \
 	"${MODELDIR}" >/dev/null 2>&1; then
 	echo "  Error: Python 'verify key' failed on Go-created signature"
 	exit 1
@@ -108,7 +108,7 @@ echo "  Python: Verifying signature..."
 if ! model_signing \
 	verify certificate \
 	--signature "${GO_SIG_CERT}" \
-	--certificate-chain "${DIR}/keys/certificate/ca-cert.pem" \
+	--certificate_chain "${DIR}/keys/certificate/ca-cert.pem" \
 	"${MODELDIR}" >/dev/null 2>&1; then
 	echo "  Error: Python 'verify certificate' failed on Go-created signature"
 	exit 1
@@ -145,7 +145,7 @@ if ! model_signing \
 	verify sigstore \
 	--signature "${GO_SIG_SIGSTORE}" \
 	--identity "${SIGSTORE_IDENTITY}" \
-	--identity-provider "${SIGSTORE_ISSUER}" \
+	--identity_provider "${SIGSTORE_ISSUER}" \
 	"${MODELDIR}" >/dev/null 2>&1; then
 	echo "  Error: Python 'verify sigstore' failed on Go-created signature"
 	exit 1
@@ -165,7 +165,7 @@ echo "  Python: Signing with key..."
 if ! model_signing \
 	sign key \
 	--signature "${PY_SIG_KEY}" \
-	--private-key "${DIR}/keys/certificate/signing-key.pem" \
+	--private_key "${DIR}/keys/certificate/signing-key.pem" \
 	"${MODELDIR}" >/dev/null 2>&1; then
 	echo "  Error: Python 'sign key' failed"
 	exit 1
@@ -196,9 +196,9 @@ echo "  Python: Signing with certificate..."
 if ! model_signing \
 	sign certificate \
 	--signature "${PY_SIG_CERT}" \
-	--private-key "${DIR}/keys/certificate/signing-key.pem" \
-	--signing-certificate "${DIR}/keys/certificate/signing-key-cert.pem" \
-	--certificate-chain "${DIR}/keys/certificate/int-ca-cert.pem" \
+	--private_key "${DIR}/keys/certificate/signing-key.pem" \
+	--signing_certificate "${DIR}/keys/certificate/signing-key-cert.pem" \
+	--certificate_chain "${DIR}/keys/certificate/int-ca-cert.pem" \
 	"${MODELDIR}" >/dev/null 2>&1; then
 	echo "  Error: Python 'sign certificate' failed"
 	exit 1
@@ -241,7 +241,7 @@ echo "  Python: Signing with sigstore..."
 if ! model_signing \
 	sign sigstore \
 	--signature "${PY_SIG_SIGSTORE}" \
-	--identity-token "$(cat "${TOKEN_FILE}")" \
+	--identity_token "$(cat "${TOKEN_FILE}")" \
 	"${MODELDIR}" >/dev/null 2>&1; then
 	echo "  Error: Python 'sign sigstore' failed"
 	exit 1
