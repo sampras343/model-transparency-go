@@ -13,6 +13,13 @@ DIR=$(dirname "$0")
 cd "${DIR}" || exit 1
 
 for tc in test-*.sh; do
+	# Skip tests that require special setup (run separately in CI)
+	case "${tc}" in
+	test-interoperability.sh|test-sign-verify-allversions.sh)
+		echo -e "\n>>> Skipping ${tc} (requires special setup)"
+		continue
+		;;
+	esac
 	echo -e "\n>>> Running ${tc}"
 	./"${tc}" || exit 1
 done
