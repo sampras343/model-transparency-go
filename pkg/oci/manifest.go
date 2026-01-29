@@ -26,6 +26,7 @@ import (
 
 	"github.com/sigstore/model-signing/pkg/hashing/digests"
 	"github.com/sigstore/model-signing/pkg/manifest"
+	"github.com/sigstore/model-signing/pkg/utils"
 )
 
 // ImageManifest represents an OCI image manifest structure.
@@ -183,7 +184,7 @@ func parseDigestString(digestStr string) (digests.Digest, error) {
 		hexValue = parts[1]
 	} else {
 		// Default to sha256 if no algorithm prefix
-		algorithm = "sha256"
+		algorithm = utils.DefaultHashAlgorithm
 		hexValue = digestStr
 	}
 
@@ -378,7 +379,7 @@ func CreateManifestFromOCILayersWithIgnore(ociManifest *ImageManifest, modelName
 	}
 
 	// Create serialization type for OCI manifests
-	serializationType := manifest.NewFileSerialization("sha256", false, nil)
+	serializationType := manifest.NewFileSerialization(utils.DefaultHashAlgorithm, false, nil)
 
 	return manifest.NewManifest(modelName, items, serializationType), nil
 }

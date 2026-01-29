@@ -50,4 +50,13 @@ const (
 
 	// Bundle media type for Sigstore bundle v0.3
 	BundleMediaType = "application/vnd.dev.sigstore.bundle.v0.3+json"
+
+	// DefaultHashAlgorithm is the default hash algorithm used for model signing.
+	DefaultHashAlgorithm = "sha256"
+
+	// SerializationMethodFiles is the serialization method for hashing whole files.
+	SerializationMethodFiles = "files"
+
+	// SerializationMethodShards is the serialization method for shard-based hashing.
+	SerializationMethodShards = "shards"
 )
