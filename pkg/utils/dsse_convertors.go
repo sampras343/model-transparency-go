@@ -69,9 +69,9 @@ func DSSEPayloadToManifest(dssePayload map[string]interface{}) (*manifest.Manife
 		return nil, fmt.Errorf("subject digest missing or not an object")
 	}
 
-	expectedDigest, ok := digestMap["sha256"].(string)
+	expectedDigest, ok := digestMap[DefaultHashAlgorithm].(string)
 	if !ok {
-		return nil, fmt.Errorf("subject digest sha256 missing or not a string")
+		return nil, fmt.Errorf("subject digest %s missing or not a string", DefaultHashAlgorithm)
 	}
 
 	// Extract predicate
@@ -178,8 +178,8 @@ func DSSEPayloadToManifestCompat(dssePayload map[string]interface{}) (*manifest.
 
 	// Serialization format is not present, build a fake one
 	serializationArgs := map[string]interface{}{
-		"method":         "files",
-		"hash_type":      "sha256",
+		"method":         SerializationMethodFiles,
+		"hash_type":      DefaultHashAlgorithm,
 		"allow_symlinks": false,
 	}
 
@@ -217,10 +217,10 @@ func DSSEPayloadToManifestCompat(dssePayload map[string]interface{}) (*manifest.
 		}
 
 		// v0.2 only supported sha256
-		algorithm := "sha256"
+		algorithm := DefaultHashAlgorithm
 		digestValue, ok := digestMap[algorithm].(string)
 		if !ok {
-			return nil, fmt.Errorf("subject digest sha256 missing or not a string")
+			return nil, fmt.Errorf("subject digest %s missing or not a string", DefaultHashAlgorithm)
 		}
 
 		digestBytes, err := hex.DecodeString(digestValue)

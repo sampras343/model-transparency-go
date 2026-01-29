@@ -28,6 +28,7 @@ import (
 	"github.com/sigstore/model-signing/pkg/manifest"
 	"github.com/sigstore/model-signing/pkg/oci"
 	sign "github.com/sigstore/model-signing/pkg/signature"
+	"github.com/sigstore/model-signing/pkg/utils"
 )
 
 // Config holds configuration for verifying models against signatures.
@@ -200,13 +201,13 @@ func (c *Config) guessHashingConfig(sourceManifest *manifest.Manifest) error {
 
 	// Create config based on serialization method
 	switch method {
-	case "files":
+	case utils.SerializationMethodFiles:
 		c.hashingConfig = NewHashingConfig().UseFileSerialization(
 			hashType,
 			allowSymlinks,
 			ignorePaths,
 		)
-	case "shards":
+	case utils.SerializationMethodShards:
 		shardSize, err := extractor.GetInt64("shard_size")
 		if err != nil {
 			return fmt.Errorf("cannot determine shard_size: %w", err)
@@ -359,7 +360,7 @@ func filterManifestToExpected(actual, expected *manifest.Manifest) *manifest.Man
 	serializationType, err := manifest.SerializationTypeFromArgs(actual.SerializationParameters())
 	if err != nil {
 		// Fall back to default file serialization if reconstruction fails.
-		serializationType = manifest.NewFileSerialization("sha256", false, nil)
+		serializationType = manifest.NewFileSerialization(utils.DefaultHashAlgorithm, false, nil)
 	}
 
 	// Filter actual items to only those in expected, using the serialization

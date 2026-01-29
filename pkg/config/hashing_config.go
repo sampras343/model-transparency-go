@@ -23,6 +23,7 @@ import (
 	hashengines "github.com/sigstore/model-signing/pkg/hashing/engines"
 	hashio "github.com/sigstore/model-signing/pkg/hashing/engines/io"
 	"github.com/sigstore/model-signing/pkg/manifest"
+	"github.com/sigstore/model-signing/pkg/utils"
 )
 
 // HashingConfig holds configuration for hashing models.
@@ -71,8 +72,8 @@ var gitRelatedPaths = []string{
 // Returns a HashingConfig ready for customization via method chaining.
 func NewHashingConfig() *HashingConfig {
 	return &HashingConfig{
-		serializationMethod: "files",
-		hashAlgorithm:       "sha256",
+		serializationMethod: utils.SerializationMethodFiles,
+		hashAlgorithm:       utils.DefaultHashAlgorithm,
 		allowSymlinks:       false,
 		ignoredPaths:        []string{},
 		ignoreGitPaths:      false,
@@ -92,7 +93,7 @@ func NewHashingConfig() *HashingConfig {
 //
 // Returns the HashingConfig for method chaining.
 func (c *HashingConfig) UseFileSerialization(hashAlgorithm string, allowSymlinks bool, ignorePaths []string) *HashingConfig {
-	c.serializationMethod = "files"
+	c.serializationMethod = utils.SerializationMethodFiles
 	c.hashAlgorithm = hashAlgorithm
 	c.allowSymlinks = allowSymlinks
 	if ignorePaths != nil {
@@ -114,7 +115,7 @@ func (c *HashingConfig) UseFileSerialization(hashAlgorithm string, allowSymlinks
 //
 // Returns the HashingConfig for method chaining.
 func (c *HashingConfig) UseShardSerialization(hashAlgorithm string, shardSize int64, allowSymlinks bool, ignorePaths []string) *HashingConfig {
-	c.serializationMethod = "shards"
+	c.serializationMethod = utils.SerializationMethodShards
 	c.hashAlgorithm = hashAlgorithm
 	c.shardSize = shardSize
 	c.allowSymlinks = allowSymlinks
@@ -233,9 +234,9 @@ func (c *HashingConfig) Hash(modelPath string, filesToHash []string) (*manifest.
 	// Hash files based on serialization method
 	var items []manifest.ManifestItem
 	switch c.serializationMethod {
-	case "files":
+	case utils.SerializationMethodFiles:
 		items, err = c.hashFiles(absModelPath, filePaths)
-	case "shards":
+	case utils.SerializationMethodShards:
 		items, err = c.hashFilesWithShards(absModelPath, filePaths)
 	default:
 		return nil, fmt.Errorf("unknown serialization method: %s", c.serializationMethod)
@@ -469,13 +470,13 @@ func (c *HashingConfig) createContentHasher() (hashengines.StreamingHashEngine, 
 // This is used when creating manifests and signatures.
 func (c *HashingConfig) GetSerializationType() manifest.SerializationType {
 	switch c.serializationMethod {
-	case "files":
+	case utils.SerializationMethodFiles:
 		return manifest.NewFileSerialization(
 			c.hashAlgorithm,
 			c.allowSymlinks,
 			c.ignoredPaths,
 		)
-	case "shards":
+	case utils.SerializationMethodShards:
 		return manifest.NewShardSerialization(
 			c.hashAlgorithm,
 			c.shardSize,
