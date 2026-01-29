@@ -259,7 +259,14 @@ func (v *Verifier) verifyProtobufBundle(protoBundle *protobundle.Bundle) (*manif
 
 	// Verify the signature using the public key
 	if err := utils.VerifySignature(publicKey, pae, signatureBytes); err != nil {
-		return nil, fmt.Errorf("signature verification failed: %w", err)
+		// Try v0.2.0 compatibility mode
+		v.logger.Debug("Standard verification failed, trying v0.2.0 compatibility mode")
+		paeCompat := utils.ComputePAECompat(dsseEnvelope.PayloadType, payloadBytes)
+		if compatErr := utils.VerifySignatureCompat(publicKey, paeCompat, signatureBytes); compatErr != nil {
+			// Both methods failed, return the original error
+			return nil, fmt.Errorf("signature verification failed: %w", err)
+		}
+		v.logger.Debug("Signature verified using v0.2.0 compatibility mode")
 	}
 
 	// Extract manifest from payload
