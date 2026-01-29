@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+echo "Testing 'verify certificate'"
+if ! ./model-signing \
+	verify certificate \
+	--signature ./v0.3.1-certificate/model.sig \
+	--certificate-chain ./keys/certificate/ca-cert.pem \
+	./v0.3.1-certificate/; then
+	echo "Error: 'verify certificate' failed on v0.3.1"
+	exit 1
+fi
+
+exit 0
