@@ -128,7 +128,11 @@ func (v *Verifier) Verify(signature interfaces.Signature) (*manifest.Manifest, e
 
 	// Verify the signature using the public key with shared utility
 	if err := utils.VerifySignature(v.publicKey, pae, signatureBytes); err != nil {
-		return nil, fmt.Errorf("signature verification failed: %w", err)
+		// Try v0.2.0 compatibility mode
+		paeCompat := utils.ComputePAECompat(dsseEnvelope.PayloadType(), payloadBytes)
+		if compatErr := utils.VerifySignatureCompat(v.publicKey, paeCompat, signatureBytes); compatErr != nil {
+			return nil, fmt.Errorf("signature verification failed: %w", err)
+		}
 	}
 
 	// Extract manifest from payload

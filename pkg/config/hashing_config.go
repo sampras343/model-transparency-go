@@ -311,6 +311,10 @@ func (c *HashingConfig) walkDirectory(modelPath string) ([]string, error) {
 // shouldIgnorePath checks if a path should be ignored based on configuration.
 //
 // Returns true if the path matches any configured ignore patterns.
+// Handles ignore paths that are:
+// - Absolute paths (compared directly with the absolute file path)
+// - Paths relative to modelPath (e.g., "subdir/file.txt")
+// - Paths relative to CWD (e.g., "./model/file.txt" from CLI)
 func (c *HashingConfig) shouldIgnorePath(path, modelPath string) bool {
 	// Get relative path from model root
 	relPath, err := filepath.Rel(modelPath, path)
@@ -320,22 +324,41 @@ func (c *HashingConfig) shouldIgnorePath(path, modelPath string) bool {
 
 	// Check against ignored paths
 	for _, ignoredPath := range c.ignoredPaths {
-		// Handle both absolute and relative ignored paths
-		var compareWith string
-		if filepath.IsAbs(ignoredPath) {
-			compareWith = path
-		} else {
-			compareWith = relPath
-		}
-
-		// Check for exact match or prefix match
-		if compareWith == ignoredPath || strings.HasPrefix(compareWith, ignoredPath+string(filepath.Separator)) {
+		if c.pathMatches(path, relPath, ignoredPath) {
 			return true
 		}
 	}
 
 	// Git-related paths are added to c.ignoredPaths when ignoreGitPaths is true,
 	// so no separate checking is needed. This ensures they're stored in the manifest.
+	return false
+}
+
+// pathMatches checks if a file path matches an ignored path pattern.
+// It handles multiple path formats to support CLI usage patterns.
+func (c *HashingConfig) pathMatches(absPath, relPath, ignoredPath string) bool {
+	// Case 1: ignoredPath is absolute - compare with absolute path
+	if filepath.IsAbs(ignoredPath) {
+		if absPath == ignoredPath || strings.HasPrefix(absPath, ignoredPath+string(filepath.Separator)) {
+			return true
+		}
+	}
+
+	// Case 2: ignoredPath is relative to modelPath - compare with relPath
+	// This handles patterns like "subdir/file.txt" or "file.txt"
+	if relPath == ignoredPath || strings.HasPrefix(relPath, ignoredPath+string(filepath.Separator)) {
+		return true
+	}
+
+	// Case 3: ignoredPath might be relative to CWD (e.g., "./model/file.txt" from CLI)
+	// Convert to absolute and compare with absPath
+	absIgnored, err := filepath.Abs(ignoredPath)
+	if err == nil && absIgnored != ignoredPath { // Only if conversion changed something
+		if absPath == absIgnored || strings.HasPrefix(absPath, absIgnored+string(filepath.Separator)) {
+			return true
+		}
+	}
+
 	return false
 }
 
