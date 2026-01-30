@@ -52,6 +52,7 @@ type SigstoreSignerConfig struct {
 
 // SigstoreBundleSigner signs model manifests using Sigstore/Fulcio.
 // Implements the interfaces.BundleSigner interface.
+// nolint:revive
 type SigstoreBundleSigner struct {
 	config    SigstoreSignerConfig
 	trustRoot *root.TrustedRoot

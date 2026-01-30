@@ -57,6 +57,7 @@ type CertificateVerifierConfig struct {
 //
 // CertificateBundleVerifier validates certificate chains, verifies cryptographic signatures,
 // and extracts manifests from signed payloads.
+// nolint:revive
 type CertificateBundleVerifier struct {
 	config     CertificateVerifierConfig
 	certPool   *x509.CertPool

@@ -87,6 +87,7 @@ type CertificateSignerConfig struct {
 
 // CertificateBundleSigner signs model manifests using a private key and certificate.
 // Implements the interfaces.BundleSigner interface.
+// nolint:revive
 type CertificateBundleSigner struct {
 	config             CertificateSignerConfig
 	privateKey         crypto.PrivateKey

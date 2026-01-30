@@ -42,6 +42,7 @@ type KeySignerConfig struct {
 
 // KeyBundleSigner signs model manifests using a private key and produces signature bundles.
 // Implements the interfaces.BundleSigner interface.
+// nolint:revive
 type KeyBundleSigner struct {
 	config     KeySignerConfig
 	privateKey crypto.PrivateKey

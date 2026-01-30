@@ -52,6 +52,7 @@ type SigstoreVerifierConfig struct {
 // It checks both the cryptographic signature and an identity policy:
 // the certificate must belong to the expected identity and be issued
 // by the expected OIDC issuer.
+// nolint:revive
 type SigstoreBundleVerifier struct {
 	config   SigstoreVerifierConfig
 	verifier *sigstoreverify.Verifier

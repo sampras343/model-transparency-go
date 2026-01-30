@@ -44,6 +44,7 @@ type KeyVerifierConfig struct {
 //
 // It checks the cryptographic signature using the provided public key
 // and extracts the manifest from the signed payload.
+// nolint:revive
 type KeyBundleVerifier struct {
 	config    KeyVerifierConfig
 	publicKey crypto.PublicKey
