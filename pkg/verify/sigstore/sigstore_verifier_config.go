@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/sigstore/model-signing/internal/payload"
 	"github.com/sigstore/model-signing/pkg/config"
 	"github.com/sigstore/model-signing/pkg/dsse"
 	"github.com/sigstore/model-signing/pkg/interfaces"
@@ -150,7 +151,7 @@ func (v *SigstoreBundleVerifier) Verify(bundle interfaces.SignatureBundle) (*man
 	}
 
 	// Extract manifest from payload
-	m, err := utils.VerifySignedContent(dsseEnvelope.PayloadType(), payloadBytes)
+	m, err := payload.VerifySignedContent(dsseEnvelope.PayloadType(), payloadBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract manifest: %w", err)
 	}

@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"os"
 
+	internalcrypto "github.com/sigstore/model-signing/internal/crypto"
+	"github.com/sigstore/model-signing/internal/payload"
 	"github.com/sigstore/model-signing/pkg/config"
 	"github.com/sigstore/model-signing/pkg/dsse"
 	"github.com/sigstore/model-signing/pkg/interfaces"
@@ -118,7 +120,7 @@ func (v *KeyBundleVerifier) Verify(bundle interfaces.SignatureBundle) (*manifest
 	}
 
 	// Compute Pre-Authentication Encoding (PAE) for DSSE using shared utility
-	pae := utils.ComputePAE(dsseEnvelope.PayloadType(), payloadBytes)
+	pae := internalcrypto.ComputePAE(dsseEnvelope.PayloadType(), payloadBytes)
 
 	// Decode the base64-encoded signature
 	signatureBytes, err := dsseEnvelope.DecodeSignature()
@@ -127,16 +129,16 @@ func (v *KeyBundleVerifier) Verify(bundle interfaces.SignatureBundle) (*manifest
 	}
 
 	// Verify the signature using the public key with shared utility
-	if err := utils.VerifySignature(v.publicKey, pae, signatureBytes); err != nil {
+	if err := internalcrypto.VerifySignature(v.publicKey, pae, signatureBytes); err != nil {
 		// Try v0.2.0 compatibility mode
-		paeCompat := utils.ComputePAECompat(dsseEnvelope.PayloadType(), payloadBytes)
-		if compatErr := utils.VerifySignatureCompat(v.publicKey, paeCompat, signatureBytes); compatErr != nil {
+		paeCompat := internalcrypto.ComputePAECompat(dsseEnvelope.PayloadType(), payloadBytes)
+		if compatErr := internalcrypto.VerifySignatureCompat(v.publicKey, paeCompat, signatureBytes); compatErr != nil {
 			return nil, fmt.Errorf("signature verification failed: %w", err)
 		}
 	}
 
 	// Extract manifest from payload
-	m, err := utils.VerifySignedContent(dsseEnvelope.PayloadType(), payloadBytes)
+	m, err := payload.VerifySignedContent(dsseEnvelope.PayloadType(), payloadBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract manifest: %w", err)
 	}

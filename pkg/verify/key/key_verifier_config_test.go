@@ -28,8 +28,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	internalcrypto "github.com/sigstore/model-signing/internal/crypto"
 	"github.com/sigstore/model-signing/pkg/config"
-	"github.com/sigstore/model-signing/pkg/utils"
 )
 
 func TestNewKeyBundleVerifier_EmptyPublicKeyPath(t *testing.T) {
@@ -322,10 +322,10 @@ func TestComputePAE_Verifier(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := utils.ComputePAE(tt.payloadType, tt.payload)
+			result := internalcrypto.ComputePAE(tt.payloadType, tt.payload)
 
 			if len(result) != len(tt.expected) {
-				t.Errorf("utils.ComputePAE() length = %d, want %d", len(result), len(tt.expected))
+				t.Errorf("internalcrypto.ComputePAE() length = %d, want %d", len(result), len(tt.expected))
 				t.Errorf("Full result: %q", string(result))
 				t.Errorf("Full expected: %q", string(tt.expected))
 				return
@@ -333,7 +333,7 @@ func TestComputePAE_Verifier(t *testing.T) {
 
 			for i := range result {
 				if result[i] != tt.expected[i] {
-					t.Errorf("utils.ComputePAE() at index %d = %d, want %d", i, result[i], tt.expected[i])
+					t.Errorf("internalcrypto.ComputePAE() at index %d = %d, want %d", i, result[i], tt.expected[i])
 					t.Errorf("Full result: %q", string(result))
 					t.Errorf("Full expected: %q", string(tt.expected))
 					return

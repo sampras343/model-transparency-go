@@ -18,6 +18,7 @@ import (
 	"crypto"
 	"fmt"
 
+	internalcrypto "github.com/sigstore/model-signing/internal/crypto"
 	"github.com/sigstore/model-signing/pkg/config"
 	"github.com/sigstore/model-signing/pkg/dsse"
 	"github.com/sigstore/model-signing/pkg/interfaces"
@@ -91,10 +92,10 @@ func (s *KeyBundleSigner) Sign(payload *interfaces.Payload) (interfaces.Signatur
 	}
 
 	// Compute PAE (Pre-Authentication Encoding) for DSSE using shared utility
-	pae := utils.ComputePAE(utils.InTotoJSONPayloadType, payloadJSON)
+	pae := internalcrypto.ComputePAE(utils.InTotoJSONPayloadType, payloadJSON)
 
 	// Sign the PAE using shared utility
-	signatureBytes, err := utils.SignWithKey(s.privateKey, pae)
+	signatureBytes, err := internalcrypto.SignWithKey(s.privateKey, pae)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign payload: %w", err)
 	}

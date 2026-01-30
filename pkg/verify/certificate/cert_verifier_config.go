@@ -25,6 +25,8 @@ import (
 	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 
+	internalcrypto "github.com/sigstore/model-signing/internal/crypto"
+	"github.com/sigstore/model-signing/internal/payload"
 	"github.com/sigstore/model-signing/pkg/interfaces"
 	"github.com/sigstore/model-signing/pkg/manifest"
 	"github.com/sigstore/model-signing/pkg/utils"
@@ -252,17 +254,17 @@ func (v *CertificateBundleVerifier) verifyProtobufBundle(protoBundle *protobundl
 	payloadBytes := dsseEnvelope.Payload
 
 	// Compute Pre-Authentication Encoding (PAE) for DSSE
-	pae := utils.ComputePAE(dsseEnvelope.PayloadType, payloadBytes)
+	pae := internalcrypto.ComputePAE(dsseEnvelope.PayloadType, payloadBytes)
 
 	// Signature is already raw bytes in protobuf (not base64 encoded)
 	signatureBytes := dsseEnvelope.Signatures[0].Sig
 
 	// Verify the signature using the public key
-	if err := utils.VerifySignature(publicKey, pae, signatureBytes); err != nil {
+	if err := internalcrypto.VerifySignature(publicKey, pae, signatureBytes); err != nil {
 		// Try v0.2.0 compatibility mode
 		v.logger.Debug("Standard verification failed, trying v0.2.0 compatibility mode")
-		paeCompat := utils.ComputePAECompat(dsseEnvelope.PayloadType, payloadBytes)
-		if compatErr := utils.VerifySignatureCompat(publicKey, paeCompat, signatureBytes); compatErr != nil {
+		paeCompat := internalcrypto.ComputePAECompat(dsseEnvelope.PayloadType, payloadBytes)
+		if compatErr := internalcrypto.VerifySignatureCompat(publicKey, paeCompat, signatureBytes); compatErr != nil {
 			// Both methods failed, return the original error
 			return nil, fmt.Errorf("signature verification failed: %w", err)
 		}
@@ -270,7 +272,7 @@ func (v *CertificateBundleVerifier) verifyProtobufBundle(protoBundle *protobundl
 	}
 
 	// Extract manifest from payload
-	m, err := utils.VerifySignedContent(dsseEnvelope.PayloadType, payloadBytes)
+	m, err := payload.VerifySignedContent(dsseEnvelope.PayloadType, payloadBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract manifest: %w", err)
 	}

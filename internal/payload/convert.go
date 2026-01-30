@@ -12,7 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils
+// Package payload provides internal utilities for converting DSSE payloads to manifests.
+//
+// This package contains functions for parsing and validating signed payloads
+// used internally by the verification implementations. External consumers should
+// use the higher-level APIs in pkg/verify instead.
+package payload
 
 import (
 	"encoding/hex"
@@ -21,6 +26,7 @@ import (
 	"github.com/sigstore/model-signing/pkg/hashing/digests"
 	"github.com/sigstore/model-signing/pkg/hashing/engines/memory"
 	"github.com/sigstore/model-signing/pkg/manifest"
+	"github.com/sigstore/model-signing/pkg/utils"
 )
 
 // DSSEPayloadToManifest converts a DSSE payload (as a map) to a Manifest.
@@ -32,11 +38,11 @@ func DSSEPayloadToManifest(dssePayload map[string]interface{}) (*manifest.Manife
 		return nil, fmt.Errorf("predicateType field missing or not a string")
 	}
 
-	if predicateType != PredicateType {
-		if predicateType == PredicateTypeCompat {
+	if predicateType != utils.PredicateType {
+		if predicateType == utils.PredicateTypeCompat {
 			return DSSEPayloadToManifestCompat(dssePayload)
 		}
-		return nil, fmt.Errorf("predicate type mismatch, expected %s, got %s", PredicateType, predicateType)
+		return nil, fmt.Errorf("predicate type mismatch, expected %s, got %s", utils.PredicateType, predicateType)
 	}
 
 	// Extract subjects
@@ -69,9 +75,9 @@ func DSSEPayloadToManifest(dssePayload map[string]interface{}) (*manifest.Manife
 		return nil, fmt.Errorf("subject digest missing or not an object")
 	}
 
-	expectedDigest, ok := digestMap[DefaultHashAlgorithm].(string)
+	expectedDigest, ok := digestMap[utils.DefaultHashAlgorithm].(string)
 	if !ok {
-		return nil, fmt.Errorf("subject digest %s missing or not a string", DefaultHashAlgorithm)
+		return nil, fmt.Errorf("subject digest %s missing or not a string", utils.DefaultHashAlgorithm)
 	}
 
 	// Extract predicate
@@ -178,8 +184,8 @@ func DSSEPayloadToManifestCompat(dssePayload map[string]interface{}) (*manifest.
 
 	// Serialization format is not present, build a fake one
 	serializationArgs := map[string]interface{}{
-		"method":         SerializationMethodFiles,
-		"hash_type":      DefaultHashAlgorithm,
+		"method":         utils.SerializationMethodFiles,
+		"hash_type":      utils.DefaultHashAlgorithm,
 		"allow_symlinks": false,
 	}
 
@@ -217,10 +223,10 @@ func DSSEPayloadToManifestCompat(dssePayload map[string]interface{}) (*manifest.
 		}
 
 		// v0.2 only supported sha256
-		algorithm := DefaultHashAlgorithm
+		algorithm := utils.DefaultHashAlgorithm
 		digestValue, ok := digestMap[algorithm].(string)
 		if !ok {
-			return nil, fmt.Errorf("subject digest %s missing or not a string", DefaultHashAlgorithm)
+			return nil, fmt.Errorf("subject digest %s missing or not a string", utils.DefaultHashAlgorithm)
 		}
 
 		digestBytes, err := hex.DecodeString(digestValue)
