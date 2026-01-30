@@ -115,7 +115,7 @@ func (kv *KeyVerifier) Verify(_ context.Context) (verify.Result, error) {
 		},
 	}
 
-	keyVerifier, err := NewVerifier(verifierConfig)
+	keyVerifier, err := NewKeyBundleVerifier(verifierConfig)
 	if err != nil {
 		return verify.Result{}, fmt.Errorf("failed to create key verifier: %w", err)
 	}

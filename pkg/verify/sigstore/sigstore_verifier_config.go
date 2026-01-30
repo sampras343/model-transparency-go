@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/sigstore/model-signing/internal/payload"
 	"github.com/sigstore/model-signing/pkg/config"
 	"github.com/sigstore/model-signing/pkg/dsse"
 	"github.com/sigstore/model-signing/pkg/interfaces"
@@ -27,10 +28,10 @@ import (
 	sigstoreverify "github.com/sigstore/sigstore-go/pkg/verify"
 )
 
-// Ensure Verifier implements interfaces.SignatureVerifier at compile time.
-var _ interfaces.SignatureVerifier = (*Verifier)(nil)
+// Ensure SigstoreBundleVerifier implements interfaces.BundleVerifier at compile time.
+var _ interfaces.BundleVerifier = (*SigstoreBundleVerifier)(nil)
 
-// SigstoreVerifierConfig holds configuration for creating a Sigstore verifier.
+// SigstoreVerifierConfig holds configuration for creating a Sigstore bundle verifier.
 //
 //nolint:revive
 type SigstoreVerifierConfig struct {
@@ -46,18 +47,19 @@ type SigstoreVerifierConfig struct {
 	OIDCIssuer string
 }
 
-// Verifier verifies Sigstore signatures on model manifests.
+// SigstoreBundleVerifier verifies Sigstore signature bundles on model manifests.
 //
 // It checks both the cryptographic signature and an identity policy:
 // the certificate must belong to the expected identity and be issued
 // by the expected OIDC issuer.
-type Verifier struct {
+// nolint:revive
+type SigstoreBundleVerifier struct {
 	config   SigstoreVerifierConfig
 	verifier *sigstoreverify.Verifier
 }
 
-// NewVerifier creates a new Sigstore verifier with the given configuration.
-func NewVerifier(config SigstoreVerifierConfig) (*Verifier, error) {
+// NewSigstoreBundleVerifier creates a new Sigstore bundle verifier with the given configuration.
+func NewSigstoreBundleVerifier(config SigstoreVerifierConfig) (*SigstoreBundleVerifier, error) {
 	if config.Identity == "" {
 		return nil, fmt.Errorf("identity is required")
 	}
@@ -91,21 +93,21 @@ func NewVerifier(config SigstoreVerifierConfig) (*Verifier, error) {
 		return nil, fmt.Errorf("failed to create verifier: %w", err)
 	}
 
-	return &Verifier{
+	return &SigstoreBundleVerifier{
 		config:   config,
 		verifier: verifier,
 	}, nil
 }
 
-// Verify verifies the signature and returns the manifest.
+// Verify verifies the signature bundle and returns the manifest.
 //
 // This performs cryptographic verification of the signature and checks
 // the identity policy before extracting and validating the manifest.
-func (v *Verifier) Verify(signature interfaces.Signature) (*manifest.Manifest, error) {
-	// Cast to Sigstore signature
-	sig, ok := signature.(*sign.Signature)
+func (v *SigstoreBundleVerifier) Verify(bundle interfaces.SignatureBundle) (*manifest.Manifest, error) {
+	// Cast to SigstoreBundle
+	sig, ok := bundle.(*sign.SigstoreBundle)
 	if !ok {
-		return nil, fmt.Errorf("signature is not a Sigstore signature")
+		return nil, fmt.Errorf("bundle is not a SigstoreBundle")
 	}
 
 	// Create certificate identity for verification
@@ -150,7 +152,7 @@ func (v *Verifier) Verify(signature interfaces.Signature) (*manifest.Manifest, e
 	}
 
 	// Extract manifest from payload
-	m, err := utils.VerifySignedContent(dsseEnvelope.PayloadType(), payloadBytes)
+	m, err := payload.VerifySignedContent(dsseEnvelope.PayloadType(), payloadBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract manifest: %w", err)
 	}

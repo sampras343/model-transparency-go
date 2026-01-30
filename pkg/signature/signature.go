@@ -15,8 +15,8 @@
 // Package signature provides a Sigstore bundle-based signature implementation for model signing.
 //
 // This package wraps sigstore-go bundles to provide serialization and deserialization
-// capabilities in the standard Sigstore JSON format. It implements the interfaces.Signature
-// and interfaces.SignatureReader interfaces for compatibility with the model signing framework.
+// capabilities in the standard Sigstore JSON format. It implements the interfaces.SignatureBundle
+// and interfaces.BundleReader interfaces for compatibility with the model signing framework.
 package signature
 
 import (
@@ -29,43 +29,43 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// Ensure Signature implements interfaces.Signature at compile time.
-var _ interfaces.Signature = (*Signature)(nil)
+// Ensure SigstoreBundle implements interfaces.SignatureBundle at compile time.
+var _ interfaces.SignatureBundle = (*SigstoreBundle)(nil)
 
-// Ensure Signature implements interfaces.SignatureReader at compile time.
-var _ interfaces.SignatureReader = (*Signature)(nil)
+// Ensure SigstoreBundle implements interfaces.BundleReader at compile time.
+var _ interfaces.BundleReader = (*SigstoreBundle)(nil)
 
-// Signature wraps a Sigstore bundle for model signing.
+// SigstoreBundle wraps a sigstore-go bundle for model signing.
 //
 // It provides serialization and deserialization of Sigstore bundles
 // in the standard JSON format.
-type Signature struct {
+type SigstoreBundle struct {
 	bundle *bundle.Bundle
 }
 
-// NewSignature creates a new Signature from a Sigstore bundle.
+// NewSigstoreBundle creates a new SigstoreBundle from a sigstore-go bundle.
 //
 // The b parameter should be a valid sigstore-go Bundle containing signature data.
-// Returns a new Signature instance wrapping the provided bundle.
-func NewSignature(b *bundle.Bundle) *Signature {
-	return &Signature{bundle: b}
+// Returns a new SigstoreBundle instance wrapping the provided bundle.
+func NewSigstoreBundle(b *bundle.Bundle) *SigstoreBundle {
+	return &SigstoreBundle{bundle: b}
 }
 
 // Bundle returns the underlying Sigstore bundle.
 //
 // Returns the wrapped sigstore-go Bundle instance.
-func (s *Signature) Bundle() *bundle.Bundle {
+func (s *SigstoreBundle) Bundle() *bundle.Bundle {
 	return s.bundle
 }
 
-// Write serializes the signature to a file at the given path.
+// Write serializes the signature bundle to a file at the given path.
 //
-// The signature is written in standard Sigstore JSON format with world-readable
-// permissions (0644) as signatures are public artifacts.
+// The bundle is written in standard Sigstore JSON format with world-readable
+// permissions (0644) as signature bundles are public artifacts.
 //
-// The path parameter specifies the file path where the signature will be written.
+// The path parameter specifies the file path where the bundle will be written.
 // Returns an error if marshaling or writing fails.
-func (s *Signature) Write(path string) error {
+func (s *SigstoreBundle) Write(path string) error {
 	// Convert bundle to JSON
 	jsonBytes, err := s.bundle.MarshalJSON()
 	if err != nil {
@@ -82,14 +82,14 @@ func (s *Signature) Write(path string) error {
 	return nil
 }
 
-// Read deserializes a signature from a file at the given path.
+// Read deserializes a signature bundle from a file at the given path.
 //
 // The file is expected to contain a Sigstore bundle in JSON format.
 // Unknown fields in the JSON are discarded for forward compatibility.
 //
-// The path parameter specifies the file path to read the signature from.
-// Returns a new Signature instance and an error if reading, unmarshaling, or bundle creation fails.
-func (s *Signature) Read(path string) (interfaces.Signature, error) {
+// The path parameter specifies the file path to read the bundle from.
+// Returns a new SigstoreBundle instance and an error if reading, unmarshaling, or bundle creation fails.
+func (s *SigstoreBundle) Read(path string) (interfaces.SignatureBundle, error) {
 	// Read file
 	//nolint:gosec
 	jsonBytes, err := os.ReadFile(path)
@@ -114,5 +114,5 @@ func (s *Signature) Read(path string) (interfaces.Signature, error) {
 		return nil, fmt.Errorf("failed to create bundle: %w", err)
 	}
 
-	return NewSignature(b), nil
+	return NewSigstoreBundle(b), nil
 }

@@ -15,21 +15,25 @@
 // Package interfaces defines core abstractions for signing and verification operations.
 package interfaces
 
-// Signature represents a cryptographic signature over a model.
+// SignatureBundle represents a cryptographic signature bundle over a model.
 //
-// Implementations wrap different signature formats (e.g., Sigstore bundles).
-type Signature interface {
-	// Write serializes the signature to the given path.
+// A signature bundle contains the cryptographic signature along with
+// verification material (public keys, certificates, transparency log entries)
+// in a DSSE envelope wrapped in a Sigstore bundle format.
+//
+// Implementations wrap different bundle formats (e.g., Sigstore bundles, certificate bundles).
+type SignatureBundle interface {
+	// Write serializes the signature bundle to the given path.
 	// Returns an error if writing fails.
 	Write(path string) error
 }
 
-// SignatureReader reads signatures from disk.
+// BundleReader reads signature bundles from disk.
 //
-// This is separate from the Signature interface because reading is a factory
+// This is separate from the SignatureBundle interface because reading is a factory
 // operation (creates new instances), while Write is an instance method.
-type SignatureReader interface {
-	// Read deserializes a signature from the given path.
-	// Returns a concrete implementation of Signature or an error if reading fails.
-	Read(path string) (Signature, error)
+type BundleReader interface {
+	// Read deserializes a signature bundle from the given path.
+	// Returns a concrete implementation of SignatureBundle or an error if reading fails.
+	Read(path string) (SignatureBundle, error)
 }

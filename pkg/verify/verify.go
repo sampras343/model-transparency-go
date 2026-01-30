@@ -26,11 +26,11 @@ type Result struct {
 // ModelVerifier performs complete model verification.
 //
 // Orchestrates the full verification workflow:
-// 1. Reads and verifies signature cryptographically
+// 1. Reads and verifies signature bundle cryptographically
 // 2. Hashes model files
 // 3. Compares actual vs expected manifests
 //
-// Unlike interfaces.SignatureVerifier which only handles cryptographic verification,
+// Unlike interfaces.BundleVerifier which only handles cryptographic verification,
 // ModelVerifier handles the complete end-to-end verification process.
 // Implementations include KeyVerifier, SigstoreVerifier, and CertificateVerifier.
 type ModelVerifier interface {

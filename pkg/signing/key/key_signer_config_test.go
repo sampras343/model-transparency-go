@@ -25,8 +25,8 @@ import (
 	"fmt"
 	"testing"
 
+	internalcrypto "github.com/sigstore/model-signing/internal/crypto"
 	"github.com/sigstore/model-signing/pkg/config"
-	"github.com/sigstore/model-signing/pkg/utils"
 )
 
 func TestComputePAE(t *testing.T) {
@@ -70,14 +70,14 @@ func TestComputePAE(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := utils.ComputePAE(tt.payloadType, tt.payload)
+			result := internalcrypto.ComputePAE(tt.payloadType, tt.payload)
 			if len(result) != len(tt.expected) {
-				t.Errorf("utils.ComputePAE() length = %d, want %d", len(result), len(tt.expected))
+				t.Errorf("internalcrypto.ComputePAE() length = %d, want %d", len(result), len(tt.expected))
 				return
 			}
 			for i := range result {
 				if result[i] != tt.expected[i] {
-					t.Errorf("utils.ComputePAE() at index %d = %v, want %v", i, result[i], tt.expected[i])
+					t.Errorf("internalcrypto.ComputePAE() at index %d = %v, want %v", i, result[i], tt.expected[i])
 					t.Errorf("Full result: %q", string(result))
 					t.Errorf("Full expected: %q", string(tt.expected))
 					return
@@ -299,9 +299,9 @@ func TestSignWithKey_ECDSA(t *testing.T) {
 
 	data := []byte("test data to sign")
 
-	signature, err := utils.SignWithKey(privateKey, data)
+	signature, err := internalcrypto.SignWithKey(privateKey, data)
 	if err != nil {
-		t.Fatalf("utils.SignWithKey() error = %v", err)
+		t.Fatalf("internalcrypto.SignWithKey() error = %v", err)
 	}
 
 	if len(signature) == 0 {
@@ -309,9 +309,9 @@ func TestSignWithKey_ECDSA(t *testing.T) {
 	}
 
 	// Signatures should be different each time (due to randomness)
-	signature2, err := utils.SignWithKey(privateKey, data)
+	signature2, err := internalcrypto.SignWithKey(privateKey, data)
 	if err != nil {
-		t.Fatalf("utils.SignWithKey() second call error = %v", err)
+		t.Fatalf("internalcrypto.SignWithKey() second call error = %v", err)
 	}
 
 	// ECDSA signatures have randomness, so they should differ
@@ -330,9 +330,9 @@ func TestSignWithKey_RSA(t *testing.T) {
 
 	data := []byte("test data to sign")
 
-	signature, err := utils.SignWithKey(privateKey, data)
+	signature, err := internalcrypto.SignWithKey(privateKey, data)
 	if err != nil {
-		t.Fatalf("utils.SignWithKey() error = %v", err)
+		t.Fatalf("internalcrypto.SignWithKey() error = %v", err)
 	}
 
 	if len(signature) == 0 {
@@ -354,9 +354,9 @@ func TestSignWithKey_Ed25519(t *testing.T) {
 
 	data := []byte("test data to sign")
 
-	signature, err := utils.SignWithKey(privateKey, data)
+	signature, err := internalcrypto.SignWithKey(privateKey, data)
 	if err != nil {
-		t.Fatalf("utils.SignWithKey() error = %v", err)
+		t.Fatalf("internalcrypto.SignWithKey() error = %v", err)
 	}
 
 	if len(signature) != ed25519.SignatureSize {
@@ -364,9 +364,9 @@ func TestSignWithKey_Ed25519(t *testing.T) {
 	}
 
 	// Ed25519 signatures are deterministic for the same key and data
-	signature2, err := utils.SignWithKey(privateKey, data)
+	signature2, err := internalcrypto.SignWithKey(privateKey, data)
 	if err != nil {
-		t.Fatalf("utils.SignWithKey() second call error = %v", err)
+		t.Fatalf("internalcrypto.SignWithKey() second call error = %v", err)
 	}
 
 	// Ed25519 signatures should be identical for same input
@@ -377,20 +377,20 @@ func TestSignWithKey_Ed25519(t *testing.T) {
 
 func TestSignWithKey_UnsupportedType(t *testing.T) {
 	// Test with unsupported type
-	_, err := utils.SignWithKey("not a key", []byte("data"))
+	_, err := internalcrypto.SignWithKey("not a key", []byte("data"))
 	if err == nil {
 		t.Error("Expected error for unsupported key type, got nil")
 	}
 }
 
-func TestNewLocalKeySigner_EmptyPrivateKeyPath(t *testing.T) {
+func TestNewKeyBundleSigner_EmptyPrivateKeyPath(t *testing.T) {
 	cfg := KeySignerConfig{
 		KeyConfig: config.KeyConfig{
 			Path: "",
 		},
 	}
 
-	_, err := NewLocalKeySigner(cfg)
+	_, err := NewKeyBundleSigner(cfg)
 	if err == nil {
 		t.Error("Expected error for empty private key path, got nil")
 	}
@@ -398,7 +398,7 @@ func TestNewLocalKeySigner_EmptyPrivateKeyPath(t *testing.T) {
 
 func TestCreateVerificationMaterial(t *testing.T) {
 	// Create a signer with minimal setup
-	signer := &LocalKeySigner{
+	signer := &KeyBundleSigner{
 		keyHash: "abcd1234567890",
 	}
 

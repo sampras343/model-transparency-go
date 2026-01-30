@@ -150,7 +150,7 @@ func (ss *SigstoreSigner) Sign(_ context.Context) (signing.Result, error) {
 		ClientSecret:          ss.opts.ClientSecret,
 	}
 
-	signer, err := NewLocalSigstoreSigner(signerConfig)
+	signer, err := NewSigstoreBundleSigner(signerConfig)
 	if err != nil {
 		return signing.Result{
 			Verified: false,
@@ -158,7 +158,7 @@ func (ss *SigstoreSigner) Sign(_ context.Context) (signing.Result, error) {
 		}, fmt.Errorf("failed to create Sigstore signer: %w", err)
 	}
 
-	signature, err := signer.Sign(payload)
+	signatureBundle, err := signer.Sign(payload)
 	if err != nil {
 		return signing.Result{
 			Verified: false,
@@ -168,7 +168,7 @@ func (ss *SigstoreSigner) Sign(_ context.Context) (signing.Result, error) {
 
 	// Step 4: Write signature to file
 	ss.logger.Debugln("\nStep 4: Writing signature...")
-	if err := signing.WriteSignature(signature, ss.opts.SignaturePath); err != nil {
+	if err := signing.WriteSignature(signatureBundle, ss.opts.SignaturePath); err != nil {
 		return signing.Result{
 			Verified: false,
 			Message:  fmt.Sprintf("Failed to write signature: %v", err),

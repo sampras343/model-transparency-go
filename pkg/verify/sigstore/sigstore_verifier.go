@@ -141,7 +141,7 @@ func (sv *SigstoreVerifier) Verify(_ context.Context) (verify.Result, error) {
 		OIDCIssuer: sv.opts.IdentityProvider,
 	}
 
-	sigstoreVerifier, err := NewVerifier(verifierConfig)
+	sigstoreVerifier, err := NewSigstoreBundleVerifier(verifierConfig)
 	if err != nil {
 		return verify.Result{}, fmt.Errorf("failed to create Sigstore verifier: %w", err)
 	}

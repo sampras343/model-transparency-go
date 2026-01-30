@@ -33,10 +33,10 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// Ensure LocalSigstoreSigner implements interfaces.Signer at compile time.
-var _ interfaces.Signer = (*LocalSigstoreSigner)(nil)
+// Ensure SigstoreBundleSigner implements interfaces.BundleSigner at compile time.
+var _ interfaces.BundleSigner = (*SigstoreBundleSigner)(nil)
 
-// SigstoreSignerConfig holds configuration for creating a Sigstore signer.
+// SigstoreSignerConfig holds configuration for creating a Sigstore bundle signer.
 //
 //nolint:revive
 type SigstoreSignerConfig struct {
@@ -50,30 +50,31 @@ type SigstoreSignerConfig struct {
 	ClientSecret          string // ClientSecret is the OAuth client secret.
 }
 
-// LocalSigstoreSigner signs model manifests using Sigstore/Fulcio.
-// Implements the interfaces.Signer interface.
-type LocalSigstoreSigner struct {
+// SigstoreBundleSigner signs model manifests using Sigstore/Fulcio.
+// Implements the interfaces.BundleSigner interface.
+// nolint:revive
+type SigstoreBundleSigner struct {
 	config    SigstoreSignerConfig
 	trustRoot *root.TrustedRoot
 }
 
-// NewLocalSigstoreSigner creates a new Sigstore signer with the given configuration.
+// NewSigstoreBundleSigner creates a new Sigstore bundle signer with the given configuration.
 // Loads the trust root for Sigstore verification.
 // Returns an error if trust root loading fails.
-func NewLocalSigstoreSigner(config SigstoreSignerConfig) (*LocalSigstoreSigner, error) {
+func NewSigstoreBundleSigner(config SigstoreSignerConfig) (*SigstoreBundleSigner, error) {
 	// Load trust root using shared configuration primitive
 	trustRoot, err := config.LoadTrustRoot()
 	if err != nil {
 		return nil, err
 	}
 
-	return &LocalSigstoreSigner{
+	return &SigstoreBundleSigner{
 		config:    config,
 		trustRoot: trustRoot,
 	}, nil
 }
 
-// Sign signs a payload and returns a Sigstore bundle signature.
+// Sign signs a payload and returns a signature bundle.
 //
 // Signing flow:
 // 1. Generates an ephemeral keypair
@@ -85,7 +86,7 @@ func NewLocalSigstoreSigner(config SigstoreSignerConfig) (*LocalSigstoreSigner, 
 // 7. Returns a bundle containing everything needed for verification
 //
 // Returns an error if any step fails.
-func (s *LocalSigstoreSigner) Sign(payload *interfaces.Payload) (interfaces.Signature, error) {
+func (s *SigstoreBundleSigner) Sign(payload *interfaces.Payload) (interfaces.SignatureBundle, error) {
 	ctx := context.Background()
 
 	// Convert payload to JSON for DSSE
@@ -155,8 +156,8 @@ func (s *LocalSigstoreSigner) Sign(payload *interfaces.Payload) (interfaces.Sign
 		return nil, fmt.Errorf("failed to create sigstore bundle: %w", err)
 	}
 
-	// Wrap in our signature type
-	return sign.NewSignature(sigstoreBundle), nil
+	// Wrap in our signature bundle type
+	return sign.NewSigstoreBundle(sigstoreBundle), nil
 }
 
 // oobIDTokenGetter implements the out-of-band OAuth flow.
@@ -252,7 +253,7 @@ func randomString(length int) string {
 // 3. Falls back to interactive OAuth flow
 //
 // Returns the ID token string or an error if token acquisition fails.
-func (s *LocalSigstoreSigner) getIDToken(_ context.Context) (string, error) {
+func (s *SigstoreBundleSigner) getIDToken(_ context.Context) (string, error) {
 	// If a token is explicitly provided, use it
 	if s.config.IdentityToken != "" {
 		return s.config.IdentityToken, nil

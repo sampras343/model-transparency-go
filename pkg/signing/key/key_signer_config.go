@@ -18,6 +18,7 @@ import (
 	"crypto"
 	"fmt"
 
+	internalcrypto "github.com/sigstore/model-signing/internal/crypto"
 	"github.com/sigstore/model-signing/pkg/config"
 	"github.com/sigstore/model-signing/pkg/dsse"
 	"github.com/sigstore/model-signing/pkg/interfaces"
@@ -28,10 +29,10 @@ import (
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 )
 
-// Ensure LocalKeySigner implements interfaces.Signer at compile time.
-var _ interfaces.Signer = (*LocalKeySigner)(nil)
+// Ensure KeyBundleSigner implements interfaces.BundleSigner at compile time.
+var _ interfaces.BundleSigner = (*KeyBundleSigner)(nil)
 
-// KeySignerConfig holds configuration for creating a local key signer.
+// KeySignerConfig holds configuration for creating a key-based bundle signer.
 //
 //nolint:revive
 type KeySignerConfig struct {
@@ -39,19 +40,20 @@ type KeySignerConfig struct {
 	config.KeyConfig
 }
 
-// LocalKeySigner signs model manifests using a local private key.
-// Implements the interfaces.Signer interface.
-type LocalKeySigner struct {
+// KeyBundleSigner signs model manifests using a private key and produces signature bundles.
+// Implements the interfaces.BundleSigner interface.
+// nolint:revive
+type KeyBundleSigner struct {
 	config     KeySignerConfig
 	privateKey crypto.PrivateKey
 	publicKey  crypto.PublicKey
 	keyHash    string // Hash of public key used as verification material hint
 }
 
-// NewLocalKeySigner creates a new private key signer with the given configuration.
+// NewKeyBundleSigner creates a new key-based bundle signer with the given configuration.
 // Loads and validates the private key, extracts the public key, and computes the key hash.
 // Returns an error if key loading or processing fails.
-func NewLocalKeySigner(cfg KeySignerConfig) (*LocalKeySigner, error) {
+func NewKeyBundleSigner(cfg KeySignerConfig) (*KeyBundleSigner, error) {
 	// Load private key using shared configuration primitive
 	privateKey, err := cfg.LoadPrivateKey()
 	if err != nil {
@@ -70,7 +72,7 @@ func NewLocalKeySigner(cfg KeySignerConfig) (*LocalKeySigner, error) {
 		return nil, err
 	}
 
-	return &LocalKeySigner{
+	return &KeyBundleSigner{
 		config:     cfg,
 		privateKey: privateKey,
 		publicKey:  publicKey,
@@ -78,12 +80,12 @@ func NewLocalKeySigner(cfg KeySignerConfig) (*LocalKeySigner, error) {
 	}, nil
 }
 
-// Sign signs a payload and returns a Sigstore bundle signature.
+// Sign signs a payload and returns a signature bundle.
 //
 // Creates a DSSE envelope with the signed payload and wraps it
 // in a Sigstore bundle format for compatibility with verification.
 // Returns an error if serialization, signing, or bundle creation fails.
-func (s *LocalKeySigner) Sign(payload *interfaces.Payload) (interfaces.Signature, error) {
+func (s *KeyBundleSigner) Sign(payload *interfaces.Payload) (interfaces.SignatureBundle, error) {
 	// Convert payload to JSON
 	payloadJSON, err := payload.ToJSON()
 	if err != nil {
@@ -91,10 +93,10 @@ func (s *LocalKeySigner) Sign(payload *interfaces.Payload) (interfaces.Signature
 	}
 
 	// Compute PAE (Pre-Authentication Encoding) for DSSE using shared utility
-	pae := utils.ComputePAE(utils.InTotoJSONPayloadType, payloadJSON)
+	pae := internalcrypto.ComputePAE(utils.InTotoJSONPayloadType, payloadJSON)
 
 	// Sign the PAE using shared utility
-	signatureBytes, err := utils.SignWithKey(s.privateKey, pae)
+	signatureBytes, err := internalcrypto.SignWithKey(s.privateKey, pae)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign payload: %w", err)
 	}
@@ -123,14 +125,14 @@ func (s *LocalKeySigner) Sign(payload *interfaces.Payload) (interfaces.Signature
 		return nil, fmt.Errorf("failed to create bundle: %w", err)
 	}
 
-	return sign.NewSignature(bndl), nil
+	return sign.NewSigstoreBundle(bndl), nil
 }
 
 // createVerificationMaterial creates the verification material for the bundle.
 //
 // Includes the public key hint (hash) which can be used to identify
 // which public key should be used for verification.
-func (s *LocalKeySigner) createVerificationMaterial() *protobundle.VerificationMaterial {
+func (s *KeyBundleSigner) createVerificationMaterial() *protobundle.VerificationMaterial {
 	return &protobundle.VerificationMaterial{
 		Content: &protobundle.VerificationMaterial_PublicKey{
 			PublicKey: &protocommon.PublicKeyIdentifier{

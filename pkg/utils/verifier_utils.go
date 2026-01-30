@@ -14,38 +14,6 @@
 
 package utils
 
-import (
-	"encoding/json"
-	"fmt"
-
-	"github.com/sigstore/model-signing/pkg/manifest"
-)
-
-// VerifySignedContent extracts and validates the payload from a DSSE signature.
-// Verifies the payload type matches in-toto JSON format and the statement type is correct.
-// Returns the extracted Manifest or an error if validation fails.
-func VerifySignedContent(payloadType string, payload []byte) (*manifest.Manifest, error) {
-	if payloadType != InTotoJSONPayloadType {
-		return nil, fmt.Errorf("expected DSSE payload %s, but got %s", InTotoJSONPayloadType, payloadType)
-	}
-
-	var dssePayload map[string]interface{}
-	if err := json.Unmarshal(payload, &dssePayload); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal DSSE payload: %w", err)
-	}
-
-	payloadTypeField, ok := dssePayload["_type"].(string)
-	if !ok {
-		return nil, fmt.Errorf("_type field missing or not a string")
-	}
-
-	if payloadTypeField != InTotoStatementType {
-		return nil, fmt.Errorf("expected in-toto %s payload, but got %s", InTotoStatementType, payloadTypeField)
-	}
-
-	return DSSEPayloadToManifest(dssePayload)
-}
-
 // MaskToken masks sensitive tokens for safe logging.
 // Shows only the first 4 and last 4 characters, replacing the middle with "...".
 // Returns "***" for tokens with 8 or fewer characters, or empty string for empty input.

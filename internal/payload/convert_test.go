@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils
+package payload
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/sigstore/model-signing/pkg/utils"
+)
 
 func TestDSSEPayloadToManifest_ValidPayload(t *testing.T) {
 	// Create a minimal valid payload
 	payload := map[string]interface{}{
-		"_type":         InTotoStatementType,
-		"predicateType": PredicateType,
+		"_type":         utils.InTotoStatementType,
+		"predicateType": utils.PredicateType,
 		"subject": []interface{}{
 			map[string]interface{}{
 				"name": "test-model",
@@ -56,7 +60,7 @@ func TestDSSEPayloadToManifest_ValidPayload(t *testing.T) {
 
 func TestDSSEPayloadToManifest_MissingPredicateType(t *testing.T) {
 	payload := map[string]interface{}{
-		"_type": InTotoStatementType,
+		"_type": utils.InTotoStatementType,
 		"subject": []interface{}{
 			map[string]interface{}{
 				"name": "test-model",
@@ -75,7 +79,7 @@ func TestDSSEPayloadToManifest_MissingPredicateType(t *testing.T) {
 
 func TestDSSEPayloadToManifest_WrongPredicateType(t *testing.T) {
 	payload := map[string]interface{}{
-		"_type":         InTotoStatementType,
+		"_type":         utils.InTotoStatementType,
 		"predicateType": "https://wrong.predicate.type",
 		"subject": []interface{}{
 			map[string]interface{}{
@@ -95,8 +99,8 @@ func TestDSSEPayloadToManifest_WrongPredicateType(t *testing.T) {
 
 func TestDSSEPayloadToManifest_MissingSubject(t *testing.T) {
 	payload := map[string]interface{}{
-		"_type":         InTotoStatementType,
-		"predicateType": PredicateType,
+		"_type":         utils.InTotoStatementType,
+		"predicateType": utils.PredicateType,
 	}
 
 	_, err := DSSEPayloadToManifest(payload)
@@ -107,8 +111,8 @@ func TestDSSEPayloadToManifest_MissingSubject(t *testing.T) {
 
 func TestDSSEPayloadToManifest_MultipleSubjects(t *testing.T) {
 	payload := map[string]interface{}{
-		"_type":         InTotoStatementType,
-		"predicateType": PredicateType,
+		"_type":         utils.InTotoStatementType,
+		"predicateType": utils.PredicateType,
 		"subject": []interface{}{
 			map[string]interface{}{
 				"name": "model1",
@@ -133,8 +137,8 @@ func TestDSSEPayloadToManifest_MultipleSubjects(t *testing.T) {
 
 func TestDSSEPayloadToManifest_MissingPredicate(t *testing.T) {
 	payload := map[string]interface{}{
-		"_type":         InTotoStatementType,
-		"predicateType": PredicateType,
+		"_type":         utils.InTotoStatementType,
+		"predicateType": utils.PredicateType,
 		"subject": []interface{}{
 			map[string]interface{}{
 				"name": "test-model",
@@ -153,8 +157,8 @@ func TestDSSEPayloadToManifest_MissingPredicate(t *testing.T) {
 
 func TestDSSEPayloadToManifest_MissingSerialization(t *testing.T) {
 	payload := map[string]interface{}{
-		"_type":         InTotoStatementType,
-		"predicateType": PredicateType,
+		"_type":         utils.InTotoStatementType,
+		"predicateType": utils.PredicateType,
 		"subject": []interface{}{
 			map[string]interface{}{
 				"name": "test-model",
@@ -176,8 +180,8 @@ func TestDSSEPayloadToManifest_MissingSerialization(t *testing.T) {
 
 func TestDSSEPayloadToManifest_MissingResources(t *testing.T) {
 	payload := map[string]interface{}{
-		"_type":         InTotoStatementType,
-		"predicateType": PredicateType,
+		"_type":         utils.InTotoStatementType,
+		"predicateType": utils.PredicateType,
 		"subject": []interface{}{
 			map[string]interface{}{
 				"name": "test-model",
@@ -203,8 +207,8 @@ func TestDSSEPayloadToManifest_MissingResources(t *testing.T) {
 
 func TestDSSEPayloadToManifest_InvalidResourceDigest(t *testing.T) {
 	payload := map[string]interface{}{
-		"_type":         InTotoStatementType,
-		"predicateType": PredicateType,
+		"_type":         utils.InTotoStatementType,
+		"predicateType": utils.PredicateType,
 		"subject": []interface{}{
 			map[string]interface{}{
 				"name": "test-model",
@@ -238,8 +242,8 @@ func TestDSSEPayloadToManifest_InvalidResourceDigest(t *testing.T) {
 func TestDSSEPayloadToManifestCompat_ValidPayload(t *testing.T) {
 	// Create a v0.2 format payload
 	payload := map[string]interface{}{
-		"_type":         InTotoStatementType,
-		"predicateType": PredicateTypeCompat,
+		"_type":         utils.InTotoStatementType,
+		"predicateType": utils.PredicateTypeCompat,
 		"subject": []interface{}{
 			map[string]interface{}{
 				"name": "file1.txt",
@@ -272,8 +276,8 @@ func TestDSSEPayloadToManifestCompat_ValidPayload(t *testing.T) {
 
 func TestDSSEPayloadToManifestCompat_MissingSubject(t *testing.T) {
 	payload := map[string]interface{}{
-		"_type":         InTotoStatementType,
-		"predicateType": PredicateTypeCompat,
+		"_type":         utils.InTotoStatementType,
+		"predicateType": utils.PredicateTypeCompat,
 	}
 
 	_, err := DSSEPayloadToManifestCompat(payload)
@@ -284,8 +288,8 @@ func TestDSSEPayloadToManifestCompat_MissingSubject(t *testing.T) {
 
 func TestDSSEPayloadToManifestCompat_InvalidDigest(t *testing.T) {
 	payload := map[string]interface{}{
-		"_type":         InTotoStatementType,
-		"predicateType": PredicateTypeCompat,
+		"_type":         utils.InTotoStatementType,
+		"predicateType": utils.PredicateTypeCompat,
 		"subject": []interface{}{
 			map[string]interface{}{
 				"name": "file1.txt",
@@ -305,8 +309,8 @@ func TestDSSEPayloadToManifestCompat_InvalidDigest(t *testing.T) {
 func TestDSSEPayloadToManifest_CompatFallback(t *testing.T) {
 	// Test that PredicateTypeCompat triggers compat parsing
 	payload := map[string]interface{}{
-		"_type":         InTotoStatementType,
-		"predicateType": PredicateTypeCompat,
+		"_type":         utils.InTotoStatementType,
+		"predicateType": utils.PredicateTypeCompat,
 		"subject": []interface{}{
 			map[string]interface{}{
 				"name": "file1.txt",
@@ -331,8 +335,8 @@ func TestDSSEPayloadToManifest_CompatFallback(t *testing.T) {
 func TestVerifySignedContent_ValidPayload(t *testing.T) {
 	// Create a valid in-toto statement
 	payloadJSON := []byte(`{
-		"_type": "` + InTotoStatementType + `",
-		"predicateType": "` + PredicateType + `",
+		"_type": "` + utils.InTotoStatementType + `",
+		"predicateType": "` + utils.PredicateType + `",
 		"subject": [
 			{
 				"name": "test-model",
@@ -351,7 +355,7 @@ func TestVerifySignedContent_ValidPayload(t *testing.T) {
 		}
 	}`)
 
-	manifest, err := VerifySignedContent(InTotoJSONPayloadType, payloadJSON)
+	manifest, err := VerifySignedContent(utils.InTotoJSONPayloadType, payloadJSON)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -373,7 +377,7 @@ func TestVerifySignedContent_WrongPayloadType(t *testing.T) {
 func TestVerifySignedContent_InvalidJSON(t *testing.T) {
 	payloadJSON := []byte(`{invalid json}`)
 
-	_, err := VerifySignedContent(InTotoJSONPayloadType, payloadJSON)
+	_, err := VerifySignedContent(utils.InTotoJSONPayloadType, payloadJSON)
 	if err == nil {
 		t.Error("Expected error for invalid JSON")
 	}
@@ -381,11 +385,11 @@ func TestVerifySignedContent_InvalidJSON(t *testing.T) {
 
 func TestVerifySignedContent_Missing_Type(t *testing.T) {
 	payloadJSON := []byte(`{
-		"predicateType": "` + PredicateType + `",
+		"predicateType": "` + utils.PredicateType + `",
 		"subject": []
 	}`)
 
-	_, err := VerifySignedContent(InTotoJSONPayloadType, payloadJSON)
+	_, err := VerifySignedContent(utils.InTotoJSONPayloadType, payloadJSON)
 	if err == nil {
 		t.Error("Expected error for missing _type field")
 	}
@@ -394,11 +398,11 @@ func TestVerifySignedContent_Missing_Type(t *testing.T) {
 func TestVerifySignedContent_Wrong_Type(t *testing.T) {
 	payloadJSON := []byte(`{
 		"_type": "https://wrong.type",
-		"predicateType": "` + PredicateType + `",
+		"predicateType": "` + utils.PredicateType + `",
 		"subject": []
 	}`)
 
-	_, err := VerifySignedContent(InTotoJSONPayloadType, payloadJSON)
+	_, err := VerifySignedContent(utils.InTotoJSONPayloadType, payloadJSON)
 	if err == nil {
 		t.Error("Expected error for wrong _type value")
 	}

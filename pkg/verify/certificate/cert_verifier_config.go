@@ -25,21 +25,23 @@ import (
 	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 
+	internalcrypto "github.com/sigstore/model-signing/internal/crypto"
+	"github.com/sigstore/model-signing/internal/payload"
 	"github.com/sigstore/model-signing/pkg/interfaces"
 	"github.com/sigstore/model-signing/pkg/manifest"
 	"github.com/sigstore/model-signing/pkg/utils"
 )
 
-// Ensure Verifier implements interfaces.SignatureVerifier at compile time.
-var _ interfaces.SignatureVerifier = (*Verifier)(nil)
+// Ensure CertificateBundleVerifier implements interfaces.BundleVerifier at compile time.
+var _ interfaces.BundleVerifier = (*CertificateBundleVerifier)(nil)
 
-// Ensure Verifier implements interfaces.SignatureReader at compile time.
-var _ interfaces.SignatureReader = (*Verifier)(nil)
+// Ensure CertificateBundleVerifier implements interfaces.BundleReader at compile time.
+var _ interfaces.BundleReader = (*CertificateBundleVerifier)(nil)
 
-// Ensure CertificateSignature implements interfaces.Signature at compile time.
-var _ interfaces.Signature = (*CertificateSignature)(nil)
+// Ensure CertificateBundle implements interfaces.SignatureBundle at compile time.
+var _ interfaces.SignatureBundle = (*CertificateBundle)(nil)
 
-// CertificateVerifierConfig configures certificate-based signature verification.
+// CertificateVerifierConfig configures certificate-based signature bundle verification.
 //
 //nolint:revive
 type CertificateVerifierConfig struct {
@@ -51,21 +53,22 @@ type CertificateVerifierConfig struct {
 	LogFingerprints bool
 }
 
-// Verifier verifies certificate-based signatures on model manifests.
+// CertificateBundleVerifier verifies certificate-based signature bundles on model manifests.
 //
-// Verifier validates certificate chains, verifies cryptographic signatures,
+// CertificateBundleVerifier validates certificate chains, verifies cryptographic signatures,
 // and extracts manifests from signed payloads.
-type Verifier struct {
+// nolint:revive
+type CertificateBundleVerifier struct {
 	config     CertificateVerifierConfig
 	certPool   *x509.CertPool
 	trustChain []*x509.Certificate
 	logger     *utils.Logger
 }
 
-// NewVerifier creates a certificate verifier with the specified configuration.
+// NewCertificateBundleVerifier creates a certificate bundle verifier with the specified configuration.
 // It loads the certificate chain and initializes the trust pool.
 // Returns an error if certificate loading fails.
-func NewVerifier(cfg CertificateVerifierConfig) (*Verifier, error) {
+func NewCertificateBundleVerifier(cfg CertificateVerifierConfig) (*CertificateBundleVerifier, error) {
 	logger := utils.NewLogger(cfg.LogFingerprints)
 
 	// Create certificate pool for verification
@@ -109,7 +112,7 @@ func NewVerifier(cfg CertificateVerifierConfig) (*Verifier, error) {
 		}
 	}
 
-	return &Verifier{
+	return &CertificateBundleVerifier{
 		config:     cfg,
 		certPool:   certPool,
 		trustChain: trustChain,
@@ -117,39 +120,39 @@ func NewVerifier(cfg CertificateVerifierConfig) (*Verifier, error) {
 	}, nil
 }
 
-// Read reads a certificate signature from a file, implementing interfaces.SignatureReader.
+// Read reads a certificate bundle from a file, implementing interfaces.BundleReader.
 //
 // This reads the bundle directly as protobuf, which is necessary for v0.3 bundles
 // with certificate chains (sigstore-go's bundle.NewBundle() rejects these).
-func (v *Verifier) Read(path string) (interfaces.Signature, error) {
+func (v *CertificateBundleVerifier) Read(path string) (interfaces.SignatureBundle, error) {
 	bundle, err := readProtobufBundle(path)
 	if err != nil {
 		return nil, err
 	}
-	return NewCertificateSignature(bundle), nil
+	return NewCertificateBundle(bundle), nil
 }
 
-// Verify implements interfaces.SignatureVerifier.
+// Verify implements interfaces.BundleVerifier.
 //
 // NOTE: This method exists only for interface compliance. It extracts the bundle
-// from the CertificateSignature wrapper and delegates to verifyWithHybridStrategy.
+// from the CertificateBundle wrapper and delegates to verifyWithHybridStrategy.
 // This performs:
 //  1. Certificate chain validation
 //  2. Cryptographic signature verification
 //  3. Manifest extraction and validation
-func (v *Verifier) Verify(signature interfaces.Signature) (*manifest.Manifest, error) {
-	// Unwrap the CertificateSignature to get the bundle
-	certSig, ok := signature.(*CertificateSignature)
+func (v *CertificateBundleVerifier) Verify(bundle interfaces.SignatureBundle) (*manifest.Manifest, error) {
+	// Unwrap the CertificateBundle to get the protobuf bundle
+	certBundle, ok := bundle.(*CertificateBundle)
 	if !ok {
-		return nil, fmt.Errorf("certificate verification requires CertificateSignature, got %T", signature)
+		return nil, fmt.Errorf("certificate verification requires CertificateBundle, got %T", bundle)
 	}
 
-	return v.verifyWithHybridStrategy(certSig.bundle)
+	return v.verifyWithHybridStrategy(certBundle.bundle)
 }
 
 // VerifyFromPath verifies a signature file directly without going through bundle validation.
 // This is the recommended method for certificate verification.
-func (v *Verifier) VerifyFromPath(signaturePath string) (*manifest.Manifest, error) {
+func (v *CertificateBundleVerifier) VerifyFromPath(signaturePath string) (*manifest.Manifest, error) {
 	protoBundle, err := readProtobufBundle(signaturePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read bundle: %w", err)
@@ -166,7 +169,7 @@ func (v *Verifier) VerifyFromPath(signaturePath string) (*manifest.Manifest, err
 //
 // Currently, this always uses custom verification but provides the infrastructure for
 // future sigstore-go integration.
-func (v *Verifier) verifyWithHybridStrategy(protoBundle *protobundle.Bundle) (*manifest.Manifest, error) {
+func (v *CertificateBundleVerifier) verifyWithHybridStrategy(protoBundle *protobundle.Bundle) (*manifest.Manifest, error) {
 	// Detect bundle version and certificate chain characteristics
 	bundleVersion, certCount := detectBundleCharacteristics(protoBundle)
 
@@ -224,7 +227,7 @@ func detectBundleCharacteristics(protoBundle *protobundle.Bundle) (version strin
 }
 
 // verifyProtobufBundle verifies a protobuf bundle.
-func (v *Verifier) verifyProtobufBundle(protoBundle *protobundle.Bundle) (*manifest.Manifest, error) {
+func (v *CertificateBundleVerifier) verifyProtobufBundle(protoBundle *protobundle.Bundle) (*manifest.Manifest, error) {
 	// Extract DSSE envelope
 	dsseEnvelope := protoBundle.GetDsseEnvelope()
 	if dsseEnvelope == nil {
@@ -252,17 +255,17 @@ func (v *Verifier) verifyProtobufBundle(protoBundle *protobundle.Bundle) (*manif
 	payloadBytes := dsseEnvelope.Payload
 
 	// Compute Pre-Authentication Encoding (PAE) for DSSE
-	pae := utils.ComputePAE(dsseEnvelope.PayloadType, payloadBytes)
+	pae := internalcrypto.ComputePAE(dsseEnvelope.PayloadType, payloadBytes)
 
 	// Signature is already raw bytes in protobuf (not base64 encoded)
 	signatureBytes := dsseEnvelope.Signatures[0].Sig
 
 	// Verify the signature using the public key
-	if err := utils.VerifySignature(publicKey, pae, signatureBytes); err != nil {
+	if err := internalcrypto.VerifySignature(publicKey, pae, signatureBytes); err != nil {
 		// Try v0.2.0 compatibility mode
 		v.logger.Debug("Standard verification failed, trying v0.2.0 compatibility mode")
-		paeCompat := utils.ComputePAECompat(dsseEnvelope.PayloadType, payloadBytes)
-		if compatErr := utils.VerifySignatureCompat(publicKey, paeCompat, signatureBytes); compatErr != nil {
+		paeCompat := internalcrypto.ComputePAECompat(dsseEnvelope.PayloadType, payloadBytes)
+		if compatErr := internalcrypto.VerifySignatureCompat(publicKey, paeCompat, signatureBytes); compatErr != nil {
 			// Both methods failed, return the original error
 			return nil, fmt.Errorf("signature verification failed: %w", err)
 		}
@@ -270,7 +273,7 @@ func (v *Verifier) verifyProtobufBundle(protoBundle *protobundle.Bundle) (*manif
 	}
 
 	// Extract manifest from payload
-	m, err := utils.VerifySignedContent(dsseEnvelope.PayloadType, payloadBytes)
+	m, err := payload.VerifySignedContent(dsseEnvelope.PayloadType, payloadBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract manifest: %w", err)
 	}
@@ -282,7 +285,7 @@ func (v *Verifier) verifyProtobufBundle(protoBundle *protobundle.Bundle) (*manif
 //
 // The public key is extracted from the signing certificate from the chain
 // of trust, after the chain is validated.
-func (v *Verifier) verifyCertificates(verificationMaterial *protobundle.VerificationMaterial) (crypto.PublicKey, error) {
+func (v *CertificateBundleVerifier) verifyCertificates(verificationMaterial *protobundle.VerificationMaterial) (crypto.PublicKey, error) {
 	if verificationMaterial == nil {
 		return nil, fmt.Errorf("verification material is missing")
 	}
@@ -441,39 +444,39 @@ func readProtobufBundle(path string) (*protobundle.Bundle, error) {
 	return protoBundle, nil
 }
 
-// CertificateSignature is a minimal wrapper around protobuf bundles.
+// CertificateBundle is a minimal wrapper around protobuf bundles.
 //
-// This type exists ONLY to satisfy the interfaces.Signature interface,
+// This type exists ONLY to satisfy the interfaces.SignatureBundle interface,
 // which requires a Write() method. It has no other purpose and adds no value
 // beyond interface compliance.
 //
 // IMPORTANT: This is an implementation detail. External code should NOT use
-// CertificateSignature directly. Instead, use Verifier.VerifyFromPath() which
+// CertificateBundle directly. Instead, use CertificateBundleVerifier.VerifyFromPath() which
 // bypasses the need for this wrapper entirely.
 //
 // Why this exists:
-//   - interfaces.SignatureVerifier requires Verify(signature Signature)
-//   - interfaces.Signature requires Write(path string) error
-//   - Certificate verification doesn't write signatures (read-only)
+//   - interfaces.BundleVerifier requires Verify(bundle SignatureBundle)
+//   - interfaces.SignatureBundle requires Write(path string) error
+//   - Certificate verification doesn't write bundles (read-only)
 //   - This wrapper provides a stub Write() to satisfy the interface
 //
-// Architecture note: The SignatureVerifier interface assumes a read-then-verify
+// Architecture note: The BundleVerifier interface assumes a read-then-verify
 // pattern that doesn't fit certificate verification well. VerifyFromPath() is
 // the proper API for certificate verification.
 // nolint: revive
-type CertificateSignature struct {
+type CertificateBundle struct {
 	bundle *protobundle.Bundle
 }
 
-// NewCertificateSignature creates a signature wrapper from a protobuf bundle.
-// This is only used internally by Verifier.Read() for interface compliance.
-func NewCertificateSignature(bundle *protobundle.Bundle) *CertificateSignature {
-	return &CertificateSignature{bundle: bundle}
+// NewCertificateBundle creates a bundle wrapper from a protobuf bundle.
+// This is only used internally by CertificateBundleVerifier.Read() for interface compliance.
+func NewCertificateBundle(bundle *protobundle.Bundle) *CertificateBundle {
+	return &CertificateBundle{bundle: bundle}
 }
 
-// Write always returns an error - certificate signatures are read-only.
-// This method exists only to satisfy the interfaces.Signature interface.
+// Write always returns an error - certificate bundles are read-only.
+// This method exists only to satisfy the interfaces.SignatureBundle interface.
 // nolint: revive // stub only
-func (s *CertificateSignature) Write(path string) error {
-	return fmt.Errorf("certificate signatures are read-only and cannot be written")
+func (s *CertificateBundle) Write(path string) error {
+	return fmt.Errorf("certificate bundles are read-only and cannot be written")
 }

@@ -15,10 +15,10 @@
 // Package interfaces defines core abstractions for signing and verification operations.
 package interfaces
 
-// Signer signs a payload and produces a Signature.
+// BundleSigner signs a payload and produces a SignatureBundle.
 // Each implementation may manage key material differently.
-type Signer interface {
-	// Sign creates a signature over the provided payload.
-	// Returns a Signature or an error if signing fails.
-	Sign(payload *Payload) (Signature, error)
+type BundleSigner interface {
+	// Sign creates a signature bundle over the provided payload.
+	// Returns a SignatureBundle or an error if signing fails.
+	Sign(payload *Payload) (SignatureBundle, error)
 }
