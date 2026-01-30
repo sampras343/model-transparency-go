@@ -383,14 +383,14 @@ func TestSignWithKey_UnsupportedType(t *testing.T) {
 	}
 }
 
-func TestNewLocalKeySigner_EmptyPrivateKeyPath(t *testing.T) {
+func TestNewKeyBundleSigner_EmptyPrivateKeyPath(t *testing.T) {
 	cfg := KeySignerConfig{
 		KeyConfig: config.KeyConfig{
 			Path: "",
 		},
 	}
 
-	_, err := NewLocalKeySigner(cfg)
+	_, err := NewKeyBundleSigner(cfg)
 	if err == nil {
 		t.Error("Expected error for empty private key path, got nil")
 	}
@@ -398,7 +398,7 @@ func TestNewLocalKeySigner_EmptyPrivateKeyPath(t *testing.T) {
 
 func TestCreateVerificationMaterial(t *testing.T) {
 	// Create a signer with minimal setup
-	signer := &LocalKeySigner{
+	signer := &KeyBundleSigner{
 		keyHash: "abcd1234567890",
 	}
 

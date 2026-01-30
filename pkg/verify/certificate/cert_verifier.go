@@ -116,7 +116,7 @@ func (cv *CertificateVerifier) Verify(_ context.Context) (verify.Result, error) 
 		LogFingerprints:       cv.opts.LogFingerprints,
 	}
 
-	certVerifier, err := NewVerifier(verifierConfig)
+	certVerifier, err := NewCertificateBundleVerifier(verifierConfig)
 	if err != nil {
 		return verify.Result{}, fmt.Errorf("failed to create certificate verifier: %w", err)
 	}

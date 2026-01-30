@@ -39,7 +39,7 @@ import (
 // the hashing config from the signature.
 type Config struct {
 	hashingConfig       *HashingConfig
-	verifier            interfaces.SignatureVerifier
+	verifier            interfaces.BundleVerifier
 	ignoreUnsignedFiles bool
 }
 
@@ -76,14 +76,14 @@ func (c *Config) Verify(modelPath, signaturePath string) error {
 
 	// Read signature from disk
 	// Note: The signature type must match the verifier type
-	reader := c.createSignatureReader()
-	signature, err := reader.Read(signaturePath)
+	reader := c.createBundleReader()
+	signatureBundle, err := reader.Read(signaturePath)
 	if err != nil {
 		return fmt.Errorf("failed to read signature: %w", err)
 	}
 
 	// Verify signature and extract expected manifest
-	expectedManifest, err := c.verifier.Verify(signature)
+	expectedManifest, err := c.verifier.Verify(signatureBundle)
 	if err != nil {
 		return fmt.Errorf("signature verification failed: %w", err)
 	}
@@ -142,32 +142,32 @@ func (c *Config) SetIgnoreUnsignedFiles(ignore bool) *Config {
 	return c
 }
 
-// SetVerifier sets the signature verifier to use.
+// SetVerifier sets the bundle verifier to use.
 //
-// This accepts any SignatureVerifier implementation (e.g., Sigstore, certificate-based, key-based).
+// This accepts any BundleVerifier implementation (e.g., Sigstore, certificate-based, key-based).
 //
 // Returns the Config for method chaining.
-func (c *Config) SetVerifier(verifier interfaces.SignatureVerifier) *Config {
+func (c *Config) SetVerifier(verifier interfaces.BundleVerifier) *Config {
 	c.verifier = verifier
 	return c
 }
 
-// createSignatureReader creates a signature reader appropriate for the verifier.
+// createBundleReader creates a bundle reader appropriate for the verifier.
 //
-// This is a helper method that returns the correct signature reader type.
+// This is a helper method that returns the correct bundle reader type.
 // In the future, this could be made more sophisticated to handle multiple
-// signature formats.
+// bundle formats.
 //
-// Returns a SignatureReader interface implementation.
-func (c *Config) createSignatureReader() interfaces.SignatureReader {
-	// Check if the verifier implements SignatureReader interface
-	// Certificate verifiers implement this to provide their own signature reading
-	if reader, ok := c.verifier.(interfaces.SignatureReader); ok {
+// Returns a BundleReader interface implementation.
+func (c *Config) createBundleReader() interfaces.BundleReader {
+	// Check if the verifier implements BundleReader interface
+	// Certificate verifiers implement this to provide their own bundle reading
+	if reader, ok := c.verifier.(interfaces.BundleReader); ok {
 		return reader
 	}
 
-	// For other verifiers, use standard Sigstore signature
-	return &sign.Signature{}
+	// For other verifiers, use standard SigstoreBundle
+	return &sign.SigstoreBundle{}
 }
 
 // guessHashingConfig attempts to determine the hashing configuration from a manifest.
@@ -316,14 +316,14 @@ func (c *Config) VerifyOCIManifestWithIgnore(ociManifest *oci.ImageManifest, sig
 	}
 
 	// Read signature from disk
-	reader := c.createSignatureReader()
-	signature, err := reader.Read(signaturePath)
+	reader := c.createBundleReader()
+	signatureBundle, err := reader.Read(signaturePath)
 	if err != nil {
 		return fmt.Errorf("failed to read signature: %w", err)
 	}
 
 	// Verify signature and extract expected manifest
-	expectedManifest, err := c.verifier.Verify(signature)
+	expectedManifest, err := c.verifier.Verify(signatureBundle)
 	if err != nil {
 		return fmt.Errorf("signature verification failed: %w", err)
 	}

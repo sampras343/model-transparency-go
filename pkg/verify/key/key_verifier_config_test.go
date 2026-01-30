@@ -32,29 +32,29 @@ import (
 	"github.com/sigstore/model-signing/pkg/utils"
 )
 
-func TestNewVerifier_EmptyPublicKeyPath(t *testing.T) {
+func TestNewKeyBundleVerifier_EmptyPublicKeyPath(t *testing.T) {
 	cfg := KeyVerifierConfig{
 		KeyConfig: config.KeyConfig{Path: ""},
 	}
 
-	_, err := NewVerifier(cfg)
+	_, err := NewKeyBundleVerifier(cfg)
 	if err == nil {
 		t.Error("Expected error for empty public key path, got nil")
 	}
 }
 
-func TestNewVerifier_NonexistentPublicKey(t *testing.T) {
+func TestNewKeyBundleVerifier_NonexistentPublicKey(t *testing.T) {
 	cfg := KeyVerifierConfig{
 		KeyConfig: config.KeyConfig{Path: "/nonexistent/key.pub"},
 	}
 
-	_, err := NewVerifier(cfg)
+	_, err := NewKeyBundleVerifier(cfg)
 	if err == nil {
 		t.Error("Expected error for nonexistent public key, got nil")
 	}
 }
 
-func TestNewVerifier_InvalidPEMFormat(t *testing.T) {
+func TestNewKeyBundleVerifier_InvalidPEMFormat(t *testing.T) {
 	tmpDir := t.TempDir()
 	keyFile := filepath.Join(tmpDir, "key.pub")
 
@@ -67,13 +67,13 @@ func TestNewVerifier_InvalidPEMFormat(t *testing.T) {
 		KeyConfig: config.KeyConfig{Path: keyFile},
 	}
 
-	_, err := NewVerifier(cfg)
+	_, err := NewKeyBundleVerifier(cfg)
 	if err == nil {
 		t.Error("Expected error for invalid PEM format, got nil")
 	}
 }
 
-func TestNewVerifier_ValidECDSAKey(t *testing.T) {
+func TestNewKeyBundleVerifier_ValidECDSAKey(t *testing.T) {
 	tmpDir := t.TempDir()
 	keyFile := filepath.Join(tmpDir, "key.pub")
 
@@ -102,7 +102,7 @@ func TestNewVerifier_ValidECDSAKey(t *testing.T) {
 		KeyConfig: config.KeyConfig{Path: keyFile},
 	}
 
-	verifier, err := NewVerifier(cfg)
+	verifier, err := NewKeyBundleVerifier(cfg)
 	if err != nil {
 		t.Fatalf("Expected no error for valid ECDSA key, got: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestNewVerifier_ValidECDSAKey(t *testing.T) {
 	}
 }
 
-func TestNewVerifier_ValidRSAKey(t *testing.T) {
+func TestNewKeyBundleVerifier_ValidRSAKey(t *testing.T) {
 	tmpDir := t.TempDir()
 	keyFile := filepath.Join(tmpDir, "key.pub")
 
@@ -151,7 +151,7 @@ func TestNewVerifier_ValidRSAKey(t *testing.T) {
 		KeyConfig: config.KeyConfig{Path: keyFile},
 	}
 
-	verifier, err := NewVerifier(cfg)
+	verifier, err := NewKeyBundleVerifier(cfg)
 	if err != nil {
 		t.Fatalf("Expected no error for valid RSA key, got: %v", err)
 	}
@@ -166,7 +166,7 @@ func TestNewVerifier_ValidRSAKey(t *testing.T) {
 	}
 }
 
-func TestNewVerifier_ValidEd25519Key(t *testing.T) {
+func TestNewKeyBundleVerifier_ValidEd25519Key(t *testing.T) {
 	tmpDir := t.TempDir()
 	keyFile := filepath.Join(tmpDir, "key.pub")
 
@@ -195,7 +195,7 @@ func TestNewVerifier_ValidEd25519Key(t *testing.T) {
 		KeyConfig: config.KeyConfig{Path: keyFile},
 	}
 
-	verifier, err := NewVerifier(cfg)
+	verifier, err := NewKeyBundleVerifier(cfg)
 	if err != nil {
 		t.Fatalf("Expected no error for valid Ed25519 key, got: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestNewVerifier_ValidEd25519Key(t *testing.T) {
 	}
 }
 
-func TestNewVerifier_RSAPKCS1Format(t *testing.T) {
+func TestNewKeyBundleVerifier_RSAPKCS1Format(t *testing.T) {
 	tmpDir := t.TempDir()
 	keyFile := filepath.Join(tmpDir, "key.pub")
 
@@ -236,7 +236,7 @@ func TestNewVerifier_RSAPKCS1Format(t *testing.T) {
 		KeyConfig: config.KeyConfig{Path: keyFile},
 	}
 
-	verifier, err := NewVerifier(cfg)
+	verifier, err := NewKeyBundleVerifier(cfg)
 	if err != nil {
 		t.Fatalf("Expected no error for PKCS1 RSA key, got: %v", err)
 	}

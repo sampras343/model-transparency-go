@@ -27,10 +27,10 @@ import (
 	"github.com/sigstore/model-signing/pkg/utils"
 )
 
-// Ensure Verifier implements interfaces.SignatureVerifier at compile time.
-var _ interfaces.SignatureVerifier = (*Verifier)(nil)
+// Ensure KeyBundleVerifier implements interfaces.BundleVerifier at compile time.
+var _ interfaces.BundleVerifier = (*KeyBundleVerifier)(nil)
 
-// KeyVerifierConfig holds configuration for creating a public key verifier.
+// KeyVerifierConfig holds configuration for creating a key-based bundle verifier.
 //
 //nolint:revive
 type KeyVerifierConfig struct {
@@ -38,18 +38,18 @@ type KeyVerifierConfig struct {
 	config.KeyConfig
 }
 
-// Verifier verifies signatures created with elliptic curve or RSA private keys.
+// KeyBundleVerifier verifies signature bundles created with elliptic curve or RSA private keys.
 //
 // It checks the cryptographic signature using the provided public key
 // and extracts the manifest from the signed payload.
-type Verifier struct {
+type KeyBundleVerifier struct {
 	config    KeyVerifierConfig
 	publicKey crypto.PublicKey
 	keyHash   string
 }
 
-// NewVerifier creates a new public key verifier with the given configuration.
-func NewVerifier(cfg KeyVerifierConfig) (*Verifier, error) {
+// NewKeyBundleVerifier creates a new key-based bundle verifier with the given configuration.
+func NewKeyBundleVerifier(cfg KeyVerifierConfig) (*KeyBundleVerifier, error) {
 	// Load public key using shared configuration primitive
 	publicKey, err := cfg.LoadPublicKey()
 	if err != nil {
@@ -62,22 +62,22 @@ func NewVerifier(cfg KeyVerifierConfig) (*Verifier, error) {
 		return nil, err
 	}
 
-	return &Verifier{
+	return &KeyBundleVerifier{
 		config:    cfg,
 		publicKey: publicKey,
 		keyHash:   keyHash,
 	}, nil
 }
 
-// Verify verifies the signature and returns the manifest.
+// Verify verifies the signature bundle and returns the manifest.
 //
 // This performs cryptographic verification of the signature using the public key
 // before extracting and validating the manifest.
-func (v *Verifier) Verify(signature interfaces.Signature) (*manifest.Manifest, error) {
-	// Cast to Sigstore signature (same format used for key-based signatures)
-	sig, ok := signature.(*sign.Signature)
+func (v *KeyBundleVerifier) Verify(bundle interfaces.SignatureBundle) (*manifest.Manifest, error) {
+	// Cast to SigstoreBundle (same format used for key-based signatures)
+	sig, ok := bundle.(*sign.SigstoreBundle)
 	if !ok {
-		return nil, fmt.Errorf("signature is not in expected format")
+		return nil, fmt.Errorf("bundle is not in expected format")
 	}
 
 	// Extract DSSE envelope from the bundle using common utilities
@@ -93,11 +93,11 @@ func (v *Verifier) Verify(signature interfaces.Signature) (*manifest.Manifest, e
 	}
 
 	// Check public key hint if present
-	bundle := sig.Bundle()
-	if bundle.VerificationMaterial != nil &&
-		bundle.VerificationMaterial.GetPublicKey() != nil &&
-		bundle.VerificationMaterial.GetPublicKey().Hint != "" {
-		keyHint := bundle.VerificationMaterial.GetPublicKey().Hint
+	sigstoreBundle := sig.Bundle()
+	if sigstoreBundle.VerificationMaterial != nil &&
+		sigstoreBundle.VerificationMaterial.GetPublicKey() != nil &&
+		sigstoreBundle.VerificationMaterial.GetPublicKey().Hint != "" {
+		keyHint := sigstoreBundle.VerificationMaterial.GetPublicKey().Hint
 		if keyHint != v.keyHash {
 			// This warning should always be shown as it indicates a potential issue
 			fmt.Fprintf(os.Stderr, "WARNING: Key mismatch: The public key hash in the signature's "+

@@ -140,7 +140,7 @@ func (ss *CertificateSigner) Sign(_ context.Context) (signing.Result, error) {
 		CertificateChainPaths:  ss.opts.CertificateChain,
 	}
 
-	signer, err := NewLocalCertificateSigner(signerConfig)
+	signer, err := NewCertificateBundleSigner(signerConfig)
 	if err != nil {
 		return signing.Result{
 			Verified: false,
@@ -148,7 +148,7 @@ func (ss *CertificateSigner) Sign(_ context.Context) (signing.Result, error) {
 		}, fmt.Errorf("failed to create signer: %w", err)
 	}
 
-	signature, err := signer.Sign(payload)
+	signatureBundle, err := signer.Sign(payload)
 	if err != nil {
 		return signing.Result{
 			Verified: false,
@@ -159,7 +159,7 @@ func (ss *CertificateSigner) Sign(_ context.Context) (signing.Result, error) {
 
 	// Step 4: Write signature to disk
 	ss.logger.Debugln("\nStep 4: Writing signature to disk...")
-	if err := signing.WriteSignature(signature, ss.opts.SignaturePath); err != nil {
+	if err := signing.WriteSignature(signatureBundle, ss.opts.SignaturePath); err != nil {
 		return signing.Result{
 			Verified: false,
 			Message:  fmt.Sprintf("Failed to write signature: %v", err),

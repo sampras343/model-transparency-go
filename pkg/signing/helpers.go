@@ -104,25 +104,25 @@ func CreatePayload(m *manifest.Manifest) (*interfaces.Payload, error) {
 	return payload, nil
 }
 
-// WriteSignature writes a signature to the specified path.
-func WriteSignature(sig interfaces.Signature, path string) error {
-	if err := sig.Write(path); err != nil {
-		return fmt.Errorf("failed to write signature: %w", err)
+// WriteSignature writes a signature bundle to the specified path.
+func WriteSignature(bundle interfaces.SignatureBundle, path string) error {
+	if err := bundle.Write(path); err != nil {
+		return fmt.Errorf("failed to write signature bundle: %w", err)
 	}
 	return nil
 }
 
-// SignAndWrite signs a payload and writes the signature to disk.
+// SignAndWrite signs a payload and writes the signature bundle to disk.
 // This is a convenience function that combines signing and writing.
-func SignAndWrite(signer interfaces.Signer, payload *interfaces.Payload, signaturePath string) (interfaces.Signature, error) {
-	signature, err := signer.Sign(payload)
+func SignAndWrite(signer interfaces.BundleSigner, payload *interfaces.Payload, signaturePath string) (interfaces.SignatureBundle, error) {
+	bundle, err := signer.Sign(payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign payload: %w", err)
 	}
 
-	if err := WriteSignature(signature, signaturePath); err != nil {
+	if err := WriteSignature(bundle, signaturePath); err != nil {
 		return nil, err
 	}
 
-	return signature, nil
+	return bundle, nil
 }

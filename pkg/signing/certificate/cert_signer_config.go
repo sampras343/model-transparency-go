@@ -29,31 +29,31 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// Ensure LocalCertificateSigner implements interfaces.Signer at compile time.
-var _ interfaces.Signer = (*LocalCertificateSigner)(nil)
+// Ensure CertificateBundleSigner implements interfaces.BundleSigner at compile time.
+var _ interfaces.BundleSigner = (*CertificateBundleSigner)(nil)
 
-// Ensure CertificateSignature implements interfaces.Signature at compile time.
-var _ interfaces.Signature = (*CertificateSignature)(nil)
+// Ensure CertificateBundle implements interfaces.SignatureBundle at compile time.
+var _ interfaces.SignatureBundle = (*CertificateBundle)(nil)
 
-// CertificateSignature wraps a protobuf bundle for certificate-based signatures.
+// CertificateBundle wraps a protobuf bundle for certificate-based signatures.
 //
 // This type bypasses sigstore-go's bundle validation which rejects v0.3 bundles
 // with X509 certificate chains. It serializes the protobuf bundle directly.
 // nolint:revive
-type CertificateSignature struct {
+type CertificateBundle struct {
 	bundle *protobundle.Bundle
 }
 
-// NewCertificateSignature creates a new CertificateSignature from a protobuf bundle.
-func NewCertificateSignature(bundle *protobundle.Bundle) *CertificateSignature {
-	return &CertificateSignature{bundle: bundle}
+// NewCertificateBundle creates a new CertificateBundle from a protobuf bundle.
+func NewCertificateBundle(bundle *protobundle.Bundle) *CertificateBundle {
+	return &CertificateBundle{bundle: bundle}
 }
 
-// Write serializes the signature to a file at the given path.
+// Write serializes the signature bundle to a file at the given path.
 //
-// The signature is written in standard Sigstore JSON format with world-readable
-// permissions (0644) as signatures are public artifacts.
-func (s *CertificateSignature) Write(path string) error {
+// The bundle is written in standard Sigstore JSON format with world-readable
+// permissions (0644) as signature bundles are public artifacts.
+func (s *CertificateBundle) Write(path string) error {
 	// Marshal bundle to JSON using protojson for proper formatting
 	jsonBytes, err := protojson.Marshal(s.bundle)
 	if err != nil {
@@ -70,7 +70,7 @@ func (s *CertificateSignature) Write(path string) error {
 	return nil
 }
 
-// CertificateSignerConfig holds configuration for creating a local certificate signer.
+// CertificateSignerConfig holds configuration for creating a certificate-based bundle signer.
 //
 //nolint:revive
 type CertificateSignerConfig struct {
@@ -84,20 +84,20 @@ type CertificateSignerConfig struct {
 	CertificateChainPaths []string
 }
 
-// LocalCertificateSigner signs model manifests using a local private key and certificate.
-// Implements the interfaces.Signer interface.
-type LocalCertificateSigner struct {
+// CertificateBundleSigner signs model manifests using a private key and certificate.
+// Implements the interfaces.BundleSigner interface.
+type CertificateBundleSigner struct {
 	config             CertificateSignerConfig
 	privateKey         crypto.PrivateKey
 	signingCertificate *x509.Certificate
 	trustChain         []*x509.Certificate
 }
 
-// NewLocalCertificateSigner creates a new certificate signer with the given configuration.
+// NewCertificateBundleSigner creates a new certificate-based bundle signer with the given configuration.
 // Loads and validates the private key, signing certificate, and certificate chain.
 // Validates that the signing certificate's public key matches the private key.
 // Returns an error if key/certificate loading or validation fails.
-func NewLocalCertificateSigner(cfg CertificateSignerConfig) (*LocalCertificateSigner, error) {
+func NewCertificateBundleSigner(cfg CertificateSignerConfig) (*CertificateBundleSigner, error) {
 	// Load private key using shared configuration primitive
 	privateKey, err := cfg.LoadPrivateKey()
 	if err != nil {
@@ -127,7 +127,7 @@ func NewLocalCertificateSigner(cfg CertificateSignerConfig) (*LocalCertificateSi
 		return nil, fmt.Errorf("failed to load certificate chain: %w", err)
 	}
 
-	return &LocalCertificateSigner{
+	return &CertificateBundleSigner{
 		config:             cfg,
 		privateKey:         privateKey,
 		signingCertificate: signingCert,
@@ -135,12 +135,12 @@ func NewLocalCertificateSigner(cfg CertificateSignerConfig) (*LocalCertificateSi
 	}, nil
 }
 
-// Sign signs a payload and returns a Sigstore bundle signature.
+// Sign signs a payload and returns a signature bundle.
 //
 // Creates a DSSE envelope with the signed payload and wraps it
 // in a Sigstore bundle format with X509 certificate chain verification material.
 // Returns an error if serialization, signing, or bundle creation fails.
-func (s *LocalCertificateSigner) Sign(payload *interfaces.Payload) (interfaces.Signature, error) {
+func (s *CertificateBundleSigner) Sign(payload *interfaces.Payload) (interfaces.SignatureBundle, error) {
 	// Convert payload to JSON
 	payloadJSON, err := payload.ToJSON()
 	if err != nil {
@@ -176,14 +176,14 @@ func (s *LocalCertificateSigner) Sign(payload *interfaces.Payload) (interfaces.S
 		},
 	}
 
-	return NewCertificateSignature(protoBundle), nil
+	return NewCertificateBundle(protoBundle), nil
 }
 
 // createVerificationMaterial creates the verification material for the bundle.
 //
 // Includes the X509 certificate chain with the signing certificate followed
 // by the trust chain certificates.
-func (s *LocalCertificateSigner) createVerificationMaterial() *protobundle.VerificationMaterial {
+func (s *CertificateBundleSigner) createVerificationMaterial() *protobundle.VerificationMaterial {
 	// Build the certificate chain: signing certificate first, then trust chain
 	certificates := make([]*protocommon.X509Certificate, 0, 1+len(s.trustChain))
 

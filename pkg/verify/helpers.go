@@ -44,7 +44,7 @@ type VerifyOptions struct {
 //
 // Returns a Result indicating success or failure.
 // nolint:revive
-func VerifyModel(verifier interfaces.SignatureVerifier, opts VerifyOptions, logger *utils.Logger) (Result, error) {
+func VerifyModel(verifier interfaces.BundleVerifier, opts VerifyOptions, logger *utils.Logger) (Result, error) {
 	// Copy ignore paths to avoid mutating caller's slice
 	ignorePaths := append([]string{}, opts.IgnorePaths...)
 	// Add signature path to ignore list
