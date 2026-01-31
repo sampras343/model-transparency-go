@@ -34,7 +34,6 @@
 //	    --identity=signer@example.com \
 //	    --identity-provider=https://accounts.google.com \
 //	    --staging
-//
 package main
 
 import (
@@ -44,8 +43,8 @@ import (
 	"log"
 	"os"
 
-	sigstoreVerify "github.com/sigstore/model-signing/pkg/verify/sigstore"
 	"github.com/sigstore/model-signing/pkg/utils"
+	sigstoreVerify "github.com/sigstore/model-signing/pkg/verify/sigstore"
 )
 
 func main() {

@@ -39,8 +39,8 @@ import (
 	"log"
 	"os"
 
-	keyVerify "github.com/sigstore/model-signing/pkg/verify/key"
 	"github.com/sigstore/model-signing/pkg/utils"
+	keyVerify "github.com/sigstore/model-signing/pkg/verify/key"
 )
 
 func main() {

@@ -19,9 +19,9 @@
 // and records signatures in a transparency log.
 //
 // Authentication methods (in order of precedence):
-//   1. SIGSTORE_ID_TOKEN environment variable (explicit OIDC token)
-//   2. ACTIONS_ID_TOKEN_REQUEST_TOKEN (GitHub Actions ambient credentials)
-//   3. Interactive OAuth flow (browser-based authentication)
+//  1. SIGSTORE_ID_TOKEN environment variable (explicit OIDC token)
+//  2. ACTIONS_ID_TOKEN_REQUEST_TOKEN (GitHub Actions ambient credentials)
+//  3. Interactive OAuth flow (browser-based authentication)
 //
 // Usage:
 //

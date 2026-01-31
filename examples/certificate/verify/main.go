@@ -41,8 +41,8 @@ import (
 	"os"
 	"strings"
 
-	certVerify "github.com/sigstore/model-signing/pkg/verify/certificate"
 	"github.com/sigstore/model-signing/pkg/utils"
+	certVerify "github.com/sigstore/model-signing/pkg/verify/certificate"
 )
 
 func main() {
