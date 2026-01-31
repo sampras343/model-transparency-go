@@ -44,10 +44,17 @@ linters:
           - gosec
         path: pkg/
         text: "integer overflow conversion"
+      - linters:
+          - gosec
+        path: examples/
+        text: "G306"
+      - linters:
+          - gocritic
+        path: examples/
+        text: "exitAfterDefer"
     paths:
       - third_party$
       - builtin$
-      - examples$
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
@@ -61,4 +68,3 @@ formatters:
     paths:
       - third_party$
       - builtin$
-      - examples$
