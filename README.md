@@ -14,6 +14,7 @@
     - [Sign-Verify using Private Sigstore Instances](#sign-verify-using-private-sigstore-instances)
     - [Sign-Verify with private-public key](#sign-verify-with-private-public-key)
     - [Sign-Verify with certificate](#sign-verify-with-certificate)
+    - [Sign-Verify with PKCS#11 / HSM](#sign-verify-with-pkcs11--hsm)
     - [Sign-Verify OCI Images](#sign-verify-oci-images)
   - [Model Signing API](#model-signing-api)
   - [Model Signing Format](#model-signing-format)
@@ -289,6 +290,41 @@ we will be using the sample test certs available in the repository
        --certificate-chain scripts/tests/keys/certificate/ca-cert.pem \
        --ignore-unsigned-files
 ```
+
+### Sign-Verify with PKCS#11 / HSM
+
+For signing with hardware security modules (HSMs) or SoftHSM2, see:
+- **Complete guide**: [PKCS11_GUIDE.md](PKCS11_GUIDE.md)
+- **Testing scripts**: [scripts/pkcs11-tests/](scripts/pkcs11-tests/)
+
+**Quick Start:**
+```bash
+# Setup SoftHSM2 (one-time)
+[...]$ scripts/pkcs11-tests/softhsm_setup setup
+
+# Get the key URI
+[...]$ keyuri=$(scripts/pkcs11-tests/softhsm_setup getkeyuri | sed -n 's/^keyuri: //p')
+
+# Sign with PKCS#11
+[...]$ model-signing sign pkcs11 bert-base-uncased \
+  --pkcs11-uri "$keyuri" --signature model.sig
+
+# Export public key for verification
+[...]$ scripts/pkcs11-tests/softhsm_setup getpubkey > public-key.pem
+
+# Verify
+[...]$ model-signing verify key bert-base-uncased --signature model.sig --public-key public-key.pem
+
+# Cleanup (when done testing)
+[...]$ scripts/pkcs11-tests/softhsm_setup teardown
+```
+
+**Automated Testing:**
+```bash
+[...]$ scripts/pkcs11-tests/test_pkcs11.sh
+```
+
+For more details including certificate-based PKCS#11 signing, troubleshooting, and advanced options, see [PKCS11_GUIDE.md](PKCS11_GUIDE.md).
 
 ### Sign-Verify OCI Images
 

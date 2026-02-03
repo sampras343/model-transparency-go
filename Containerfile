@@ -19,7 +19,7 @@ WORKDIR /app
 
 ENV GOTOOLCHAIN=auto
 
-RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates gcc libc6-dev && rm -rf /var/lib/apt/lists/*
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -27,9 +27,14 @@ RUN go mod download
 COPY cmd/ cmd/
 COPY pkg/ pkg/
 
+# Build with CGO enabled for PKCS#11 support
 RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o /usr/local/bin/model-signing ./cmd/model-signing
 
-FROM golang:1.25.7@sha256:cc737435e2742bd6da3b7d575623968683609a3d2e0695f9d85bee84071c08e6 AS deploy
+# Use Debian slim for runtime to maintain glibc compatibility with builder
+FROM debian:bookworm-slim AS deploy
+
+# Install PKCS#11 runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates softhsm2 opensc libp11-kit0 && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /usr/local/bin/model-signing /usr/local/bin/model-signing
 COPY LICENSE /licenses/license.txt
