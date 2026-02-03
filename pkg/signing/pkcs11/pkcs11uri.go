@@ -25,21 +25,21 @@ import (
 
 // Pkcs11URI represents a parsed PKCS#11 URI according to RFC 7512.
 type Pkcs11URI struct {
-	pathAttributes  map[string]string
-	queryAttributes map[string]string
-	moduleDirectories []string
+	pathAttributes     map[string]string
+	queryAttributes    map[string]string
+	moduleDirectories  []string
 	allowedModulePaths []string
-	allowAnyModule bool
+	allowAnyModule     bool
 }
 
 // NewPkcs11URI creates a new PKCS#11 URI parser.
 func NewPkcs11URI() *Pkcs11URI {
 	return &Pkcs11URI{
-		pathAttributes:  make(map[string]string),
-		queryAttributes: make(map[string]string),
-		moduleDirectories: []string{},
+		pathAttributes:     make(map[string]string),
+		queryAttributes:    make(map[string]string),
+		moduleDirectories:  []string{},
 		allowedModulePaths: []string{},
-		allowAnyModule: true,
+		allowAnyModule:     true,
 	}
 }
 
@@ -219,8 +219,8 @@ func (p *Pkcs11URI) GetModule() (string, error) {
 	if len(searchDirs) == 0 {
 		// Default search directories
 		searchDirs = []string{
-			"/usr/lib64/pkcs11/",  // Fedora, RHEL, openSUSE
-			"/usr/lib/pkcs11/",    // Fedora 32 bit, ArchLinux
+			"/usr/lib64/pkcs11/", // Fedora, RHEL, openSUSE
+			"/usr/lib/pkcs11/",   // Fedora 32 bit, ArchLinux
 		}
 	}
 
@@ -306,12 +306,23 @@ func (p *Pkcs11URI) GetSlotID() (int, error) {
 		return -1, nil
 	}
 
-	slotID, err := strconv.ParseUint(slotIDStr, 10, 32)
+	// Parse as signed integer first to catch negative values
+	slotIDSigned, err := strconv.ParseInt(slotIDStr, 10, 64)
 	if err != nil {
 		return -1, fmt.Errorf("invalid slot-id: %w", err)
 	}
 
-	return int(slotID), nil
+	// Check for negative values
+	if slotIDSigned < 0 {
+		return -1, fmt.Errorf("slot-id is a negative number")
+	}
+
+	// Check for values larger than 32-bit unsigned integer
+	if slotIDSigned > 0xFFFFFFFF {
+		return -1, fmt.Errorf("slot-id is larger than 32 bit")
+	}
+
+	return int(slotIDSigned), nil
 }
 
 // GetTokenLabel returns the token label from the URI.

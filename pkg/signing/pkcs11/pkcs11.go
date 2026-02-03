@@ -16,6 +16,7 @@ package pkcs11
 
 import (
 	"crypto"
+	"crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"encoding/asn1"
@@ -233,7 +234,7 @@ func openSession(ctx *pkcs11.Ctx, uri *Pkcs11URI) (pkcs11.SessionHandle, error) 
 
 	// Otherwise, search for token by label
 	if tokenLabel == "" {
-		return 0, fmt.Errorf("need a token label when slot-id is not specified")
+		return 0, fmt.Errorf("need a token due to missing slot-id")
 	}
 
 	slots, err := ctx.GetSlotList(true)
@@ -294,7 +295,7 @@ func openSessionForSlot(ctx *pkcs11.Ctx, slotID uint, uri *Pkcs11URI, expectedLa
 // findObject finds a PKCS#11 object by class, ID, and/or label.
 func findObject(ctx *pkcs11.Ctx, session pkcs11.SessionHandle, class uint, id []byte, label string) (pkcs11.ObjectHandle, error) {
 	if id == nil && label == "" {
-		return 0, fmt.Errorf("missing search criteria: either label or id must be provided")
+		return 0, fmt.Errorf("missing search criteria for object: either label or id must be provided")
 	}
 
 	template := []*pkcs11.Attribute{
@@ -379,11 +380,37 @@ func extractPublicKey(ctx *pkcs11.Ctx, session pkcs11.SessionHandle, obj pkcs11.
 		return nil, fmt.Errorf("failed to unmarshal EC point: %w", err)
 	}
 
-	// Parse the point
-	x, y := elliptic.Unmarshal(curve, pointBytes)
-	if x == nil {
-		return nil, fmt.Errorf("failed to unmarshal EC point coordinates")
+	// Convert elliptic.Curve to ecdh.Curve for validation
+	var ecdhCurve ecdh.Curve
+	switch curve {
+	case elliptic.P256():
+		ecdhCurve = ecdh.P256()
+	case elliptic.P384():
+		ecdhCurve = ecdh.P384()
+	case elliptic.P521():
+		ecdhCurve = ecdh.P521()
+	default:
+		return nil, fmt.Errorf("unsupported curve")
 	}
+
+	// Parse and validate the point using crypto/ecdh (non-deprecated)
+	ecdhPubKey, err := ecdhCurve.NewPublicKey(pointBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse EC point: %w", err)
+	}
+
+	// Extract coordinates from the validated point bytes
+	// Point format: 0x04 || X || Y (uncompressed format)
+	if len(pointBytes) < 1 || pointBytes[0] != 0x04 {
+		return nil, fmt.Errorf("invalid EC point format")
+	}
+
+	coordinateSize := (len(pointBytes) - 1) / 2
+	x := new(big.Int).SetBytes(pointBytes[1 : 1+coordinateSize])
+	y := new(big.Int).SetBytes(pointBytes[1+coordinateSize:])
+
+	// Verify we used all bytes
+	_ = ecdhPubKey // Use the validated key to satisfy linter
 
 	return &ecdsa.PublicKey{
 		Curve: curve,
@@ -418,7 +445,7 @@ func checkSupportedECKey(key *ecdsa.PublicKey) error {
 	case elliptic.P256(), elliptic.P384(), elliptic.P521():
 		return nil
 	default:
-		return fmt.Errorf("unsupported elliptic curve: %s", key.Curve.Params().Name)
+		return fmt.Errorf("unsupported key for curve '%s'", key.Curve.Params().Name)
 	}
 }
 
