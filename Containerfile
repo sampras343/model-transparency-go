@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.25-alpine AS builder
+FROM golang:1.25-alpine AS build-env
+
+ENV CGO_ENABLED=1
 
 # Install build dependencies for CGO and PKCS#11 support
 RUN apk add --no-cache git ca-certificates gcc musl-dev
 
-WORKDIR /app
+WORKDIR /model-signing
+RUN git config --global --add safe.directory /model-signing
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -27,19 +30,19 @@ COPY pkg/ pkg/
 COPY internal/ internal/
 
 # Build with CGO enabled for PKCS#11 support
-RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o /model-signing ./cmd/model-signing
+RUN go build -o model-signing -mod=readonly -trimpath ./cmd/model-signing
 
 # Use alpine instead of distroless to support PKCS#11 runtime dependencies
-FROM alpine:latest AS final_image
+FROM alpine:latest
+
+# Create a non-root user and group with a home directory
+RUN addgroup -S appgroup && \
+    adduser -S -G appgroup -h /home/appuser -s /sbin/nologin appuser
 
 RUN apk add --no-cache ca-certificates
 
-COPY --from=builder /model-signing /model-signing
-
-USER nobody:nobody
-
-ENTRYPOINT ["/model-signing"]
-CMD ["--help"]
+COPY --from=build-env /model-signing/model-signing /usr/local/bin/model-signing
+COPY LICENSE /licenses/license.txt
 
 ARG APP_VERSION="0.0.1"
 
@@ -48,3 +51,11 @@ LABEL org.opencontainers.image.title="Model Transparency Library" \
       org.opencontainers.image.version="$APP_VERSION" \
       org.opencontainers.image.authors="The Sigstore Authors <sigstore-dev@googlegroups.com>" \
       org.opencontainers.image.licenses="Apache-2.0"
+
+USER appuser
+
+WORKDIR /home/appuser
+
+# Set the binary as the entrypoint of the container
+ENTRYPOINT ["model-signing"]
+CMD ["--help"]
