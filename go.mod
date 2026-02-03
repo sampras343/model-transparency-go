@@ -6,6 +6,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/google/go-containerregistry v0.20.7
 	github.com/in-toto/attestation v1.1.2
+	github.com/miekg/pkcs11 v1.1.1
 	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/moby/term v0.5.2
 	github.com/secure-systems-lab/go-securesystemslib v0.10.0

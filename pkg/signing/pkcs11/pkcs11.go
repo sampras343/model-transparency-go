@@ -146,7 +146,7 @@ func (s *Signer) Close() error {
 }
 
 // Sign signs the payload and returns a signature bundle.
-func (s *Signer) Sign(payload *interfaces.Payload) (interfaces.Signature, error) {
+func (s *Signer) Sign(payload *interfaces.Payload) (interfaces.SignatureBundle, error) {
 	// Serialize payload to JSON
 	rawPayload, err := protojson.Marshal(payload.Statement)
 	if err != nil {

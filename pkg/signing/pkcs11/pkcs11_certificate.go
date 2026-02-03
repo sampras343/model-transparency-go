@@ -101,7 +101,7 @@ func NewCertSigner(
 }
 
 // Sign signs the payload and returns a signature bundle with certificate chain.
-func (s *CertSigner) Sign(payload *interfaces.Payload) (interfaces.Signature, error) {
+func (s *CertSigner) Sign(payload *interfaces.Payload) (interfaces.SignatureBundle, error) {
 	// Serialize payload to JSON
 	rawPayload, err := protojson.Marshal(payload.Statement)
 	if err != nil {

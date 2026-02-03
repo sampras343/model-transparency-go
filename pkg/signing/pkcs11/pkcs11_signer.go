@@ -144,7 +144,7 @@ func (ps *Pkcs11Signer) Sign(_ context.Context) (signing.Result, error) {
 
 	// Step 3: Create PKCS#11 signer and sign the payload
 	ps.logger.Debugln("\nStep 3: Signing with PKCS#11...")
-	var signer interfaces.Signer
+	var signer interfaces.BundleSigner
 	var signerErr error
 
 	if ps.opts.SigningCertificatePath != "" {
