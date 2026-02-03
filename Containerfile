@@ -14,7 +14,8 @@
 
 FROM golang:1.25-alpine AS builder
 
-RUN apk add --no-cache git ca-certificates
+# Install build dependencies for CGO and PKCS#11 support
+RUN apk add --no-cache git ca-certificates gcc musl-dev
 
 WORKDIR /app
 
@@ -25,13 +26,17 @@ COPY cmd/ cmd/
 COPY pkg/ pkg/
 COPY internal/ internal/
 
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /model-signing ./cmd/model-signing
+# Build with CGO enabled for PKCS#11 support
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o /model-signing ./cmd/model-signing
 
-FROM gcr.io/distroless/static:nonroot AS final_image
+# Use alpine instead of distroless to support PKCS#11 runtime dependencies
+FROM alpine:latest AS final_image
+
+RUN apk add --no-cache ca-certificates
 
 COPY --from=builder /model-signing /model-signing
 
-USER nonroot:nonroot
+USER nobody:nobody
 
 ENTRYPOINT ["/model-signing"]
 CMD ["--help"]
