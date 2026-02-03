@@ -6,13 +6,16 @@
 
 - [Overview](#overview)
 - [Model Signing](#model-signing)
+  - [Build](#build)
+    - [Building from Source](#building-from-source)
+    - [Building with Podman](#building-with-podman)
   - [Model Signing CLI](#model-signing-cli)
+    - [Sign-Verify with Sigstore](#sign-verify-with-sigstore)
+    - [Sign-Verify with private-public key](#sign-verify-with-private-public-key)
+    - [Sign-Verify with certificate](#sign-verify-with-certificate)
+    - [Sign-Verify OCI Images](#sign-verify-oci-images)
   - [Model Signing API](#model-signing-api)
   - [Model Signing Format](#model-signing-format)
-- [Building](#building)
-  - [Building from Source](#building-from-source)
-  - [Building with Podman](#building-with-podman)
-- [Status](#status)
 - [Contributing](#contributing)
 
 <!-- tocstop -->
@@ -76,9 +79,9 @@ monitor](https://github.com/sigstore/rekor-monitor) that runs on GitHub Actions.
 ![Signing models with Sigstore](docs/images/sigstore-model-diagram.png)
 
 
-## Building
+### Build
 
-### Building from Source
+#### Building from Source
 
 Clone the repository and build the `model-signing` binary:
 
@@ -98,7 +101,7 @@ Verify the installation:
 [...]$ ./model-signing --help
 ```
 
-### Building with Podman
+#### Building with Podman
 
 Build the container image using the provided `Containerfile`:
 
@@ -144,6 +147,10 @@ signature:
 
 By default, the code also ignores git related paths.
 
+### Sign-Verify with Sigstore
+
+**Signing:**
+
 The simplest example of the CLI is to sign a model using Sigstore:
 
 ```bash
@@ -154,6 +161,16 @@ This will open an OIDC flow to obtain a short lived token for the certificate.
 The identity used during signing and the provider must be reused during
 verification.
 
+All signing methods support changing the signature name and location via the `--signature` flag:
+
+```bash
+[...]$ model-signing sign bert-base-uncased --signature model.sig
+```
+Consult the help for a list of all flags (`model-signing --help`, or directly
+`model-signing` with no arguments)
+
+**Verifying:**
+
 For verification using sigstore:
 
 ```bash
@@ -162,3 +179,152 @@ For verification using sigstore:
       --identity "$identity"
       --identity-provider "$oidc_provider"
 ```
+Where `$identity` and `$oidc_provider` are those set up during the signing flow
+and `--signature` must point to the signature to verify.
+
+
+
+For developers signing models with Sigstore, there are three identity providers
+that can be used at the moment:
+
+* Google's provider is `https://accounts.google.com`.
+* GitHub's provider is `https://github.com/login/oauth`.
+  * GitHub Actions uses `https://token.actions.githubusercontent.com`
+* Microsoft's provider is `https://login.microsoftonline.com`.
+
+For automated signing using a workload identity, the following platforms
+are currently supported, shown with their expected identities:
+
+* GitHub Actions
+  (`https://github.com/octo-org/octo-automation/.github/workflows/oidc.yml@refs/heads/main`)
+* GitLab CI
+  (`https://gitlab.com/my-group/my-project//path/to/.gitlab-ci.yml@refs/heads/main`)
+* Google Cloud Platform (`SERVICE_ACCOUNT_NAME@PROJECT_ID.iam.gserviceaccount.com`)
+* Buildkite CI (`https://buildkite.com/ORGANIZATION_SLUG/PIPELINE_SLUG`)
+
+### TODO: Signing & Verifying with Trust Root
+
+### Sign-Verify with private-public key
+
+As another example, here is how we can sign with private keys. First, we
+generate the key pair:
+
+```bash
+[...]$ openssl ecparam -name prime256v1 -genkey -noout -out key.priv
+[...]$ openssl ec -in key.priv -pubout > key.pub
+```
+**Signing:**
+
+And then we use the private key to sign.
+
+```bash
+[...]$ model-signing sign key bert-base-uncased --private-key key.priv
+```
+
+**Verifying:**
+
+Similarly, for key verification, we can use
+
+```bash
+[...]$ model-signing verify key bert-base-uncased \
+       --signature model.sig --public-key key.pub
+```
+
+### Sign-Verify with certificate
+
+As another example, here is how we can sign with certificate. For this, 
+we will be using the sample test certs available in the repository
+
+**Signing:**
+```bash
+[...]$ model-signing sign certificate bert-base-uncased \
+       --signature model.sig \
+       --signing-certificate scripts/tests/keys/certificate/signing-key-cert.pem \
+       --private-key scripts/tests/keys/certificate/signing-key.pem \
+       --certificate-chain scripts/tests/keys/certificate/int-ca-cert.pem
+```
+
+**Verifying:**
+```bash
+[...]$ model-signing verify certificate bert-base-uncased \
+       --signature model.sig \
+       --certificate-chain scripts/tests/keys/certificate/ca-cert.pem \
+       --ignore-unsigned-files
+```
+
+### Sign-Verify OCI Images
+
+**Signing OCI Images:**
+
+The tool supports signing and verifying OCI model images directly from their manifest without requiring the model files on disk. This is useful for signing images in registries without pulling them.
+
+```bash
+# Get the OCI manifest (from skopeo inspect --raw)
+[...]$ skopeo inspect --raw docker://quay.io/user/model:latest > manifest.json
+
+# Sign using the manifest
+[...]$ model-signing sign manifest.json
+```
+
+**Verifying OCI Images:**
+
+You can verify in two ways:
+
+1. **Against the OCI manifest** (no files needed):
+```bash
+[...$ model-signing verify manifest.json \
+  --signature model.sig \
+  --identity user@example.com \
+  --identity-provider https://accounts.google.com
+```
+
+2. **Against local model files** (automatically detects OCI layer signatures):
+```bash
+[...]$ model-signing verify model_dir \
+  --signature model.sig \
+  --identity user@example.com \
+  --identity-provider https://accounts.google.com
+```
+
+The tool automatically detects OCI manifest signatures and matches files by path using `org.opencontainers.image.title` annotations (ORAS-style). For multi-layer images, verification against local files attempts to match individual files by path.
+
+### Model Signing API
+
+We offer an API which can be used in integrations with ML frameworks, ML
+pipelins and ML model hubs libraries. The CLI wraps around the API.
+
+The API is split into 3 main components:
+
+- `github.com/sigstore/model-signing/pkg/hashing`: Responsible with generating a list of hashes for
+  every component of the model. A component could be a file, a file shard, a
+  tensor, etc., depending on the method used. We currently support only files
+  and file shards. The result of hashing is a manifest, a listing of hashes for
+  every object in the model.
+- `github.com/sigstore/model-signing/pkg/signing`: Responsible with taking the manifest and generating a
+  signature, based on a signing configuration. The signing configuration can
+  select the method used to sign as well as the parameters.
+- `github.com/sigstore/model-signing/pkg/verify`: Responsible with taking a signature and verifying
+  it. If the cryptographic parts of the signature can be validated, the
+  verification layer would return an expanded manifest which can then be
+  compared agains a manifest obtained from hashing the existing model. If the
+  two manifest don't match then the model integrity was compromised and the
+  `model-signing` package detected that.
+
+The first two of these components allows configurability but can also be used
+directly, with a default configuration. The only difference is for the
+verification component where we need to configure the verification method since
+there are no sensible defaults that can be used.
+
+Simple code examples on how to use these APIs for different signing or verifying strategies are provided under 
+[examples](examples/)
+
+### Model Signing Format
+
+For a diagram showing the model signing format as well as an explanation of the
+layers, see the [model signing format](docs/model_signing_format.md) document.
+
+## Contributing
+
+Please see the [Contributor Guide](CONTRIBUTING.md) for more information.
+
+[openssf]: https://openssf.org/
