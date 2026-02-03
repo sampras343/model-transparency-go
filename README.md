@@ -14,6 +14,7 @@
     - [Sign-Verify using Private Sigstore Instances](#sign-verify-using-private-sigstore-instances)
     - [Sign-Verify with private-public key](#sign-verify-with-private-public-key)
     - [Sign-Verify with certificate](#sign-verify-with-certificate)
+    - [Sign-Verify with PKCS#11 / HSM](#sign-verify-with-pkcs11--hsm)
     - [Sign-Verify OCI Images](#sign-verify-oci-images)
   - [Model Signing API](#model-signing-api)
   - [Model Signing Format](#model-signing-format)
@@ -275,6 +276,31 @@ we will be using the sample test certs available in the repository
        --certificate-chain scripts/tests/keys/certificate/ca-cert.pem \
        --ignore-unsigned-files
 ```
+
+### Sign-Verify with PKCS#11 / HSM
+
+For signing with hardware security modules (HSMs) or SoftHSM2, see the complete guide: **[PKCS11_GUIDE.md](PKCS11_GUIDE.md)**
+
+**Quick Start:**
+```bash
+# Setup (one-time)
+[...]$ ./setup-softhsm2.sh
+[...]$ source softhsm2-config.sh
+
+# Sign with PKCS#11
+[...]$ SOFTHSM2_CONF="$SOFTHSM2_CONF" model-signing sign pkcs11 bert-base-uncased \
+  --pkcs11-uri "$SOFTHSM2_URI" --signature model.sig
+
+# Export public key (one-time)
+[...]$ SOFTHSM2_CONF="$SOFTHSM2_CONF" pkcs11-tool --module $SOFTHSM2_MODULE_PATH \
+  --login --pin 1234 --read-object --type pubkey --label mykey -o public-key.der
+[...]$ openssl ec -pubin -inform DER -in public-key.der -outform PEM -out public-key.pem
+
+# Verify
+[...]$ model-signing verify key bert-base-uncased --signature model.sig --public-key public-key.pem
+```
+
+For more details including certificate-based PKCS#11 signing, troubleshooting, and advanced options, see [PKCS11_GUIDE.md](PKCS11_GUIDE.md).
 
 ### Sign-Verify OCI Images
 

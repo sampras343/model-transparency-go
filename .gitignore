@@ -30,3 +30,19 @@ go.work.sum
 
 test.sh
 docs
+
+# Signature files
+*.sig
+
+# Build artifacts
+/build/
+/model-signing
+
+# Test data
+/test-model/
+
+# PKCS11 generated files
+softhsm2-config.sh
+public-key.pem
+public-key.der
+*.der
