@@ -15,16 +15,19 @@
 package pkcs11
 
 import (
-	"crypto"
+	"bytes"
 	"crypto/ecdh"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"encoding/asn1"
 	"fmt"
 	"math/big"
+	"os"
 	"strings"
 
 	"github.com/miekg/pkcs11"
+
+	"github.com/sigstore/model-signing/internal/crypto"
 	"github.com/sigstore/model-signing/pkg/config"
 	"github.com/sigstore/model-signing/pkg/dsse"
 	"github.com/sigstore/model-signing/pkg/interfaces"
@@ -126,7 +129,7 @@ func NewSigner(pkcs11URI string, modulePaths []string) (*Signer, error) {
 	}
 
 	// Validate the curve is supported
-	if err := checkSupportedECKey(publicKey); err != nil {
+	if err := utils.CheckSupportedECKey(publicKey); err != nil {
 		ctx.CloseSession(session)
 		ctx.Finalize()
 		ctx.Destroy()
@@ -168,10 +171,10 @@ func (s *Signer) Sign(payload *interfaces.Payload) (interfaces.SignatureBundle, 
 	}
 
 	// Compute PAE (Pre-Authentication Encoding)
-	pae := computePAE(rawPayload)
+	pae := crypto.ComputePAE(utils.InTotoJSONPayloadType, rawPayload)
 
 	// Hash the PAE
-	hashAlg := getHashAlgorithm(s.publicKey)
+	hashAlg := utils.GetHashAlgorithm(s.publicKey)
 	hasher := hashAlg.New()
 	hasher.Write(pae)
 	digest := hasher.Sum(nil)
@@ -187,7 +190,7 @@ func (s *Signer) Sign(payload *interfaces.Payload) (interfaces.SignatureBundle, 
 	}
 
 	// Convert P1363 format to ASN.1 DER
-	derSig, err := p1363ToASN1(signature)
+	derSig, err := utils.P1363ToASN1(signature)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert signature format: %w", err)
 	}
@@ -260,7 +263,7 @@ func openSession(ctx *pkcs11.Ctx, uri *Pkcs11URI) (pkcs11.SessionHandle, error) 
 		}
 
 		// Token labels are padded to 32 characters
-		if trimString(tokenInfo.Label) == tokenLabel {
+		if trimNullBytes(tokenInfo.Label) == tokenLabel {
 			return openSessionForSlot(ctx, slot, uri, tokenLabel)
 		}
 	}
@@ -276,7 +279,7 @@ func openSessionForSlot(ctx *pkcs11.Ctx, slotID uint, uri *Pkcs11URI, expectedLa
 		if err != nil {
 			return 0, fmt.Errorf("failed to get token info: %w", err)
 		}
-		if trimString(tokenInfo.Label) != expectedLabel {
+		if trimNullBytes(tokenInfo.Label) != expectedLabel {
 			return 0, fmt.Errorf("the token in slot %d is not called '%s'", slotID, expectedLabel)
 		}
 	}
@@ -335,10 +338,10 @@ func findObject(ctx *pkcs11.Ctx, session pkcs11.SessionHandle, class uint, id []
 		}
 
 		objID := attrs[0].Value
-		objLabel := trimString(string(attrs[1].Value))
+		objLabel := trimNullBytes(string(attrs[1].Value))
 
 		// Check if ID matches (if specified)
-		if id != nil && !bytesEqual(objID, id) {
+		if id != nil && !bytes.Equal(objID, id) {
 			continue
 		}
 
@@ -380,7 +383,7 @@ func extractPublicKey(ctx *pkcs11.Ctx, session pkcs11.SessionHandle, obj pkcs11.
 	ecPoint := attrs[1].Value
 
 	// Parse EC parameters to get the curve
-	curve, err := parseECParams(ecParams)
+	curve, err := utils.ParseECParams(ecParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse EC params: %w", err)
 	}
@@ -430,106 +433,46 @@ func extractPublicKey(ctx *pkcs11.Ctx, session pkcs11.SessionHandle, obj pkcs11.
 	}, nil
 }
 
-// parseECParams parses EC parameters to determine the curve.
-func parseECParams(params []byte) (elliptic.Curve, error) {
-	var oid asn1.ObjectIdentifier
-	if _, err := asn1.Unmarshal(params, &oid); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal OID: %w", err)
-	}
-
-	// Map OIDs to curves
-	switch {
-	case oid.Equal(asn1.ObjectIdentifier{1, 2, 840, 10045, 3, 1, 7}): // secp256r1 / P-256
-		return elliptic.P256(), nil
-	case oid.Equal(asn1.ObjectIdentifier{1, 3, 132, 0, 34}): // secp384r1 / P-384
-		return elliptic.P384(), nil
-	case oid.Equal(asn1.ObjectIdentifier{1, 3, 132, 0, 35}): // secp521r1 / P-521
-		return elliptic.P521(), nil
-	default:
-		return nil, fmt.Errorf("unsupported curve OID: %v", oid)
-	}
-}
-
-// checkSupportedECKey checks if the elliptic curve key is supported.
-func checkSupportedECKey(key *ecdsa.PublicKey) error {
-	switch key.Curve {
-	case elliptic.P256(), elliptic.P384(), elliptic.P521():
-		return nil
-	default:
-		return fmt.Errorf("unsupported key for curve '%s'", key.Curve.Params().Name)
-	}
-}
-
-// getHashAlgorithm returns the appropriate hash algorithm for the key.
-func getHashAlgorithm(key *ecdsa.PublicKey) crypto.Hash {
-	switch key.Curve {
-	case elliptic.P256():
-		return crypto.SHA256
-	case elliptic.P384():
-		return crypto.SHA384
-	case elliptic.P521():
-		return crypto.SHA512
-	default:
-		return crypto.SHA256
-	}
-}
-
-// computePAE computes the Pre-Authentication Encoding for DSSE.
-func computePAE(payload []byte) []byte {
-	payloadType := utils.InTotoJSONPayloadType
-
-	// PAE = "DSSEv1" + SP + LEN(type) + SP + type + SP + LEN(payload) + SP + payload
-	pae := []byte("DSSEv1 ")
-	pae = append(pae, []byte(fmt.Sprintf("%d ", len(payloadType)))...)
-	pae = append(pae, []byte(payloadType)...)
-	pae = append(pae, ' ')
-	pae = append(pae, []byte(fmt.Sprintf("%d ", len(payload)))...)
-	pae = append(pae, payload...)
-
-	return pae
-}
-
-// p1363ToASN1 converts a P1363 format signature to ASN.1 DER format.
-func p1363ToASN1(p1363Sig []byte) ([]byte, error) {
-	// P1363 format is r || s where both are the same length
-	if len(p1363Sig)%2 != 0 {
-		return nil, fmt.Errorf("invalid P1363 signature length")
-	}
-
-	halfLen := len(p1363Sig) / 2
-	r := new(big.Int).SetBytes(p1363Sig[:halfLen])
-	s := new(big.Int).SetBytes(p1363Sig[halfLen:])
-
-	// ASN.1 DER encoding
-	type ecdsaSignature struct {
-		R, S *big.Int
-	}
-
-	return asn1.Marshal(ecdsaSignature{R: r, S: s})
-}
-
-// trimString trims null bytes and spaces from a string.
-func trimString(s string) string {
-	// Remove null bytes
+// trimNullBytes trims null bytes and spaces from a string.
+// This is useful when reading strings from C-based APIs like PKCS#11
+// which often pad strings with null bytes.
+func trimNullBytes(s string) string {
 	for i, c := range s {
 		if c == 0 {
 			s = s[:i]
 			break
 		}
 	}
-	// Trim spaces
 	return strings.TrimSpace(s)
 }
 
-// bytesEqual compares two byte slices.
-func bytesEqual(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
+// SignatureBundle wraps a Sigstore bundle as a signature.
+type SignatureBundle struct {
+	bundle *bundle.Bundle
+}
+
+// Write serializes the signature bundle to a file.
+func (s *SignatureBundle) Write(path string) error {
+	opts := protojson.MarshalOptions{
+		Multiline:       true,
+		Indent:          "  ",
+		UseProtoNames:   true,
+		EmitUnpopulated: false,
 	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
+
+	data, err := opts.Marshal(s.bundle)
+	if err != nil {
+		return fmt.Errorf("failed to marshal bundle: %w", err)
 	}
-	return true
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write signature file: %w", err)
+	}
+
+	return nil
+}
+
+// Bundle returns the underlying Sigstore bundle.
+func (s *SignatureBundle) Bundle() *bundle.Bundle {
+	return s.bundle
 }

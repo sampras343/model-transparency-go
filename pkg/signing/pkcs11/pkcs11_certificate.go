@@ -17,11 +17,12 @@ package pkcs11
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"os"
 
 	"github.com/miekg/pkcs11"
+
+	"github.com/sigstore/model-signing/internal/crypto"
 	"github.com/sigstore/model-signing/pkg/dsse"
 	"github.com/sigstore/model-signing/pkg/interfaces"
 	"github.com/sigstore/model-signing/pkg/utils"
@@ -57,7 +58,7 @@ func NewCertSigner(
 		return nil, fmt.Errorf("failed to read signing certificate: %w", err)
 	}
 
-	signingCert, err := parsePEMCertificate(certData)
+	signingCert, err := utils.ParsePEMCertificate(certData)
 	if err != nil {
 		baseSigner.Close()
 		return nil, fmt.Errorf("failed to parse signing certificate: %w", err)
@@ -84,7 +85,7 @@ func NewCertSigner(
 			return nil, fmt.Errorf("failed to read certificate chain file %s: %w", certPath, err)
 		}
 
-		certs, err := parsePEMCertificates(certData)
+		certs, err := utils.ParsePEMCertificates(certData)
 		if err != nil {
 			baseSigner.Close()
 			return nil, fmt.Errorf("failed to parse certificate chain file %s: %w", certPath, err)
@@ -109,10 +110,10 @@ func (s *CertSigner) Sign(payload *interfaces.Payload) (interfaces.SignatureBund
 	}
 
 	// Compute PAE (Pre-Authentication Encoding)
-	pae := computePAE(rawPayload)
+	pae := crypto.ComputePAE(utils.InTotoJSONPayloadType, rawPayload)
 
 	// Hash the PAE
-	hashAlg := getHashAlgorithm(s.publicKey)
+	hashAlg := utils.GetHashAlgorithm(s.publicKey)
 	hasher := hashAlg.New()
 	hasher.Write(pae)
 	digest := hasher.Sum(nil)
@@ -128,7 +129,7 @@ func (s *CertSigner) Sign(payload *interfaces.Payload) (interfaces.SignatureBund
 	}
 
 	// Convert P1363 format to ASN.1 DER
-	derSig, err := p1363ToASN1(signature)
+	derSig, err := utils.P1363ToASN1(signature)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert signature format: %w", err)
 	}
@@ -174,46 +175,4 @@ func (s *CertSigner) getVerificationMaterial() *bundle.VerificationMaterial {
 			},
 		},
 	}
-}
-
-// parsePEMCertificate parses a single PEM-encoded certificate.
-func parsePEMCertificate(data []byte) (*x509.Certificate, error) {
-	certs, err := parsePEMCertificates(data)
-	if err != nil {
-		return nil, err
-	}
-	if len(certs) == 0 {
-		return nil, fmt.Errorf("no certificates found in PEM data")
-	}
-	return certs[0], nil
-}
-
-// parsePEMCertificates parses one or more PEM-encoded certificates.
-func parsePEMCertificates(data []byte) ([]*x509.Certificate, error) {
-	var certs []*x509.Certificate
-
-	for len(data) > 0 {
-		var block *pem.Block
-		block, data = pem.Decode(data)
-		if block == nil {
-			break
-		}
-
-		if block.Type != "CERTIFICATE" {
-			continue
-		}
-
-		cert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse certificate: %w", err)
-		}
-
-		certs = append(certs, cert)
-	}
-
-	if len(certs) == 0 {
-		return nil, fmt.Errorf("no valid certificates found")
-	}
-
-	return certs, nil
 }

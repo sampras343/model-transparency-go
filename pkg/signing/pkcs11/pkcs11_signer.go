@@ -100,114 +100,66 @@ func NewPkcs11Signer(opts Pkcs11SignerOptions) (*Pkcs11Signer, error) {
 //
 // Returns a Result with success status and message, or an error if any step fails.
 func (ps *Pkcs11Signer) Sign(_ context.Context) (signing.Result, error) {
-	// Print signing configuration (debug only)
-	ps.logger.Debugln("PKCS#11 Signing")
-	ps.logger.Debug("  MODEL_PATH:            %s", filepath.Clean(ps.opts.ModelPath))
-	ps.logger.Debug("  --signature:           %s", filepath.Clean(ps.opts.SignaturePath))
-	ps.logger.Debug("  --pkcs11-uri:          %s", maskURI(ps.opts.Pkcs11URI))
-	ps.logger.Debug("  --module-path:         %v", ps.opts.ModulePaths)
-	ps.logger.Debug("  --signing-certificate: %s", ps.opts.SigningCertificatePath)
-	ps.logger.Debug("  --cert-chain:          %v", ps.opts.CertificateChain)
-	ps.logger.Debug("  --ignore-paths:        %v", ps.opts.IgnorePaths)
-	ps.logger.Debug("  --ignore-git-paths:    %v", ps.opts.IgnoreGitPaths)
-	ps.logger.Debug("  --allow-symlinks:      %v", ps.opts.AllowSymlinks)
+	// Log signing configuration
+	ps.logger.Debug("PKCS#11 signing: model=%s, signature=%s",
+		filepath.Clean(ps.opts.ModelPath), filepath.Clean(ps.opts.SignaturePath))
 
 	// Resolve ignore paths
 	ignorePaths := ps.opts.IgnorePaths
 	// Add signature path to ignore list
 	ignorePaths = append(ignorePaths, ps.opts.SignaturePath)
 
-	// Step 1: Hash the model to create a manifest
-	ps.logger.Debugln("\nStep 1: Hashing model...")
+	// Step 1: Hash the model
 	hashingConfig := config.NewHashingConfig().
 		SetIgnoredPaths(ignorePaths, ps.opts.IgnoreGitPaths).
 		SetAllowSymlinks(ps.opts.AllowSymlinks)
 
 	manifest, err := hashingConfig.Hash(ps.opts.ModelPath, nil)
 	if err != nil {
-		return signing.Result{
-			Verified: false,
-			Message:  fmt.Sprintf("Failed to hash model: %v", err),
-		}, fmt.Errorf("failed to hash model: %w", err)
+		return signing.Result{}, fmt.Errorf("failed to hash model: %w", err)
 	}
-	ps.logger.Debug("  Hashed %d files", len(manifest.ResourceDescriptors()))
+	ps.logger.Debug("Hashed %d files", len(manifest.ResourceDescriptors()))
 
-	// Step 2: Create payload from manifest
-	ps.logger.Debugln("\nStep 2: Creating signing payload...")
+	// Step 2: Create payload
 	payload, err := interfaces.NewPayload(manifest)
 	if err != nil {
-		return signing.Result{
-			Verified: false,
-			Message:  fmt.Sprintf("Failed to create payload: %v", err),
-		}, fmt.Errorf("failed to create payload: %w", err)
+		return signing.Result{}, fmt.Errorf("failed to create payload: %w", err)
 	}
 
-	// Step 3: Create PKCS#11 signer and sign the payload
-	ps.logger.Debugln("\nStep 3: Signing with PKCS#11...")
+	// Step 3: Create PKCS#11 signer
 	var signer interfaces.BundleSigner
-	var signerErr error
-
 	if ps.opts.SigningCertificatePath != "" {
-		// Certificate-based signing
-		ps.logger.Debugln("  Using certificate-based signing")
-		signer, signerErr = NewCertSigner(
+		signer, err = NewCertSigner(
 			ps.opts.Pkcs11URI,
 			ps.opts.SigningCertificatePath,
 			ps.opts.CertificateChain,
 			ps.opts.ModulePaths,
 		)
 	} else {
-		// Key-based signing
-		ps.logger.Debugln("  Using key-based signing")
-		signer, signerErr = NewSigner(
-			ps.opts.Pkcs11URI,
-			ps.opts.ModulePaths,
-		)
+		signer, err = NewSigner(ps.opts.Pkcs11URI, ps.opts.ModulePaths)
 	}
 
-	if signerErr != nil {
-		return signing.Result{
-			Verified: false,
-			Message:  fmt.Sprintf("Failed to create PKCS#11 signer: %v", signerErr),
-		}, fmt.Errorf("failed to create PKCS#11 signer: %w", signerErr)
+	if err != nil {
+		return signing.Result{}, fmt.Errorf("failed to create PKCS#11 signer: %w", err)
 	}
 
-	// Close signer if it implements the Closer interface
 	if closer, ok := signer.(interface{ Close() error }); ok {
 		defer closer.Close()
 	}
 
 	signature, err := signer.Sign(payload)
 	if err != nil {
-		return signing.Result{
-			Verified: false,
-			Message:  fmt.Sprintf("Failed to sign payload: %v", err),
-		}, fmt.Errorf("failed to sign payload: %w", err)
+		return signing.Result{}, fmt.Errorf("failed to sign payload: %w", err)
 	}
-	ps.logger.Debugln("  Signing successful")
 
-	// Step 4: Write signature to disk
-	ps.logger.Debugln("\nStep 4: Writing signature to disk...")
+	// Step 4: Write signature
 	if err := signature.Write(ps.opts.SignaturePath); err != nil {
-		return signing.Result{
-			Verified: false,
-			Message:  fmt.Sprintf("Failed to write signature: %v", err),
-		}, fmt.Errorf("failed to write signature: %w", err)
+		return signing.Result{}, fmt.Errorf("failed to write signature: %w", err)
 	}
-	ps.logger.Debug("  Signature written to: %s", ps.opts.SignaturePath)
+	ps.logger.Debug("Signature written to: %s", ps.opts.SignaturePath)
 
 	return signing.Result{
 		Verified: true,
 		Message:  fmt.Sprintf("Successfully signed model and saved signature to %s", ps.opts.SignaturePath),
 	}, nil
-}
-
-// maskURI masks sensitive parts of the PKCS#11 URI for logging.
-func maskURI(uri string) string {
-	if uri == "" {
-		return ""
-	}
-	// Simple masking - hide PIN values
-	// In production, you might want more sophisticated masking
-	return "pkcs11:***"
 }
