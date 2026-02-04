@@ -45,8 +45,8 @@ echo "Setting up Python environment..."
 python3 -m venv "${VENV}" || exit 1
 source "${VENV}/bin/activate"
 
-# Install latest model-signing from PyPI
-if ! pip install --quiet model-signing; then
+# Install model-signing from PyPI (pinned to 1.1.1 for compatibility)
+if ! pip install --quiet model-signing==1.1.1; then
 	echo "Error: Failed to install model-signing Python package"
 	exit 1
 fi
