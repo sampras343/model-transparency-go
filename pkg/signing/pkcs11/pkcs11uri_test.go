@@ -458,3 +458,199 @@ func TestPkcs11URI_TokenValidation(t *testing.T) {
 		})
 	}
 }
+
+// TestPkcs11URI_GetPIN_FromFile tests reading PIN from a file
+func TestPkcs11URI_GetPIN_FromFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	pinFile := filepath.Join(tmpDir, "pin.txt")
+
+	// Write PIN to file
+	pinContent := "secret1234"
+	err := os.WriteFile(pinFile, []byte(pinContent), 0600)
+	if err != nil {
+		t.Fatalf("Failed to write PIN file: %v", err)
+	}
+
+	uri := NewPkcs11URI()
+	err = uri.Parse("pkcs11:token=test;object=key?pin-source=file://" + pinFile)
+	if err != nil {
+		t.Fatalf("Failed to parse URI: %v", err)
+	}
+
+	pin, err := uri.GetPIN()
+	if err != nil {
+		t.Fatalf("Failed to get PIN from file: %v", err)
+	}
+
+	if pin != pinContent {
+		t.Errorf("Expected PIN %q, got %q", pinContent, pin)
+	}
+}
+
+// TestPkcs11URI_GetPIN_FromValue tests reading PIN from pin-value
+func TestPkcs11URI_GetPIN_FromValue(t *testing.T) {
+	uri := NewPkcs11URI()
+	err := uri.Parse("pkcs11:token=test;object=key?pin-value=1234")
+	if err != nil {
+		t.Fatalf("Failed to parse URI: %v", err)
+	}
+
+	pin, err := uri.GetPIN()
+	if err != nil {
+		t.Fatalf("Failed to get PIN: %v", err)
+	}
+
+	if pin != "1234" {
+		t.Errorf("Expected PIN \"1234\", got %q", pin)
+	}
+}
+
+// TestPkcs11URI_GetPIN_MissingFile tests error when PIN file doesn't exist
+func TestPkcs11URI_GetPIN_MissingFile(t *testing.T) {
+	uri := NewPkcs11URI()
+	err := uri.Parse("pkcs11:token=test;object=key?pin-source=file:///nonexistent/pin.txt")
+	if err != nil {
+		t.Fatalf("Failed to parse URI: %v", err)
+	}
+
+	_, err = uri.GetPIN()
+	if err == nil {
+		t.Error("Expected error for missing PIN file, got nil")
+	}
+}
+
+// TestPkcs11URI_GetModule_WithModuleName tests module resolution by name
+func TestPkcs11URI_GetModule_WithModuleName(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a mock module directory with a .so file
+	moduleDir := filepath.Join(tmpDir, "pkcs11")
+	err := os.MkdirAll(moduleDir, 0755)
+	if err != nil {
+		t.Fatalf("Failed to create module dir: %v", err)
+	}
+
+	modulePath := filepath.Join(moduleDir, "libtest.so")
+	err = os.WriteFile(modulePath, []byte("mock module"), 0755)
+	if err != nil {
+		t.Fatalf("Failed to create module file: %v", err)
+	}
+
+	uri := NewPkcs11URI()
+	uri.SetModuleDirectories([]string{moduleDir})
+	uri.SetAllowAnyModule(true)
+
+	err = uri.Parse("pkcs11:token=test;object=key?module-name=libtest")
+	if err != nil {
+		t.Fatalf("Failed to parse URI: %v", err)
+	}
+
+	module, err := uri.GetModule()
+	if err != nil {
+		t.Fatalf("Failed to get module: %v", err)
+	}
+
+	if !strings.HasSuffix(module, "libtest.so") {
+		t.Errorf("Expected module path ending with libtest.so, got %s", module)
+	}
+}
+
+// TestPkcs11URI_GetModule_WithModulePath tests direct module path
+func TestPkcs11URI_GetModule_WithModulePath(t *testing.T) {
+	tmpDir := t.TempDir()
+	modulePath := filepath.Join(tmpDir, "libdirect.so")
+
+	err := os.WriteFile(modulePath, []byte("mock module"), 0755)
+	if err != nil {
+		t.Fatalf("Failed to create module file: %v", err)
+	}
+
+	uri := NewPkcs11URI()
+	uri.SetAllowAnyModule(true)
+
+	err = uri.Parse("pkcs11:token=test;object=key?module-path=" + modulePath)
+	if err != nil {
+		t.Fatalf("Failed to parse URI: %v", err)
+	}
+
+	module, err := uri.GetModule()
+	if err != nil {
+		t.Fatalf("Failed to get module: %v", err)
+	}
+
+	if module != modulePath {
+		t.Errorf("Expected module path %s, got %s", modulePath, module)
+	}
+}
+
+// TestPkcs11URI_GetModule_NotAllowed tests module path restriction
+func TestPkcs11URI_GetModule_NotAllowed(t *testing.T) {
+	uri := NewPkcs11URI()
+	uri.SetAllowAnyModule(false)
+	uri.SetAllowedModulePaths([]string{"/allowed/path"})
+
+	err := uri.Parse("pkcs11:token=test;object=key?module-path=/forbidden/path/module.so")
+	if err != nil {
+		t.Fatalf("Failed to parse URI: %v", err)
+	}
+
+	_, err = uri.GetModule()
+	if err == nil {
+		t.Error("Expected error for forbidden module path, got nil")
+	}
+}
+
+// TestPkcs11URI_SetAllowedModulePaths tests setting allowed module paths
+func TestPkcs11URI_SetAllowedModulePaths(t *testing.T) {
+	tmpDir := t.TempDir()
+	modulePath := filepath.Join(tmpDir, "module.so")
+
+	// Create the module file
+	err := os.WriteFile(modulePath, []byte("mock module"), 0755)
+	if err != nil {
+		t.Fatalf("Failed to create module file: %v", err)
+	}
+
+	uri := NewPkcs11URI()
+
+	// Add trailing separator to allow modules in this directory
+	allowedPaths := []string{tmpDir + string(filepath.Separator)}
+	uri.SetAllowedModulePaths(allowedPaths)
+
+	// Parse a URI and verify module path validation works
+	uri.SetAllowAnyModule(false)
+
+	err = uri.Parse("pkcs11:token=test;object=key?module-path=" + modulePath)
+	if err != nil {
+		t.Fatalf("Failed to parse URI: %v", err)
+	}
+
+	// This should succeed since tmpDir is allowed
+	gotModule, err := uri.GetModule()
+	if err != nil {
+		t.Errorf("Expected module from allowed path to succeed, got error: %v", err)
+	}
+
+	if gotModule != modulePath {
+		t.Errorf("Expected module path %s, got %s", modulePath, gotModule)
+	}
+}
+
+// TestPkcs11URI_GetModule_NoModuleSpecified tests default module behavior
+func TestPkcs11URI_GetModule_NoModuleSpecified(t *testing.T) {
+	uri := NewPkcs11URI()
+	uri.SetModuleDirectories([]string{"/usr/lib64/pkcs11"})
+	uri.SetAllowAnyModule(true)
+
+	err := uri.Parse("pkcs11:token=test;object=key")
+	if err != nil {
+		t.Fatalf("Failed to parse URI: %v", err)
+	}
+
+	// Should try to find a default module
+	_, err = uri.GetModule()
+	// Error is expected if no default module exists, but we're testing the path
+	if err != nil {
+		t.Logf("No default module found (expected in test environment): %v", err)
+	}
+}
