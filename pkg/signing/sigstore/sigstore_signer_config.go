@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/sigstore/model-signing/pkg/config"
@@ -54,23 +55,38 @@ type SigstoreSignerConfig struct {
 // Implements the interfaces.BundleSigner interface.
 // nolint:revive
 type SigstoreBundleSigner struct {
-	config    SigstoreSignerConfig
-	trustRoot *root.TrustedRoot
+	config        SigstoreSignerConfig
+	trustRoot     *root.TrustedRoot
+	signingConfig *root.SigningConfig // May be nil if using default Sigstore infrastructure
 }
 
 // NewSigstoreBundleSigner creates a new Sigstore bundle signer with the given configuration.
-// Loads the trust root for Sigstore verification.
+// Loads the trust root and optionally signing config for Sigstore operations.
+// SigningConfig is only loaded when a custom trust-config file is provided.
 // Returns an error if trust root loading fails.
-func NewSigstoreBundleSigner(config SigstoreSignerConfig) (*SigstoreBundleSigner, error) {
-	// Load trust root using shared configuration primitive
-	trustRoot, err := config.LoadTrustRoot()
-	if err != nil {
-		return nil, err
+func NewSigstoreBundleSigner(cfg SigstoreSignerConfig) (*SigstoreBundleSigner, error) {
+	var trustRoot *root.TrustedRoot
+	var signingConfig *root.SigningConfig
+	var err error
+
+	// Only load SigningConfig when a custom trust-config file is provided
+	if cfg.TrustRootPath != "" && !cfg.UseStaging {
+		trustRoot, signingConfig, err = cfg.LoadTrustMaterial()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Default workflow: only load TrustedRoot
+		trustRoot, err = cfg.LoadTrustRoot()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &SigstoreBundleSigner{
-		config:    config,
-		trustRoot: trustRoot,
+		config:        cfg,
+		trustRoot:     trustRoot,
+		signingConfig: signingConfig,
 	}, nil
 }
 
@@ -114,9 +130,9 @@ func (s *SigstoreBundleSigner) Sign(payload *interfaces.Payload) (interfaces.Sig
 	}
 
 	// Configure Fulcio for certificate issuance
-	fulcioURL := utils.FulcioProdURL
-	if s.config.UseStaging {
-		fulcioURL = utils.FulcioStagingURL
+	fulcioURL, err := s.getFulcioURL()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Fulcio URL: %w", err)
 	}
 
 	fulcio := sigstoresign.NewFulcio(&sigstoresign.FulcioOptions{
@@ -124,9 +140,9 @@ func (s *SigstoreBundleSigner) Sign(payload *interfaces.Payload) (interfaces.Sig
 	})
 
 	// Configure Rekor for transparency log
-	rekorURL := utils.RekorProdURL
-	if s.config.UseStaging {
-		rekorURL = utils.RekorStagingURL
+	rekorURL, err := s.getRekorURL()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get Rekor URL: %w", err)
 	}
 
 	rekor := sigstoresign.NewRekor(&sigstoresign.RekorOptions{
@@ -260,9 +276,9 @@ func (s *SigstoreBundleSigner) getIDToken(_ context.Context) (string, error) {
 	}
 
 	// Determine OIDC issuer URL
-	issuerURL := utils.IssuerProdURL
-	if s.config.UseStaging {
-		issuerURL = utils.IssuerStagingURL
+	issuerURL, err := s.getOIDCIssuerURL()
+	if err != nil {
+		return "", fmt.Errorf("failed to get OIDC issuer URL: %w", err)
 	}
 
 	// Check for ambient credentials (GitHub Actions, etc.)
@@ -287,7 +303,6 @@ func (s *SigstoreBundleSigner) getIDToken(_ context.Context) (string, error) {
 	clientSecret := s.config.ClientSecret
 
 	var token *oauthflow.OIDCIDToken
-	var err error
 
 	if s.config.OAuthForceOob {
 		// Use out-of-band (OOB) OAuth flow
@@ -310,4 +325,76 @@ func (s *SigstoreBundleSigner) getIDToken(_ context.Context) (string, error) {
 	}
 
 	return token.RawString, nil
+}
+
+// getFulcioURL returns the Fulcio CA URL to use for certificate issuance.
+// If a SigningConfig is available, it selects the appropriate service from it.
+// Otherwise, falls back to default Sigstore URLs.
+func (s *SigstoreBundleSigner) getFulcioURL() (string, error) {
+	// Use SigningConfig if available (custom trust-config was provided)
+	if s.signingConfig != nil {
+		services := s.signingConfig.FulcioCertificateAuthorityURLs()
+		if len(services) > 0 {
+			// Select the appropriate service based on API version and validity
+			service, err := root.SelectService(services, []uint32{1}, time.Now())
+			if err != nil {
+				return "", fmt.Errorf("failed to select Fulcio service: %w", err)
+			}
+			return service.URL, nil
+		}
+	}
+
+	// Fall back to default URLs
+	if s.config.UseStaging {
+		return utils.FulcioStagingURL, nil
+	}
+	return utils.FulcioProdURL, nil
+}
+
+// getRekorURL returns the Rekor transparency log URL to use.
+// If a SigningConfig is available, it selects the appropriate service from it.
+// Otherwise, falls back to default Sigstore URLs.
+func (s *SigstoreBundleSigner) getRekorURL() (string, error) {
+	// Use SigningConfig if available (custom trust-config was provided)
+	if s.signingConfig != nil {
+		services := s.signingConfig.RekorLogURLs()
+		if len(services) > 0 {
+			// Select the appropriate service based on API version and validity
+			service, err := root.SelectService(services, []uint32{1}, time.Now())
+			if err != nil {
+				return "", fmt.Errorf("failed to select Rekor service: %w", err)
+			}
+			return service.URL, nil
+		}
+	}
+
+	// Fall back to default URLs
+	if s.config.UseStaging {
+		return utils.RekorStagingURL, nil
+	}
+	return utils.RekorProdURL, nil
+}
+
+// getOIDCIssuerURL returns the OIDC issuer URL to use for authentication.
+// If a SigningConfig is available, it selects the appropriate service from it.
+// Otherwise, falls back to default Sigstore URLs.
+func (s *SigstoreBundleSigner) getOIDCIssuerURL() (string, error) {
+	// Use SigningConfig if available (custom trust-config was provided)
+	if s.signingConfig != nil {
+		services := s.signingConfig.OIDCProviderURLs()
+		if len(services) > 0 {
+			// Select the appropriate service based on API version and validity
+			service, err := root.SelectService(services, []uint32{1}, time.Now())
+			if err != nil {
+				return "", fmt.Errorf("failed to select OIDC provider: %w", err)
+			}
+			return service.URL, nil
+		}
+	}
+
+	// Fall back to default URLs
+	if s.config.UseStaging {
+		return utils.IssuerStagingURL, nil
+	}
+	return utils.IssuerProdURL, nil
 }

@@ -11,6 +11,7 @@
     - [Building with Podman](#building-with-podman)
   - [Model Signing CLI](#model-signing-cli)
     - [Sign-Verify with Sigstore](#sign-verify-with-sigstore)
+    - [Sign-Verify using Private Sigstore Instances](#sign-verify-using-private-sigstore-instances)
     - [Sign-Verify with private-public key](#sign-verify-with-private-public-key)
     - [Sign-Verify with certificate](#sign-verify-with-certificate)
     - [Sign-Verify OCI Images](#sign-verify-oci-images)
@@ -202,7 +203,30 @@ are currently supported, shown with their expected identities:
 * Google Cloud Platform (`SERVICE_ACCOUNT_NAME@PROJECT_ID.iam.gserviceaccount.com`)
 * Buildkite CI (`https://buildkite.com/ORGANIZATION_SLUG/PIPELINE_SLUG`)
 
-### TODO: Signing & Verifying with Trust Root
+### Sign-Verify using Private Sigstore Instances
+To use a private Sigstore setup (e.g. custom Rekor/Fulcio), use the `--trust-config` flag:
+
+```bash
+[...]$ model-signing sign bert-base-uncased --trust-config client_trust_config.json
+```
+
+For verification:
+
+```bash
+[...]$ model-signing verify bert-base-uncased \
+      --signature model.sig \
+      --trust-config client_trust_config.json
+      --identity "$identity"
+      --identity-provider "$oidc_provider"
+```
+
+The `client_trust_config.json` file should include:
+
+- A signed target trust root
+- A `signingConfig` section with your private Rekor, Fulcio, and CT log endpoints
+- Public keys for verification (if applicable)
+
+You can find an example `client_trust_config.json` that references the public Sigstore production services in the Sigstore Python repository [here](https://github.com/sigstore/sigstore-python/blob/main/test/assets/trust_config/config.v1.json).
 
 ### Sign-Verify with private-public key
 

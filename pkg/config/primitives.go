@@ -25,8 +25,10 @@ import (
 	"fmt"
 	"os"
 
+	prototrustroot "github.com/sigstore/protobuf-specs/gen/pb-go/trustroot/v1"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/tuf"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // TrustRootConfig handles Sigstore trust root configuration.
@@ -75,6 +77,10 @@ type TrustRootConfig struct {
 //  2. TrustRootPath set → Load from specified file path
 //  3. Default → Fetch production trust root from network
 //
+// When loading from file, this function supports both formats:
+//   - ClientTrustConfig: A wrapper containing trustedRoot and signingConfig fields
+//   - TrustedRoot: The raw trusted root format with tlogs, certificateAuthorities, etc.
+//
 // Returns a TrustedRoot containing the loaded trust material,
 // or an error if the selected trust root cannot be loaded.
 func (c *TrustRootConfig) LoadTrustRoot() (*root.TrustedRoot, error) {
@@ -94,7 +100,7 @@ func (c *TrustRootConfig) LoadTrustRoot() (*root.TrustedRoot, error) {
 
 	// Priority 2: Custom trust root from file
 	if c.TrustRootPath != "" {
-		trustRoot, err := root.NewTrustedRootFromPath(c.TrustRootPath)
+		trustRoot, err := loadTrustRootFromFile(c.TrustRootPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load trust root from file: %w", err)
 		}
@@ -107,6 +113,119 @@ func (c *TrustRootConfig) LoadTrustRoot() (*root.TrustedRoot, error) {
 		return nil, fmt.Errorf("failed to fetch production trust root: %w", err)
 	}
 	return trustRoot, nil
+}
+
+// loadTrustRootFromFile loads a trust root from a JSON file.
+// It supports both ClientTrustConfig format (with nested trustedRoot)
+// and raw TrustedRoot format.
+func loadTrustRootFromFile(path string) (*root.TrustedRoot, error) {
+	fileBytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read trust root file: %w", err)
+	}
+
+	// First, try to parse as ClientTrustConfig (wrapper format)
+	clientConfig := &prototrustroot.ClientTrustConfig{}
+	if err := protojson.Unmarshal(fileBytes, clientConfig); err == nil {
+		// Successfully parsed as ClientTrustConfig
+		if clientConfig.GetTrustedRoot() != nil {
+			return root.NewTrustedRootFromProtobuf(clientConfig.GetTrustedRoot())
+		}
+		return nil, fmt.Errorf("ClientTrustConfig does not contain a trustedRoot")
+	}
+
+	// Fall back to parsing as raw TrustedRoot
+	return root.NewTrustedRootFromJSON(fileBytes)
+}
+
+// LoadTrustMaterial loads both TrustedRoot and SigningConfig from the configuration.
+//
+// This method is useful when you need both verification material (TrustedRoot)
+// and signing service URLs (SigningConfig) from a ClientTrustConfig file.
+//
+// Returns:
+//   - TrustedRoot: The trust material for verification
+//   - SigningConfig: The signing service configuration (may be nil if not available)
+//   - error: Any error encountered during loading
+func (c *TrustRootConfig) LoadTrustMaterial() (*root.TrustedRoot, *root.SigningConfig, error) {
+	// Staging environment (for testing)
+	if c.UseStaging {
+		tufOpts := tuf.DefaultOptions().
+			WithRepositoryBaseURL(tuf.StagingMirror).
+			WithRoot(tuf.StagingRoot())
+
+		trustRoot, err := root.FetchTrustedRootWithOptions(tufOpts)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to fetch staging trust root: %w", err)
+		}
+
+		signingConfig, err := root.FetchSigningConfigWithOptions(tufOpts)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to fetch staging signing config: %w", err)
+		}
+
+		return trustRoot, signingConfig, nil
+	}
+
+	// Custom trust config from file
+	if c.TrustRootPath != "" {
+		return loadTrustMaterialFromFile(c.TrustRootPath)
+	}
+
+	// Production (default)
+	trustRoot, err := root.FetchTrustedRoot()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to fetch production trust root: %w", err)
+	}
+
+	signingConfig, err := root.FetchSigningConfig()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to fetch production signing config: %w", err)
+	}
+
+	return trustRoot, signingConfig, nil
+}
+
+// loadTrustMaterialFromFile loads both TrustedRoot and SigningConfig from a JSON file.
+// It supports both ClientTrustConfig format (with nested trustedRoot and signingConfig)
+// and raw TrustedRoot format (returns nil SigningConfig).
+func loadTrustMaterialFromFile(path string) (*root.TrustedRoot, *root.SigningConfig, error) {
+	fileBytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read trust config file: %w", err)
+	}
+
+	// First, try to parse as ClientTrustConfig (wrapper format)
+	clientConfig := &prototrustroot.ClientTrustConfig{}
+	if err := protojson.Unmarshal(fileBytes, clientConfig); err == nil {
+		// Successfully parsed as ClientTrustConfig
+		if clientConfig.GetTrustedRoot() == nil {
+			return nil, nil, fmt.Errorf("ClientTrustConfig does not contain a trustedRoot")
+		}
+
+		trustRoot, err := root.NewTrustedRootFromProtobuf(clientConfig.GetTrustedRoot())
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to parse trustedRoot: %w", err)
+		}
+
+		var signingConfig *root.SigningConfig
+		if clientConfig.GetSigningConfig() != nil {
+			signingConfig, err = root.NewSigningConfigFromProtobuf(clientConfig.GetSigningConfig())
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to parse signingConfig: %w", err)
+			}
+		}
+
+		return trustRoot, signingConfig, nil
+	}
+
+	// Fall back to parsing as raw TrustedRoot (no SigningConfig available)
+	trustRoot, err := root.NewTrustedRootFromJSON(fileBytes)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse trust root: %w", err)
+	}
+
+	return trustRoot, nil, nil
 }
 
 // KeyConfig handles cryptographic key file configuration.
