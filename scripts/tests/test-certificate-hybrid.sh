@@ -104,8 +104,8 @@ echo "1a. Testing with ECDSA P-256 key..."
 if ! ${DIR}/model-signing \
 	sign certificate \
 	--signature "${sigfile_single}" \
-	--private-key ./keys/single-cert/signing-key-p256.pem \
-	--signing-certificate ./keys/single-cert/signing-cert-p256.pem \
+	--private-key ${DIR}/keys/single-cert/signing-key-p256.pem \
+	--signing-certificate ${DIR}/keys/single-cert/signing-cert-p256.pem \
 	"${MODEL_DIR}" 2>&1 | grep -v "^$"; then
 	echo "Error: 'sign certificate' with single P-256 cert failed"
 	exit 1
@@ -121,7 +121,7 @@ fi
 if ! ${DIR}/model-signing \
 	verify certificate \
 	--signature "${sigfile_single}" \
-	--certificate-chain ./keys/single-cert/signing-cert-p256.pem \
+	--certificate-chain ${DIR}/keys/single-cert/signing-cert-p256.pem \
 	"${MODEL_DIR}" 2>&1 | grep -v "^$"; then
 	echo "Error: 'verify certificate' with single P-256 cert failed"
 	exit 1
@@ -135,8 +135,8 @@ echo "1b. Testing with ECDSA P-384 key..."
 if ! ${DIR}/model-signing \
 	sign certificate \
 	--signature "${sigfile_single}" \
-	--private-key ./keys/single-cert/signing-key-p384.pem \
-	--signing-certificate ./keys/single-cert/signing-cert-p384.pem \
+	--private-key ${DIR}/keys/single-cert/signing-key-p384.pem \
+	--signing-certificate ${DIR}/keys/single-cert/signing-cert-p384.pem \
 	"${MODEL_DIR}" 2>&1 | grep -v "^$"; then
 	echo "Error: 'sign certificate' with single P-384 cert failed"
 	exit 1
@@ -150,7 +150,7 @@ fi
 if ! ${DIR}/model-signing \
 	verify certificate \
 	--signature "${sigfile_single}" \
-	--certificate-chain ./keys/single-cert/signing-cert-p384.pem \
+	--certificate-chain ${DIR}/keys/single-cert/signing-cert-p384.pem \
 	"${MODEL_DIR}" 2>&1 | grep -v "^$"; then
 	echo "Error: 'verify certificate' with single P-384 cert failed"
 	exit 1
@@ -164,8 +164,8 @@ echo "1c. Testing with RSA-2048 key..."
 if ! ${DIR}/model-signing \
 	sign certificate \
 	--signature "${sigfile_single}" \
-	--private-key ./keys/single-cert/signing-key-rsa.pem \
-	--signing-certificate ./keys/single-cert/signing-cert-rsa.pem \
+	--private-key ${DIR}/keys/single-cert/signing-key-rsa.pem \
+	--signing-certificate ${DIR}/keys/single-cert/signing-cert-rsa.pem \
 	"${MODEL_DIR}" 2>&1 | grep -v "^$"; then
 	echo "Error: 'sign certificate' with single RSA cert failed"
 	exit 1
@@ -179,7 +179,7 @@ fi
 if ! ${DIR}/model-signing \
 	verify certificate \
 	--signature "${sigfile_single}" \
-	--certificate-chain ./keys/single-cert/signing-cert-rsa.pem \
+	--certificate-chain ${DIR}/keys/single-cert/signing-cert-rsa.pem \
 	"${MODEL_DIR}" 2>&1 | grep -v "^$"; then
 	echo "Error: 'verify certificate' with single RSA cert failed"
 	exit 1
@@ -203,9 +203,9 @@ echo "2a. Testing with certificate chain (should show warning)..."
 output=$(${DIR}/model-signing \
 	sign certificate \
 	--signature "${sigfile_chain}" \
-	--private-key ./keys/certificate/signing-key.pem \
-	--signing-certificate ./keys/certificate/signing-key-cert.pem \
-	--certificate-chain ./keys/certificate/int-ca-cert.pem \
+	--private-key ${DIR}/keys/certificate/signing-key.pem \
+	--signing-certificate ${DIR}/keys/certificate/signing-key-cert.pem \
+	--certificate-chain ${DIR}/keys/certificate/int-ca-cert.pem \
 	"${MODEL_DIR}" 2>&1)
 
 if [ $? -ne 0 ]; then
@@ -232,7 +232,7 @@ fi
 output=$(${DIR}/model-signing \
 	verify certificate \
 	--signature "${sigfile_chain}" \
-	--certificate-chain ./keys/certificate/ca-cert.pem \
+	--certificate-chain ${DIR}/keys/certificate/ca-cert.pem \
 	"${MODEL_DIR}" 2>&1)
 
 if [ $? -ne 0 ]; then
@@ -277,8 +277,8 @@ openssl req -new -x509 \
 ${DIR}/model-signing \
 	sign certificate \
 	--signature "${sigfile_single}" \
-	--private-key ./keys/single-cert/signing-key-p256.pem \
-	--signing-certificate ./keys/single-cert/signing-cert-p256.pem \
+	--private-key ${DIR}/keys/single-cert/signing-key-p256.pem \
+	--signing-certificate ${DIR}/keys/single-cert/signing-cert-p256.pem \
 	"${MODEL_DIR}" 2>&1 > /dev/null
 
 # Try to verify with wrong cert (should fail)
@@ -299,9 +299,9 @@ echo "3b. Verify chain bundle with wrong trust anchor (should fail)..."
 ${DIR}/model-signing \
 	sign certificate \
 	--signature "${sigfile_chain}" \
-	--private-key ./keys/certificate/signing-key.pem \
-	--signing-certificate ./keys/certificate/signing-key-cert.pem \
-	--certificate-chain ./keys/certificate/int-ca-cert.pem \
+	--private-key ${DIR}/keys/certificate/signing-key.pem \
+	--signing-certificate ${DIR}/keys/certificate/signing-key-cert.pem \
+	--certificate-chain ${DIR}/keys/certificate/int-ca-cert.pem \
 	"${MODEL_DIR}" 2>&1 > /dev/null
 
 # Try to verify with a completely unrelated certificate (should fail)
