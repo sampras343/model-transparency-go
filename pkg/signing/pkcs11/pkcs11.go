@@ -38,6 +38,12 @@ const (
 	bundleMediaType = "application/vnd.dev.sigstore.bundle.v0.3+json"
 )
 
+// DefaultModulePaths are standard PKCS#11 module search paths.
+var DefaultModulePaths = []string{
+	"/usr/lib64/pkcs11/", // Fedora, RHEL, openSUSE
+	"/usr/lib/pkcs11/",   // Fedora 32-bit, ArchLinux
+}
+
 // Signer implements signing using PKCS#11 with elliptic curve keys.
 type Signer struct {
 	ctx        *pkcs11.Ctx
@@ -54,9 +60,11 @@ func NewSigner(pkcs11URI string, modulePaths []string) (*Signer, error) {
 		return nil, fmt.Errorf("failed to parse PKCS#11 URI: %w", err)
 	}
 
-	if len(modulePaths) > 0 {
-		uri.SetModuleDirectories(modulePaths)
+	// Use default module paths if none provided (matches Python behavior)
+	if len(modulePaths) == 0 {
+		modulePaths = DefaultModulePaths
 	}
+	uri.SetModuleDirectories(modulePaths)
 	uri.SetAllowAnyModule(true)
 
 	// Get module path
@@ -146,6 +154,11 @@ func (s *Signer) Close() error {
 	return nil
 }
 
+// PublicKey returns the ECDSA public key.
+func (s *Signer) PublicKey() *ecdsa.PublicKey {
+	return s.publicKey
+}
+
 // Sign signs the payload and returns a signature bundle.
 func (s *Signer) Sign(payload *interfaces.Payload) (interfaces.SignatureBundle, error) {
 	// Serialize payload to JSON
@@ -163,7 +176,7 @@ func (s *Signer) Sign(payload *interfaces.Payload) (interfaces.SignatureBundle, 
 	hasher.Write(pae)
 	digest := hasher.Sum(nil)
 
-	// Sign the digest (use SignInit + Sign per current pkcs11 API)
+	// Sign the digest using PKCS#11
 	mechanism := []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)}
 	if err := s.ctx.SignInit(s.session, mechanism, s.privateKey); err != nil {
 		return nil, fmt.Errorf("failed to initialize sign operation: %w", err)
@@ -200,12 +213,10 @@ func (s *Signer) Sign(payload *interfaces.Payload) (interfaces.SignatureBundle, 
 
 // getVerificationMaterial returns the verification material for the bundle.
 func (s *Signer) getVerificationMaterial() *bundle.VerificationMaterial {
-	// Compute SHA256 hash of the public key using shared utility
-	// This marshals to PKIX format, encodes as PEM, and hashes - matching verifier expectations
+	// Compute SHA256 hash of the public key
 	keyHash, err := config.ComputePublicKeyHash(s.publicKey)
 	if err != nil {
 		// Fallback to empty hint if hash computation fails
-		// This shouldn't happen for valid EC keys, but provides resilience
 		keyHash = ""
 	}
 
@@ -295,7 +306,7 @@ func openSessionForSlot(ctx *pkcs11.Ctx, slotID uint, uri *Pkcs11URI, expectedLa
 // findObject finds a PKCS#11 object by class, ID, and/or label.
 func findObject(ctx *pkcs11.Ctx, session pkcs11.SessionHandle, class uint, id []byte, label string) (pkcs11.ObjectHandle, error) {
 	if id == nil && label == "" {
-		return 0, fmt.Errorf("missing search criteria for object: either label or id must be provided")
+		return 0, fmt.Errorf("missing search criteria for object: either label or id must be provided in URI")
 	}
 
 	template := []*pkcs11.Attribute{
