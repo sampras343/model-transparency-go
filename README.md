@@ -279,25 +279,35 @@ we will be using the sample test certs available in the repository
 
 ### Sign-Verify with PKCS#11 / HSM
 
-For signing with hardware security modules (HSMs) or SoftHSM2, see the complete guide: **[PKCS11_GUIDE.md](PKCS11_GUIDE.md)**
+For signing with hardware security modules (HSMs) or SoftHSM2, see:
+- **Complete guide**: [PKCS11_GUIDE.md](PKCS11_GUIDE.md)
+- **Testing scripts**: [scripts/pkcs11-tests/](scripts/pkcs11-tests/)
 
 **Quick Start:**
 ```bash
-# Setup (one-time)
-[...]$ ./setup-softhsm2.sh
-[...]$ source softhsm2-config.sh
+# Setup SoftHSM2 (one-time)
+[...]$ scripts/pkcs11-tests/softhsm_setup setup
+
+# Get the key URI
+[...]$ keyuri=$(scripts/pkcs11-tests/softhsm_setup getkeyuri | sed -n 's/^keyuri: //p')
 
 # Sign with PKCS#11
-[...]$ SOFTHSM2_CONF="$SOFTHSM2_CONF" model-signing sign pkcs11 bert-base-uncased \
-  --pkcs11-uri "$SOFTHSM2_URI" --signature model.sig
+[...]$ model-signing sign pkcs11 bert-base-uncased \
+  --pkcs11-uri "$keyuri" --signature model.sig
 
-# Export public key (one-time)
-[...]$ SOFTHSM2_CONF="$SOFTHSM2_CONF" pkcs11-tool --module $SOFTHSM2_MODULE_PATH \
-  --login --pin 1234 --read-object --type pubkey --label mykey -o public-key.der
-[...]$ openssl ec -pubin -inform DER -in public-key.der -outform PEM -out public-key.pem
+# Export public key for verification
+[...]$ scripts/pkcs11-tests/softhsm_setup getpubkey > public-key.pem
 
 # Verify
 [...]$ model-signing verify key bert-base-uncased --signature model.sig --public-key public-key.pem
+
+# Cleanup (when done testing)
+[...]$ scripts/pkcs11-tests/softhsm_setup teardown
+```
+
+**Automated Testing:**
+```bash
+[...]$ scripts/pkcs11-tests/test_pkcs11.sh
 ```
 
 For more details including certificate-based PKCS#11 signing, troubleshooting, and advanced options, see [PKCS11_GUIDE.md](PKCS11_GUIDE.md).

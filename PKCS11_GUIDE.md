@@ -1,6 +1,6 @@
 # PKCS#11 Signing and Verification Guide
 
-Complete guide for PKCS#11 signing with SoftHSM2.
+Complete guide for PKCS#11 signing with SoftHSM2, following the same approach as the Python implementation.
 
 ---
 
@@ -8,18 +8,14 @@ Complete guide for PKCS#11 signing with SoftHSM2.
 
 **Sign:**
 ```bash
-source softhsm2-config.sh
-SOFTHSM2_CONF="$SOFTHSM2_CONF" ./build/model-signing sign pkcs11 MODEL \
-  --pkcs11-uri "$SOFTHSM2_URI" --signature SIG
+keyuri=$(scripts/pkcs11-tests/softhsm_setup getkeyuri | sed -n 's/^keyuri: //p')
+./build/model-signing sign pkcs11 MODEL --pkcs11-uri "$keyuri" --signature SIG
 ```
 
 **Verify:**
 ```bash
 # Export public key (once)
-source softhsm2-config.sh
-SOFTHSM2_CONF="$SOFTHSM2_CONF" pkcs11-tool --module $SOFTHSM2_MODULE_PATH \
-  --login --pin 1234 --read-object --type pubkey --label mykey -o public-key.der
-openssl ec -pubin -inform DER -in public-key.der -outform PEM -out public-key.pem
+scripts/pkcs11-tests/softhsm_setup getpubkey > public-key.pem
 
 # Verify
 ./build/model-signing verify key MODEL --signature SIG --public-key public-key.pem
@@ -30,30 +26,32 @@ openssl ec -pubin -inform DER -in public-key.der -outform PEM -out public-key.pe
 ## Quick Start
 
 ```bash
-# 1. Setup (first time only)
-./setup-softhsm2.sh
+# 1. Setup SoftHSM2 (first time only)
+scripts/pkcs11-tests/softhsm_setup setup
 
-# 2. Load configuration
-source softhsm2-config.sh
+# 2. Get the key URI
+keyuri=$(scripts/pkcs11-tests/softhsm_setup getkeyuri | sed -n 's/^keyuri: //p')
 
 # 3. Sign a model
-SOFTHSM2_CONF="$SOFTHSM2_CONF" ./build/model-signing sign pkcs11 test-model \
-  --pkcs11-uri "$SOFTHSM2_URI" \
+./build/model-signing sign pkcs11 test-model \
+  --pkcs11-uri "$keyuri" \
   --signature test-model.sig
 
 # 4. Export public key (once, reuse for all verifications)
-SOFTHSM2_CONF="$SOFTHSM2_CONF" pkcs11-tool --module $SOFTHSM2_MODULE_PATH \
-  --login --pin 1234 \
-  --read-object --type pubkey --label mykey \
-  -o public-key.der
-
-openssl ec -pubin -inform DER -in public-key.der \
-  -outform PEM -out public-key.pem
+scripts/pkcs11-tests/softhsm_setup getpubkey > public-key.pem
 
 # 5. Verify the signature
 ./build/model-signing verify key test-model \
   --signature test-model.sig \
   --public-key public-key.pem
+
+# 6. Cleanup (when done testing)
+scripts/pkcs11-tests/softhsm_setup teardown
+```
+
+**Or run the automated test:**
+```bash
+scripts/pkcs11-tests/test_pkcs11.sh
 ```
 
 ---
@@ -64,25 +62,48 @@ openssl ec -pubin -inform DER -in public-key.der \
 
 **Fedora/RHEL:**
 ```bash
-sudo dnf install softhsm
+sudo dnf install softhsm gnutls-utils
 ```
 
 **Ubuntu/Debian:**
 ```bash
-sudo apt-get install softhsm2
+sudo apt install softhsm2 gnutls-bin
 ```
 
-### Run Setup Script
-
+**macOS:**
 ```bash
-./setup-softhsm2.sh
+brew install softhsm gnutls
+```
+
+### Using softhsm_setup Script
+
+The `scripts/pkcs11-tests/softhsm_setup` script provides a modular interface for managing SoftHSM2 test environments.
+
+**Setup:**
+```bash
+scripts/pkcs11-tests/softhsm_setup setup
 ```
 
 This will:
-- Find the SoftHSM2 module
-- Create config in `~/.config/softhsm2/`
-- Initialize a token named "mytoken"
-- Generate an EC P-256 key pair
+- Create isolated config in `~/.config/softhsm2/`
+- Initialize a token named `model-signing-test`
+- Generate an EC secp384r1 key pair
+
+**Get Key URI:**
+```bash
+scripts/pkcs11-tests/softhsm_setup getkeyuri
+# Output: keyuri: pkcs11:token=model-signing-test;object=mykey?pin-value=1234&module-name=softhsm2
+```
+
+**Export Public Key:**
+```bash
+scripts/pkcs11-tests/softhsm_setup getpubkey > public-key.pem
+```
+
+**Teardown:**
+```bash
+scripts/pkcs11-tests/softhsm_setup teardown
+```
 
 ---
 
@@ -91,21 +112,21 @@ This will:
 ### Basic Signing
 
 ```bash
-# Load configuration
-source softhsm2-config.sh
+# Get the key URI
+keyuri=$(scripts/pkcs11-tests/softhsm_setup getkeyuri | sed -n 's/^keyuri: //p')
 
 # Sign
-SOFTHSM2_CONF="$SOFTHSM2_CONF" ./build/model-signing sign pkcs11 MODEL_PATH \
-  --pkcs11-uri "$SOFTHSM2_URI" \
+./build/model-signing sign pkcs11 MODEL_PATH \
+  --pkcs11-uri "$keyuri" \
   --signature SIGNATURE_FILE
 ```
 
 ### Example
 
 ```bash
-source softhsm2-config.sh
-SOFTHSM2_CONF="$SOFTHSM2_CONF" ./build/model-signing sign pkcs11 test-model \
-  --pkcs11-uri "$SOFTHSM2_URI" \
+keyuri=$(scripts/pkcs11-tests/softhsm_setup getkeyuri | sed -n 's/^keyuri: //p')
+./build/model-signing sign pkcs11 test-model \
+  --pkcs11-uri "$keyuri" \
   --signature test-model.sig
 ```
 
@@ -113,16 +134,22 @@ SOFTHSM2_CONF="$SOFTHSM2_CONF" ./build/model-signing sign pkcs11 test-model \
 
 Add `-d` flag:
 ```bash
-SOFTHSM2_CONF="$SOFTHSM2_CONF" ./build/model-signing sign pkcs11 test-model \
-  --pkcs11-uri "$SOFTHSM2_URI" --signature test-model.sig -d
+keyuri=$(scripts/pkcs11-tests/softhsm_setup getkeyuri | sed -n 's/^keyuri: //p')
+./build/model-signing sign pkcs11 test-model \
+  --pkcs11-uri "$keyuri" --signature test-model.sig -d
 ```
 
-### Without Environment Variables
+### Direct URI (Without Setup Script)
 
 ```bash
-SOFTHSM2_CONF="$HOME/.config/softhsm2/softhsm2.conf" \
+# Using module-name (searches standard locations)
 ./build/model-signing sign pkcs11 test-model \
-  --pkcs11-uri "pkcs11:token=mytoken;object=mykey?module-path=/usr/lib64/pkcs11/libsofthsm2.so&pin-value=1234" \
+  --pkcs11-uri "pkcs11:token=model-signing-test;object=mykey?module-name=softhsm2&pin-value=1234" \
+  --signature test-model.sig
+
+# Or using explicit module-path
+./build/model-signing sign pkcs11 test-model \
+  --pkcs11-uri "pkcs11:token=model-signing-test;object=mykey?module-path=/usr/lib64/pkcs11/libsofthsm2.so&pin-value=1234" \
   --signature test-model.sig
 ```
 
@@ -130,19 +157,13 @@ SOFTHSM2_CONF="$HOME/.config/softhsm2/softhsm2.conf" \
 
 ## Verification
 
-### Export Public Key (One Time)
+Verification requires the **public key** (not the PKCS#11 token).
 
+### Export Public Key
+
+**Using setup script (easiest):**
 ```bash
-source softhsm2-config.sh
-
-# Export from token (DER format)
-SOFTHSM2_CONF="$SOFTHSM2_CONF" pkcs11-tool --module $SOFTHSM2_MODULE_PATH \
-  --login --pin 1234 \
-  --read-object --type pubkey --label mykey \
-  -o public-key.der
-
-# Convert to PEM format
-openssl ec -pubin -inform DER -in public-key.der -outform PEM -out public-key.pem
+scripts/pkcs11-tests/softhsm_setup getpubkey > public-key.pem
 ```
 
 ### Verify Signature
@@ -176,9 +197,9 @@ openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
 ### Sign with Certificate
 
 ```bash
-source softhsm2-config.sh
-SOFTHSM2_CONF="$SOFTHSM2_CONF" ./build/model-signing sign pkcs11 test-model \
-  --pkcs11-uri "$SOFTHSM2_URI" \
+keyuri=$(scripts/pkcs11-tests/softhsm_setup getkeyuri | sed -n 's/^keyuri: //p')
+./build/model-signing sign pkcs11 test-model \
+  --pkcs11-uri "$keyuri" \
   --signing-certificate test-cert.pem \
   --signature test-model-cert.sig
 ```
@@ -193,154 +214,236 @@ SOFTHSM2_CONF="$SOFTHSM2_CONF" ./build/model-signing sign pkcs11 test-model \
 
 ---
 
-## Command Reference
+## Troubleshooting
 
-### Sign a Model
-```bash
-source softhsm2-config.sh
-SOFTHSM2_CONF="$SOFTHSM2_CONF" ./build/model-signing sign pkcs11 MODEL_PATH \
-  --pkcs11-uri "$SOFTHSM2_URI" \
-  --signature SIGNATURE_FILE
-```
-
-### Verify a Model
-```bash
-# Step 1: Export public key (do once, reuse for all verifications)
-source softhsm2-config.sh
-SOFTHSM2_CONF="$SOFTHSM2_CONF" pkcs11-tool --module $SOFTHSM2_MODULE_PATH \
-  --login --pin 1234 --read-object --type pubkey --label mykey -o public-key.der
-openssl ec -pubin -inform DER -in public-key.der -outform PEM -out public-key.pem
-
-# Step 2: Verify
-./build/model-signing verify key MODEL_PATH \
-  --signature SIGNATURE_FILE \
-  --public-key public-key.pem
-```
-
-### Check Token
+### Show Available Tokens
 ```bash
 SOFTHSM2_CONF="$HOME/.config/softhsm2/softhsm2.conf" softhsm2-util --show-slots
 ```
 
 ### List Keys
 ```bash
-source softhsm2-config.sh
-SOFTHSM2_CONF="$SOFTHSM2_CONF" pkcs11-tool --module $SOFTHSM2_MODULE_PATH \
-  --login --pin 1234 --list-objects
+MODULE_PATH=$(find /usr/lib* -name "libsofthsm2.so" 2>/dev/null | grep -v "softhsm/" | head -1)
+SOFTHSM2_CONF="$HOME/.config/softhsm2/softhsm2.conf" \
+pkcs11-tool --module "$MODULE_PATH" --login --pin 1234 --list-objects
 ```
 
----
-
-## Troubleshooting
-
-### "Failed to enumerate object store"
-**Solution:** Run `./setup-softhsm2.sh` (uses home directory)
-
-### "no such file or directory" for module
-**Check location:**
+### Check Module Path
 ```bash
-find /usr/lib* -name "libsofthsm2.so"
+find /usr/lib* -name "libsofthsm2.so" 2>/dev/null | grep -v "softhsm/"
 ```
-Use the path in `/usr/lib64/pkcs11/` or `/usr/lib/x86_64-linux-gnu/softhsm/`
 
-### "Could not find any object with label"
-**List available objects:**
+### Test Token Access
 ```bash
-source softhsm2-config.sh
-SOFTHSM2_CONF="$SOFTHSM2_CONF" pkcs11-tool --module $SOFTHSM2_MODULE_PATH \
-  --login --pin 1234 --list-objects
+MODULE_PATH=$(find /usr/lib* -name "libsofthsm2.so" 2>/dev/null | grep -v "softhsm/" | head -1)
+SOFTHSM2_CONF="$HOME/.config/softhsm2/softhsm2.conf" \
+pkcs11-tool --module "$MODULE_PATH" --login --pin 1234 --list-objects
 ```
 
-### "Key mismatch" warning during verification
-
-If you see:
-```
-WARNING: Key mismatch: The public key hash in the signature's verification material (...) 
-does not match the provided public key (...). Proceeding with verification anyway.
-```
-
-**Possible causes:**
-1. The public key was exported from a different key than the one used for signing
-2. Multiple keys exist in your token with the same label
-
-**Solution - Re-sign and re-export with matching keys:**
+### Verify Public Key Export
 ```bash
-# Run the fix script
-./fix-pkcs11-verify.sh
-```
-
-**Or manually:**
-```bash
-# 1. Clean up
-rm -f test-model*.sig public-key.*
-
-# 2. Sign
-source softhsm2-config.sh
-SOFTHSM2_CONF="$SOFTHSM2_CONF" ./build/model-signing sign pkcs11 test-model \
-  --pkcs11-uri "$SOFTHSM2_URI" --signature test-model.sig
-
-# 3. Export public key (immediately after signing)
-SOFTHSM2_CONF="$SOFTHSM2_CONF" pkcs11-tool --module $SOFTHSM2_MODULE_PATH \
-  --login --pin 1234 --read-object --type pubkey --label mykey -o public-key.der
-openssl ec -pubin -inform DER -in public-key.der -outform PEM -out public-key.pem
-
-# 4. Verify
-./build/model-signing verify key test-model --signature test-model.sig --public-key public-key.pem
-```
-
-**Note:** If verification succeeds despite the warning, the signature is cryptographically valid. The warning indicates metadata mismatch, not signature invalidity.
-
----
-
-### Verification fails
-**Check public key format:**
-```bash
+# Should show EC PUBLIC KEY
 cat public-key.pem
-# Should start with: -----BEGIN PUBLIC KEY-----
 ```
 
-**Re-export if needed:**
-```bash
-openssl ec -pubin -inform DER -in public-key.der -outform PEM -out public-key.pem
-```
+### Common Errors
+
+**"Could not find any object with label X"**
+- Check that the key exists: `scripts/pkcs11-tests/softhsm_setup setup`
+- Verify label matches: token uses `mykey` as the label
+
+**"module-name attribute is not set"**
+- Add `module-name=softhsm2` to your PKCS#11 URI
+- Or use `module-path=/path/to/libsofthsm2.so`
+
+**"Could not find libsofthsm2.so"**
+- Install SoftHSM2: `sudo dnf install softhsm` or `sudo apt install softhsm2`
+- Check module path: `find /usr/lib* -name "libsofthsm2.so"`
+
+**"failed to initialize PKCS#11"**
+- Ensure `SOFTHSM2_CONF` points to valid config
+- Default: `~/.config/softhsm2/softhsm2.conf`
 
 ---
 
-## File Locations
+## Complete Example Workflow
 
-| What | Where |
-|------|-------|
-| Config | `~/.config/softhsm2/softhsm2.conf` |
-| Tokens | `~/.config/softhsm2/tokens/` |
-| Module | `/usr/lib64/pkcs11/libsofthsm2.so` |
-| Helper script | `./softhsm2-config.sh` |
+```bash
+# 1. Build the binary
+make build
+
+# 2. Setup SoftHSM2
+scripts/pkcs11-tests/softhsm_setup setup
+
+# 3. Sign
+keyuri=$(scripts/pkcs11-tests/softhsm_setup getkeyuri | sed -n 's/^keyuri: //p')
+./build/model-signing sign pkcs11 test-model \
+  --pkcs11-uri "$keyuri" --signature test-model.sig
+
+# 4. Export public key
+scripts/pkcs11-tests/softhsm_setup getpubkey > public-key.pem
+
+# 5. Verify
+./build/model-signing verify key test-model \
+  --signature test-model.sig \
+  --public-key public-key.pem
+
+# 6. Cleanup
+scripts/pkcs11-tests/softhsm_setup teardown
+```
 
 ---
 
 ## Environment Variables
 
-When you run `source softhsm2-config.sh`:
+The `softhsm_setup` script uses these environment variables:
 
-| Variable | Value |
-|----------|-------|
-| `SOFTHSM2_CONF` | Config file path |
-| `SOFTHSM2_MODULE_PATH` | Module library path |
-| `SOFTHSM2_URI` | Complete PKCS#11 URI |
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `PIN` | Token user PIN | 1234 |
+| `SO_PIN` | Security Officer PIN | 1234 |
+| `SOFTHSM_SETUP_CONFIGDIR` | Config directory | `~/.config/softhsm2` |
+| `SOFTHSM2_CONF` | Config file path | `$SOFTHSM_SETUP_CONFIGDIR/softhsm2.conf` |
 
 ---
 
-## Security Notes
+## Configuration Details
 
-⚠️ **For testing only!**
-- Never use hardcoded PINs in production
-- Use `pin-source=file:///path/to/pin.txt` instead of `pin-value`
-- Protect PIN files: `chmod 600 pin.txt`
-- Keep `~/.config/softhsm2/` secure
+### Token Details (after setup)
+
+| Property | Value |
+|----------|-------|
+| Token Label | `model-signing-test` |
+| Key Label | `mykey` |
+| Key Type | EC secp384r1 |
+| PIN | 1234 |
+| Config Dir | `~/.config/softhsm2/` |
+| Module | `/usr/lib64/pkcs11/libsofthsm2.so` (Linux) |
+
+---
+
+## Testing Scripts
+
+See [scripts/pkcs11-tests/README.md](scripts/pkcs11-tests/README.md) for detailed information on:
+- Automated testing
+- CI/CD integration
+- Troubleshooting
+- Comparison with Python implementation
+
+---
+
+## PKCS#11 URI Format
+
+The PKCS#11 URI follows RFC 7512:
+
+```
+pkcs11:token=TOKEN;object=KEY?module-name=MODULE&pin-value=PIN
+```
+
+**Path Attributes** (before `?`):
+- `token` - Token label
+- `object` - Key label  
+- `id` - Key ID (hex-encoded bytes)
+- `slot-id` - Slot number
+
+**Query Attributes** (after `?`):
+- `module-name` - Module name (searches standard paths)
+- `module-path` - Explicit module path
+- `pin-value` - PIN (avoid in production!)
+- `pin-source` - Path to PIN file (`file:///path/to/pin`)
+
+**Examples:**
+```bash
+# Using module-name (recommended)
+pkcs11:token=mytoken;object=mykey?module-name=softhsm2&pin-value=1234
+
+# Using module-path
+pkcs11:token=mytoken;object=mykey?module-path=/usr/lib64/pkcs11/libsofthsm2.so&pin-value=1234
+
+# Using PIN from file (production)
+pkcs11:token=mytoken;object=mykey?module-name=softhsm2&pin-source=file:///secure/pin.txt
+
+# Using slot-id instead of token
+pkcs11:slot-id=0;object=mykey?module-name=softhsm2&pin-value=1234
+```
+
+---
+
+## Production Considerations
+
+### Security Best Practices
+
+1. **PIN Management**
+   - Never hardcode PINs in URIs
+   - Use `pin-source=file:///secure/path`
+   - Restrict file permissions: `chmod 600 /secure/pin`
+
+2. **Module Path Restrictions**
+   - Use `SetAllowedModulePaths()` to whitelist modules
+   - Default: `SetAllowAnyModule(true)` (dev only!)
+
+3. **HSM vs SoftHSM**
+   - SoftHSM2: Development and testing
+   - Hardware HSM: Production signing
+   - YubiKey: Personal/small-scale signing
+
+### Hardware HSM Support
+
+The implementation supports any PKCS#11-compatible HSM:
+- YubiKey (via ykcs11)
+- AWS CloudHSM
+- Thales Luna HSM
+- Utimaco HSM
+
+**Example with YubiKey:**
+```bash
+./build/model-signing sign pkcs11 model \
+  --pkcs11-uri "pkcs11:token=YubiKey;object=mykey?module-name=ykcs11&pin-source=file:///secure/pin" \
+  --signature model.sig
+```
+
+---
+
+## Supported Features
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| EC Keys (P-256, P-384, P-521) | ✅ | Fully supported |
+| PIN from value | ✅ | Development only |
+| PIN from file | ✅ | Production recommended |
+| Module-name search | ✅ | Searches standard paths |
+| Module-path explicit | ✅ | Direct path specification |
+| Certificate-based signing | ✅ | With certificate chain |
+| Module security policy | ✅ | Restrict allowed modules |
+| Slot-ID selection | ✅ | Direct slot access |
+| Token label search | ✅ | Search by token name |
+
+---
+
+## Comparison with Python
+
+The Go implementation maintains full compatibility with the Python project:
+
+| Feature | Python | Go | Compatible |
+|---------|--------|-----|------------|
+| RFC 7512 URI parsing | ✅ | ✅ | ✅ |
+| secp384r1 keys | ✅ | ✅ | ✅ |
+| PIN from file | ✅ | ✅ | ✅ |
+| Module security | ✅ | ✅ | ✅ |
+| Sigstore bundles | ✅ | ✅ | ✅ |
+| DSSE envelope | ✅ | ✅ | ✅ |
+
+**Testing Scripts:**
+- Python: `scripts/pkcs11-tests/softhsm_setup`
+- Go: `scripts/pkcs11-tests/softhsm_setup` (same!)
+
+Signatures created by either implementation can be verified by the other.
 
 ---
 
 ## Additional Resources
 
-- Package documentation: `pkg/signing/pkcs11/README.md`
-- SoftHSM2: https://www.opendnssec.org/softhsm/
-- PKCS#11 URI RFC: https://tools.ietf.org/html/rfc7512
+- [Python PKCS#11 Implementation](https://github.com/sigstore/model-transparency/blob/main/src/model_signing/_signing/sign_pkcs11.py)
+- [RFC 7512 - PKCS#11 URI](https://datatracker.ietf.org/doc/html/rfc7512)
+- [SoftHSM2 Documentation](https://github.com/opendnssec/SoftHSMv2)
+- [PKCS#11 Specification](http://docs.oasis-open.org/pkcs11/pkcs11-base/v2.40/pkcs11-base-v2.40.html)
