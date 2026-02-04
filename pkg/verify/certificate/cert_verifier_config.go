@@ -208,7 +208,7 @@ func (v *CertificateBundleVerifier) verifyWithSigstoreGoBundle(protoBundle *prot
 	}
 
 	// Extract DSSE envelope from the sigstore-go bundle
-	dsseEnvelope := sigstoreBundle.Bundle.GetDsseEnvelope()
+	dsseEnvelope := sigstoreBundle.GetDsseEnvelope()
 	if dsseEnvelope == nil {
 		return nil, fmt.Errorf("bundle does not contain a DSSE envelope")
 	}
