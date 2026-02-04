@@ -20,9 +20,11 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"log"
 	"os"
 
 	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
+	"github.com/sigstore/sigstore-go/pkg/bundle"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	internalcrypto "github.com/sigstore/model-signing/internal/crypto"
@@ -163,33 +165,143 @@ func (v *CertificateBundleVerifier) VerifyFromPath(signaturePath string) (*manif
 
 // verifyWithHybridStrategy determines the best verification approach based on bundle characteristics.
 //
-// For v0.3 bundles with certificate chains (multiple certs), it uses custom verification
-// because sigstore-go rejects these. For other cases, it could use sigstore-go in the future
-// when certificate-based verification is added to sigstore-go with proper trust root support.
+// Hybrid approach:
+//   - Single certificate (Certificate field): Uses sigstore-go to load the bundle, then custom cert validation
+//   - Certificate chain (X509CertificateChain): Uses fully custom verification with warning
 //
-// Currently, this always uses custom verification but provides the infrastructure for
-// future sigstore-go integration.
+// Note: sigstore-go's certificate verification expects Fulcio/TUF roots, so we still use
+// custom certificate chain validation, but we leverage sigstore-go for bundle loading
+// when possible to stay closer to the standard implementation.
 func (v *CertificateBundleVerifier) verifyWithHybridStrategy(protoBundle *protobundle.Bundle) (*manifest.Manifest, error) {
-	// Detect bundle version and certificate chain characteristics
-	bundleVersion, certCount := detectBundleCharacteristics(protoBundle)
+	// Detect bundle format
+	verificationMaterial := protoBundle.GetVerificationMaterial()
+	if verificationMaterial == nil {
+		return nil, fmt.Errorf("verification material is missing")
+	}
 
-	v.logger.Debug("Bundle version: %s, certificate count: %d", bundleVersion, certCount)
+	// Check which certificate format is used
+	hasSingleCert := verificationMaterial.GetCertificate() != nil
+	hasCertChain := verificationMaterial.GetX509CertificateChain() != nil
 
-	// Decision logic:
-	// - v0.3 with multiple certificates: MUST use custom verification (sigstore-go rejects)
-	// - Single certificate: could use sigstore-go, but we need custom trust root support
-	//   (sigstore-go expects Fulcio/TUF roots, not custom CA chains)
-	// - v0.4+: when available, evaluate sigstore-go support
+	if hasSingleCert {
+		// Single certificate format (sigstore-go compatible)
+		v.logger.Debug("Using sigstore-go compatible verification (single certificate)")
+		return v.verifyWithSigstoreGoBundle(protoBundle)
+	}
 
-	if bundleVersion == "0.3" && certCount > 1 {
-		v.logger.Debug("Using custom verification (v0.3 with certificate chain)")
+	if hasCertChain {
+		// Certificate chain format (sigstore-go rejects this for v0.3)
+		log.Printf("WARNING: Using custom X509CertificateChain verification (sigstore-go does not support certificate chains in v0.3 bundles)")
 		return v.verifyProtobufBundle(protoBundle)
 	}
 
-	// For now, always use custom verification for certificate-based signatures
-	// Future enhancement: integrate sigstore-go when it supports custom CA trust roots
-	v.logger.Debug("Using custom verification (certificate-based signature)")
-	return v.verifyProtobufBundle(protoBundle)
+	return nil, fmt.Errorf("no certificate found in verification material")
+}
+
+// verifyWithSigstoreGoBundle verifies a bundle with single Certificate using sigstore-go for loading.
+// Certificate chain validation is still done with custom code since sigstore-go expects Fulcio roots.
+func (v *CertificateBundleVerifier) verifyWithSigstoreGoBundle(protoBundle *protobundle.Bundle) (*manifest.Manifest, error) {
+	// Use sigstore-go to load and validate the bundle structure
+	sigstoreBundle, err := bundle.NewBundle(protoBundle)
+	if err != nil {
+		return nil, fmt.Errorf("sigstore-go bundle validation failed: %w", err)
+	}
+
+	// Extract DSSE envelope from the sigstore-go bundle
+	dsseEnvelope := sigstoreBundle.Bundle.GetDsseEnvelope()
+	if dsseEnvelope == nil {
+		return nil, fmt.Errorf("bundle does not contain a DSSE envelope")
+	}
+
+	// Verify exactly one signature
+	if len(dsseEnvelope.Signatures) != 1 {
+		return nil, fmt.Errorf("expected exactly one signature, got %d", len(dsseEnvelope.Signatures))
+	}
+
+	// Verify payload type
+	if dsseEnvelope.PayloadType != utils.InTotoJSONPayloadType {
+		return nil, fmt.Errorf("expected DSSE payload %s, but got %s",
+			utils.InTotoJSONPayloadType, dsseEnvelope.PayloadType)
+	}
+
+	// Extract and verify the single certificate (custom validation for non-Fulcio CAs)
+	publicKey, err := v.verifySingleCertificate(protoBundle.VerificationMaterial)
+	if err != nil {
+		return nil, fmt.Errorf("certificate verification failed: %w", err)
+	}
+
+	// Payload is already raw bytes in protobuf (not base64 encoded)
+	payloadBytes := dsseEnvelope.Payload
+
+	// Compute Pre-Authentication Encoding (PAE) for DSSE
+	pae := internalcrypto.ComputePAE(dsseEnvelope.PayloadType, payloadBytes)
+
+	// Signature is already raw bytes in protobuf (not base64 encoded)
+	signatureBytes := dsseEnvelope.Signatures[0].Sig
+
+	// Verify the signature using the public key
+	if err := internalcrypto.VerifySignature(publicKey, pae, signatureBytes); err != nil {
+		// Try v0.2.0 compatibility mode
+		v.logger.Debug("Standard verification failed, trying v0.2.0 compatibility mode")
+		paeCompat := internalcrypto.ComputePAECompat(dsseEnvelope.PayloadType, payloadBytes)
+		if compatErr := internalcrypto.VerifySignatureCompat(publicKey, paeCompat, signatureBytes); compatErr != nil {
+			return nil, fmt.Errorf("signature verification failed: %w", err)
+		}
+		v.logger.Debug("Signature verified using v0.2.0 compatibility mode")
+	}
+
+	// Extract manifest from payload
+	m, err := payload.VerifySignedContent(dsseEnvelope.PayloadType, payloadBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract manifest: %w", err)
+	}
+
+	return m, nil
+}
+
+// verifySingleCertificate verifies a single certificate (not a chain) and returns the public key.
+// Used for bundles with VerificationMaterial.Certificate format.
+func (v *CertificateBundleVerifier) verifySingleCertificate(verificationMaterial *protobundle.VerificationMaterial) (crypto.PublicKey, error) {
+	cert := verificationMaterial.GetCertificate()
+	if cert == nil || cert.RawBytes == nil {
+		return nil, fmt.Errorf("no certificate found in verification material")
+	}
+
+	// Parse the signing certificate
+	signingCert, err := x509.ParseCertificate(cert.RawBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse signing certificate: %w", err)
+	}
+
+	if v.config.LogFingerprints {
+		logCertificateFingerprint("verify", signingCert, v.logger)
+	}
+
+	// Verify the certificate against our trust pool
+	// Use the signing certificate's notBefore time as the verification time
+	verifyTime := signingCert.NotBefore
+
+	opts := x509.VerifyOptions{
+		Roots:       v.certPool,
+		CurrentTime: verifyTime,
+		KeyUsages:   []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+	}
+
+	chains, err := signingCert.Verify(opts)
+	if err != nil {
+		return nil, fmt.Errorf("certificate verification failed: %w", err)
+	}
+
+	if len(chains) == 0 {
+		return nil, fmt.Errorf("no valid certificate chains found")
+	}
+
+	// Check that the certificate can be used for signing
+	if err := validateSigningUsage(signingCert); err != nil {
+		return nil, err
+	}
+
+	return signingCert.PublicKey, nil
 }
 
 // detectBundleCharacteristics extracts bundle version and certificate count.
