@@ -9,6 +9,60 @@ get_signed_files()
 		jq -c '.predicate.resources | map(.name)'
 }
 
+# Check if bundle uses single certificate format (sigstore-go compatible)
+has_single_certificate()
+{
+	local sigfile="$1"
+	jq -e '.verificationMaterial.certificate != null' < "${sigfile}" > /dev/null 2>&1
+}
+
+# Check if bundle uses certificate chain format (custom)
+has_certificate_chain()
+{
+	local sigfile="$1"
+	jq -e '.verificationMaterial.x509CertificateChain != null' < "${sigfile}" > /dev/null 2>&1
+}
+
+# Get the number of certificates in the chain
+get_certificate_count()
+{
+	local sigfile="$1"
+	if has_certificate_chain "${sigfile}"; then
+		jq '.verificationMaterial.x509CertificateChain.certificates | length' < "${sigfile}"
+	elif has_single_certificate "${sigfile}"; then
+		echo "1"
+	else
+		echo "0"
+	fi
+}
+
+# Check bundle format and print info
+check_bundle_format()
+{
+	local sigfile="$1"
+	local expected_format="$2"  # "single" or "chain"
+
+	if [ "${expected_format}" = "single" ]; then
+		if ! has_single_certificate "${sigfile}"; then
+			echo "Error: Expected single certificate format but got certificate chain"
+			return 1
+		fi
+		echo "  Bundle format: single certificate (sigstore-go compatible)"
+	elif [ "${expected_format}" = "chain" ]; then
+		if ! has_certificate_chain "${sigfile}"; then
+			echo "Error: Expected certificate chain format but got single certificate"
+			return 1
+		fi
+		local count
+		count=$(get_certificate_count "${sigfile}")
+		echo "  Bundle format: certificate chain (${count} certificates)"
+	else
+		echo "Error: Unknown expected format: ${expected_format}"
+		return 1
+	fi
+	return 0
+}
+
 # Get the name of the model from the subject
 get_model_name()
 {

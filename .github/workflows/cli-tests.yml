@@ -95,3 +95,6 @@ jobs:
 
       - name: Run hardening tests
         run: ./scripts/tests/test-hardening.sh
+
+      - name: Run hybrid certificate tests
+        run: ./scripts/tests/test-certificate-hybrid.sh

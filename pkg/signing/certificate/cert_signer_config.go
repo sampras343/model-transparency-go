@@ -18,15 +18,19 @@ import (
 	"crypto"
 	"crypto/x509"
 	"fmt"
+	"log"
 	"os"
 
 	internalcrypto "github.com/sigstore/model-signing/internal/crypto"
 	"github.com/sigstore/model-signing/pkg/config"
 	"github.com/sigstore/model-signing/pkg/dsse"
 	"github.com/sigstore/model-signing/pkg/interfaces"
+	sign "github.com/sigstore/model-signing/pkg/signature"
 	"github.com/sigstore/model-signing/pkg/utils"
 	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
 	protocommon "github.com/sigstore/protobuf-specs/gen/pb-go/common/v1"
+	protodsse "github.com/sigstore/protobuf-specs/gen/pb-go/dsse"
+	"github.com/sigstore/sigstore-go/pkg/bundle"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -139,8 +143,12 @@ func NewCertificateBundleSigner(cfg CertificateSignerConfig) (*CertificateBundle
 
 // Sign signs a payload and returns a signature bundle.
 //
-// Creates a DSSE envelope with the signed payload and wraps it
-// in a Sigstore bundle format with X509 certificate chain verification material.
+// Creates a DSSE envelope with the signed payload and wraps it in a Sigstore bundle format.
+//
+// Hybrid approach:
+//   - Single certificate (no chain): Uses sigstore-go compatible format with VerificationMaterial.Certificate
+//   - Certificate chain: Uses custom X509CertificateChain format (sigstore-go rejects this for v0.3 bundles)
+//
 // Returns an error if serialization, signing, or bundle creation fails.
 func (s *CertificateBundleSigner) Sign(payload *interfaces.Payload) (interfaces.SignatureBundle, error) {
 	// Convert payload to JSON
@@ -167,12 +175,49 @@ func (s *CertificateBundleSigner) Sign(payload *interfaces.Payload) (interfaces.
 		return nil, fmt.Errorf("failed to convert envelope to protobuf: %w", err)
 	}
 
-	// Create Sigstore bundle with verification material
-	// Note: We use protobuf bundle directly instead of sigstore-go's bundle.NewBundle()
-	// because sigstore-go validates that v0.3 bundles cannot have X509 certificate chains.
+	// Hybrid approach: use sigstore-go for single certificates, custom for chains
+	if len(s.trustChain) == 0 {
+		// Single certificate: use sigstore-go compatible format
+		return s.signWithSigstoreGo(protoEnvelope)
+	}
+
+	// Certificate chain: use custom format with warning
+	log.Printf("WARNING: Using custom X509CertificateChain format (sigstore-go does not support certificate chains in v0.3 bundles)")
+	return s.signWithCustomFormat(protoEnvelope)
+}
+
+// signWithSigstoreGo creates a bundle using sigstore-go compatible format.
+// Uses VerificationMaterial.Certificate (singular) which sigstore-go accepts for v0.3 bundles.
+func (s *CertificateBundleSigner) signWithSigstoreGo(protoEnvelope *protodsse.Envelope) (interfaces.SignatureBundle, error) {
+	protoBundle := &protobundle.Bundle{
+		MediaType: utils.BundleMediaType,
+		VerificationMaterial: &protobundle.VerificationMaterial{
+			Content: &protobundle.VerificationMaterial_Certificate{
+				Certificate: &protocommon.X509Certificate{
+					RawBytes: s.signingCertificate.Raw,
+				},
+			},
+		},
+		Content: &protobundle.Bundle_DsseEnvelope{
+			DsseEnvelope: protoEnvelope,
+		},
+	}
+
+	// Validate with sigstore-go
+	bndl, err := bundle.NewBundle(protoBundle)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create sigstore-go bundle: %w", err)
+	}
+
+	return sign.NewSigstoreBundle(bndl), nil
+}
+
+// signWithCustomFormat creates a bundle with X509CertificateChain for multi-level certificates.
+// This bypasses sigstore-go validation which rejects certificate chains in v0.3 bundles.
+func (s *CertificateBundleSigner) signWithCustomFormat(protoEnvelope *protodsse.Envelope) (interfaces.SignatureBundle, error) {
 	protoBundle := &protobundle.Bundle{
 		MediaType:            utils.BundleMediaType,
-		VerificationMaterial: s.createVerificationMaterial(),
+		VerificationMaterial: s.createVerificationMaterialWithChain(),
 		Content: &protobundle.Bundle_DsseEnvelope{
 			DsseEnvelope: protoEnvelope,
 		},
@@ -181,11 +226,11 @@ func (s *CertificateBundleSigner) Sign(payload *interfaces.Payload) (interfaces.
 	return NewCertificateBundle(protoBundle), nil
 }
 
-// createVerificationMaterial creates the verification material for the bundle.
+// createVerificationMaterialWithChain creates the verification material for bundles with certificate chains.
 //
 // Includes the X509 certificate chain with the signing certificate followed
-// by the trust chain certificates.
-func (s *CertificateBundleSigner) createVerificationMaterial() *protobundle.VerificationMaterial {
+// by the trust chain certificates. This format is not supported by sigstore-go for v0.3 bundles.
+func (s *CertificateBundleSigner) createVerificationMaterialWithChain() *protobundle.VerificationMaterial {
 	// Build the certificate chain: signing certificate first, then trust chain
 	certificates := make([]*protocommon.X509Certificate, 0, 1+len(s.trustChain))
 
