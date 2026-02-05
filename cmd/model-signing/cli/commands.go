@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/logs"
 	"github.com/sigstore/model-signing/cmd/model-signing/cli/options"
 	"github.com/sigstore/model-signing/cmd/model-signing/cli/templates"
+	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/spf13/cobra"
 	cobracompletefig "github.com/withfig/autocomplete-tools/integrations/cobra"
 	"sigs.k8s.io/release-utils/version"
@@ -47,6 +48,7 @@ func New() *cobra.Command {
 		Short:             "ML model signing and verification.",
 		DisableAutoGenTag: true,
 		SilenceUsage:      true,
+		TraverseChildren:  true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			if ro.OutputFile != "" {
 				var err error
@@ -59,7 +61,7 @@ func New() *cobra.Command {
 				cmd.SetOut(out)
 			}
 
-			if ro.Verbose {
+			if ro.GetLogLevel() == logging.LevelDebug {
 				logs.Debug.SetOutput(os.Stderr)
 			}
 

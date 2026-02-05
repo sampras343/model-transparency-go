@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"github.com/sigstore/model-signing/pkg/config"
+	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/oci"
 	"github.com/sigstore/model-signing/pkg/utils"
 	"github.com/sigstore/model-signing/pkg/verify"
@@ -33,14 +34,14 @@ var _ verify.ModelVerifier = (*KeyVerifier)(nil)
 //
 //nolint:revive
 type KeyVerifierOptions struct {
-	ModelPath           string        // ModelPath is the path to the model directory or file to verify.
-	SignaturePath       string        // SignaturePath is the path to the signature file.
-	IgnorePaths         []string      // IgnorePaths specifies paths to exclude from verification.
-	IgnoreGitPaths      bool          // IgnoreGitPaths indicates whether to exclude git-ignored files.
-	AllowSymlinks       bool          // AllowSymlinks indicates whether to follow symbolic links.
-	PublicKeyPath       string        // PublicKeyPath is the path to the public key file.
-	IgnoreUnsignedFiles bool          // IgnoreUnsignedFiles allows verification to succeed even if extra files exist.
-	Logger              *utils.Logger // Logger is used for debug and info output.
+	ModelPath           string         // ModelPath is the path to the model directory or file to verify.
+	SignaturePath       string         // SignaturePath is the path to the signature file.
+	IgnorePaths         []string       // IgnorePaths specifies paths to exclude from verification.
+	IgnoreGitPaths      bool           // IgnoreGitPaths indicates whether to exclude git-ignored files.
+	AllowSymlinks       bool           // AllowSymlinks indicates whether to follow symbolic links.
+	PublicKeyPath       string         // PublicKeyPath is the path to the public key file.
+	IgnoreUnsignedFiles bool           // IgnoreUnsignedFiles allows verification to succeed even if extra files exist.
+	Logger              logging.Logger // Logger is used for debug and info output.
 }
 
 // KeyVerifier provides high-level verification with validation.
@@ -49,7 +50,7 @@ type KeyVerifierOptions struct {
 //nolint:revive
 type KeyVerifier struct {
 	opts   KeyVerifierOptions
-	logger *utils.Logger
+	logger logging.Logger
 }
 
 // NewKeyVerifier creates a new high-level key verifier with validation.
@@ -75,15 +76,9 @@ func NewKeyVerifier(opts KeyVerifierOptions) (*KeyVerifier, error) {
 		}
 	}
 
-	// Use provided logger or create a default non-verbose one
-	logger := opts.Logger
-	if logger == nil {
-		logger = utils.NewLogger(false)
-	}
-
 	return &KeyVerifier{
 		opts:   opts,
-		logger: logger,
+		logger: logging.EnsureLogger(opts.Logger),
 	}, nil
 }
 

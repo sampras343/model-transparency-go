@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"github.com/sigstore/model-signing/pkg/config"
+	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/oci"
 	"github.com/sigstore/model-signing/pkg/signing"
 	"github.com/sigstore/model-signing/pkg/utils"
@@ -30,19 +31,19 @@ import (
 //
 //nolint:revive
 type SigstoreSignerOptions struct {
-	ModelPath             string        // ModelPath is the path to the model directory or file to sign.
-	SignaturePath         string        // SignaturePath is where the signature file will be written.
-	IgnorePaths           []string      // IgnorePaths specifies paths to exclude from hashing.
-	IgnoreGitPaths        bool          // IgnoreGitPaths indicates whether to exclude git-ignored files.
-	AllowSymlinks         bool          // AllowSymlinks indicates whether to follow symbolic links.
-	UseStaging            bool          // UseStaging indicates whether to use Sigstore staging infrastructure.
-	OAuthForceOob         bool          // OAuthForceOob forces out-of-band OAuth flow.
-	UseAmbientCredentials bool          // UseAmbientCredentials uses ambient OIDC credentials instead of interactive OAuth.
-	IdentityToken         string        // IdentityToken is a pre-obtained OIDC identity token.
-	ClientID              string        // ClientID is the OAuth client ID.
-	ClientSecret          string        // ClientSecret is the OAuth client secret.
-	TrustConfigPath       string        // TrustConfigPath is an optional path to custom trust root configuration.
-	Logger                *utils.Logger // Logger is used for debug and info output.
+	ModelPath             string         // ModelPath is the path to the model directory or file to sign.
+	SignaturePath         string         // SignaturePath is where the signature file will be written.
+	IgnorePaths           []string       // IgnorePaths specifies paths to exclude from hashing.
+	IgnoreGitPaths        bool           // IgnoreGitPaths indicates whether to exclude git-ignored files.
+	AllowSymlinks         bool           // AllowSymlinks indicates whether to follow symbolic links.
+	UseStaging            bool           // UseStaging indicates whether to use Sigstore staging infrastructure.
+	OAuthForceOob         bool           // OAuthForceOob forces out-of-band OAuth flow.
+	UseAmbientCredentials bool           // UseAmbientCredentials uses ambient OIDC credentials instead of interactive OAuth.
+	IdentityToken         string         // IdentityToken is a pre-obtained OIDC identity token.
+	ClientID              string         // ClientID is the OAuth client ID.
+	ClientSecret          string         // ClientSecret is the OAuth client secret.
+	TrustConfigPath       string         // TrustConfigPath is an optional path to custom trust root configuration.
+	Logger                logging.Logger // Logger is used for debug and info output.
 }
 
 // SigstoreSigner implements ModelSigner using Sigstore/Fulcio signing.
@@ -50,7 +51,7 @@ type SigstoreSignerOptions struct {
 //nolint:revive
 type SigstoreSigner struct {
 	opts   SigstoreSignerOptions
-	logger *utils.Logger
+	logger logging.Logger
 }
 
 // NewSigstoreSigner creates a new SigstoreSigner with the given options.
@@ -73,15 +74,9 @@ func NewSigstoreSigner(opts SigstoreSignerOptions) (*SigstoreSigner, error) {
 		return nil, err
 	}
 
-	// Use provided logger or create a default non-verbose one
-	logger := opts.Logger
-	if logger == nil {
-		logger = utils.NewLogger(false)
-	}
-
 	return &SigstoreSigner{
 		opts:   opts,
-		logger: logger,
+		logger: logging.EnsureLogger(opts.Logger),
 	}, nil
 }
 

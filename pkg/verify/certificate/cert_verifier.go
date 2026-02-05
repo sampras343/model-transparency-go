@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/oci"
 	"github.com/sigstore/model-signing/pkg/utils"
 	"github.com/sigstore/model-signing/pkg/verify"
@@ -32,15 +33,15 @@ var _ verify.ModelVerifier = (*CertificateVerifier)(nil)
 //
 //nolint:revive
 type CertificateVerifierOptions struct {
-	ModelPath           string        // ModelPath is the path to the model directory or file to verify.
-	SignaturePath       string        // SignaturePath is the path to the signature file.
-	IgnorePaths         []string      // IgnorePaths specifies paths to exclude from verification.
-	IgnoreGitPaths      bool          // IgnoreGitPaths indicates whether to exclude git-ignored files.
-	AllowSymlinks       bool          // AllowSymlinks indicates whether to follow symbolic links.
-	CertificateChain    []string      // CertificateChain is the list of certificate paths for verification.
-	IgnoreUnsignedFiles bool          // IgnoreUnsignedFiles allows verification to succeed even if extra files exist.
-	LogFingerprints     bool          // LogFingerprints indicates whether to log certificate fingerprints.
-	Logger              *utils.Logger // Logger is used for debug and info output.
+	ModelPath           string         // ModelPath is the path to the model directory or file to verify.
+	SignaturePath       string         // SignaturePath is the path to the signature file.
+	IgnorePaths         []string       // IgnorePaths specifies paths to exclude from verification.
+	IgnoreGitPaths      bool           // IgnoreGitPaths indicates whether to exclude git-ignored files.
+	AllowSymlinks       bool           // AllowSymlinks indicates whether to follow symbolic links.
+	CertificateChain    []string       // CertificateChain is the list of certificate paths for verification.
+	IgnoreUnsignedFiles bool           // IgnoreUnsignedFiles allows verification to succeed even if extra files exist.
+	LogFingerprints     bool           // LogFingerprints indicates whether to log certificate fingerprints.
+	Logger              logging.Logger // Logger is used for debug and info output.
 }
 
 // CertificateVerifier provides high-level verification with validation.
@@ -49,7 +50,7 @@ type CertificateVerifierOptions struct {
 //nolint:revive
 type CertificateVerifier struct {
 	opts   CertificateVerifierOptions
-	logger *utils.Logger
+	logger logging.Logger
 }
 
 // NewCertificateVerifier creates a new high-level certificate verifier with validation.
@@ -77,15 +78,9 @@ func NewCertificateVerifier(opts CertificateVerifierOptions) (*CertificateVerifi
 		return nil, err
 	}
 
-	// Use provided logger or create a default non-verbose one
-	logger := opts.Logger
-	if logger == nil {
-		logger = utils.NewLogger(false)
-	}
-
 	return &CertificateVerifier{
 		opts:   opts,
-		logger: logger,
+		logger: logging.EnsureLogger(opts.Logger),
 	}, nil
 }
 

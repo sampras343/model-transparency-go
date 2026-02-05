@@ -41,7 +41,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/sigstore/model-signing/pkg/utils"
+	"github.com/sigstore/model-signing/pkg/logging"
 	certVerify "github.com/sigstore/model-signing/pkg/verify/certificate"
 )
 
@@ -54,7 +54,7 @@ func main() {
 	allowSymlinks := flag.Bool("allow-symlinks", false, "Allow following symlinks in the model directory")
 	ignoreUnsignedFiles := flag.Bool("ignore-unsigned-files", false, "Ignore files not present in the signature")
 	logFingerprints := flag.Bool("log-fingerprints", false, "Log certificate fingerprints during verification")
-	verbose := flag.Bool("verbose", true, "Enable verbose output")
+	logLevel := flag.String("log-level", "debug", "Log level (debug, info, warn, error, silent)")
 	flag.Parse()
 
 	// Get values from flags or environment variables
@@ -88,7 +88,9 @@ func main() {
 		log.Fatal("--cert-chain is required")
 	}
 
-	logger := utils.NewLogger(*verbose)
+	logger := logging.NewLoggerWithOptions(logging.LoggerOptions{
+		Level: logging.ParseLogLevel(*logLevel),
+	})
 
 	// Create verifier options
 	opts := certVerify.CertificateVerifierOptions{

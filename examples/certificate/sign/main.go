@@ -50,8 +50,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/sigstore/model-signing/pkg/logging"
 	certSigning "github.com/sigstore/model-signing/pkg/signing/certificate"
-	"github.com/sigstore/model-signing/pkg/utils"
 )
 
 func main() {
@@ -63,7 +63,7 @@ func main() {
 	certChain := flag.String("cert-chain", "", "Comma-separated paths to certificate chain files (intermediate, root)")
 	ignoreGitPaths := flag.Bool("ignore-git-paths", true, "Ignore .git directories and .gitignore files")
 	allowSymlinks := flag.Bool("allow-symlinks", false, "Allow following symlinks in the model directory")
-	verbose := flag.Bool("verbose", true, "Enable verbose output")
+	logLevel := flag.String("log-level", "debug", "Log level (debug, info, warn, error, silent)")
 	flag.Parse()
 
 	// Get values from flags or environment variables
@@ -146,7 +146,9 @@ func main() {
 		log.Fatal("--signing-cert is required")
 	}
 
-	logger := utils.NewLogger(*verbose)
+	logger := logging.NewLoggerWithOptions(logging.LoggerOptions{
+		Level: logging.ParseLogLevel(*logLevel),
+	})
 
 	// Create signer options
 	opts := certSigning.CertificateSignerOptions{
