@@ -55,7 +55,7 @@ func main() {
 		var ec ExitCoder
 		if errors.As(err, &ec) {
 			log.Printf("error during command execution: %v", err)
-			os.Exit(ec.ExitCode())
+			os.Exit(ec.ExitCode()) // nolint:gocritic
 		}
 
 		log.Fatalf("error during command execution: %v", err)
