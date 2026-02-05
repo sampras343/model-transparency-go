@@ -17,11 +17,14 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"log"
 	"os"
+	"time"
 
 	"github.com/sigstore/model-signing/cmd/model-signing/cli"
+	"github.com/sigstore/model-signing/pkg/tracing"
 )
 
 // ExitCoder represents an error that carries a specific exit code.
@@ -35,6 +38,18 @@ type ExitCoder interface {
 
 func main() {
 	log.SetFlags(0)
+
+	if err := tracing.InitFromEnv(); err != nil {
+		log.Printf("tracing initialization failed: %v", err)
+		os.Exit(1)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := tracing.Shutdown(ctx); err != nil {
+			log.Printf("tracing shutdown: %v", err)
+		}
+	}()
 
 	if err := cli.New().Execute(); err != nil {
 		var ec ExitCoder

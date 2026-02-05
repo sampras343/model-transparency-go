@@ -23,10 +23,43 @@ import (
 
 	"github.com/sigstore/model-signing/cmd/model-signing/cli/options"
 	"github.com/sigstore/model-signing/pkg/logging"
+	"github.com/sigstore/model-signing/pkg/tracing"
 	cert "github.com/sigstore/model-signing/pkg/verify/certificate"
 	keyverify "github.com/sigstore/model-signing/pkg/verify/key"
 	sigstore "github.com/sigstore/model-signing/pkg/verify/sigstore"
 )
+
+// runSigstoreVerify performs Sigstore-based model verification with tracing.
+// Shared by NewSigstoreVerifier (explicit subcommand) and Verify (default).
+func runSigstoreVerify(ctx context.Context, o *options.SigstoreVerifyOptions, modelPath string) error {
+	opts := o.ToStandardOptions(modelPath)
+	opts.Logger = ro.NewObservability().Logger
+	attrs := map[string]interface{}{
+		"model_signing.method":               "sigstore",
+		"model_signing.model_path":           modelPath,
+		"model_signing.signature":            opts.SignaturePath,
+		"model_signing.identity":             opts.Identity,
+		"model_signing.oidc_issuer":          opts.IdentityProvider,
+		"model_signing.use_staging":          opts.UseStaging,
+		"model_signing.allow_symlinks":       opts.AllowSymlinks,
+		"model_signing.ignore_git_paths":     opts.IgnoreGitPaths,
+		"model_signing.ignore_unsigned_files": opts.IgnoreUnsignedFiles,
+		"model_signing.trust_config_path":    opts.TrustConfigPath,
+	}
+	return tracing.Run(ctx, "Verify", attrs, func(ctx context.Context) error {
+		verifier, err := sigstore.NewSigstoreVerifier(opts)
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		defer cancel()
+		status, err := verifier.Verify(ctx)
+		if ro.GetLogLevel() < logging.LevelSilent {
+			fmt.Println(status.Message)
+		}
+		return err
+	})
+}
 
 // NewSigstoreVerifier creates the sigstore subcommand for model verification.
 // This command verifies models using Sigstore with expected identity and
@@ -51,24 +84,7 @@ signature, verification would fail.`
 		Long:  long,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			modelPath := args[0]
-
-			opts := o.ToStandardOptions(modelPath)
-			opts.Logger = ro.NewLogger()
-
-			verifier, err := sigstore.NewSigstoreVerifier(opts)
-			if err != nil {
-				return err
-			}
-
-			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
-			defer cancel()
-
-			status, err := verifier.Verify(ctx)
-			if ro.GetLogLevel() > logging.LevelDebug {
-				fmt.Println(status.Message)
-			}
-			return err
+			return runSigstoreVerify(cmd.Context(), o, args[0])
 		},
 	}
 
@@ -103,23 +119,29 @@ management protocols.`
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			modelPath := args[0]
-
 			opts := o.ToStandardOptions(modelPath)
-			opts.Logger = ro.NewLogger()
-
-			verifier, err := keyverify.NewKeyVerifier(opts)
-			if err != nil {
+			opts.Logger = ro.NewObservability().Logger
+			attrs := map[string]interface{}{
+				"model_signing.method":               "key",
+				"model_signing.model_path":           modelPath,
+				"model_signing.signature":            opts.SignaturePath,
+				"model_signing.allow_symlinks":       opts.AllowSymlinks,
+				"model_signing.ignore_git_paths":     opts.IgnoreGitPaths,
+				"model_signing.ignore_unsigned_files": opts.IgnoreUnsignedFiles,
+			}
+			return tracing.Run(cmd.Context(), "Verify", attrs, func(ctx context.Context) error {
+				verifier, err := keyverify.NewKeyVerifier(opts)
+				if err != nil {
+					return err
+				}
+				ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+				defer cancel()
+				status, err := verifier.Verify(ctx)
+				if ro.GetLogLevel() < logging.LevelSilent {
+					fmt.Println(status.Message)
+				}
 				return err
-			}
-
-			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
-			defer cancel()
-
-			status, err := verifier.Verify(ctx)
-			if ro.GetLogLevel() > logging.LevelDebug {
-				fmt.Println(status.Message)
-			}
-			return err
+			})
 		},
 	}
 
@@ -154,23 +176,30 @@ func NewCertificateVerifier() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			modelPath := args[0]
-
 			opts := o.ToStandardOptions(modelPath)
-			opts.Logger = ro.NewLogger()
-
-			verifier, err := cert.NewCertificateVerifier(opts)
-			if err != nil {
+			opts.Logger = ro.NewObservability().Logger
+			attrs := map[string]interface{}{
+				"model_signing.method":               "certificate",
+				"model_signing.model_path":           modelPath,
+				"model_signing.signature":            opts.SignaturePath,
+				"model_signing.allow_symlinks":       opts.AllowSymlinks,
+				"model_signing.ignore_git_paths":     opts.IgnoreGitPaths,
+				"model_signing.ignore_unsigned_files": opts.IgnoreUnsignedFiles,
+				"model_signing.log_fingerprints":     opts.LogFingerprints,
+			}
+			return tracing.Run(cmd.Context(), "Verify", attrs, func(ctx context.Context) error {
+				verifier, err := cert.NewCertificateVerifier(opts)
+				if err != nil {
+					return err
+				}
+				ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+				defer cancel()
+				status, err := verifier.Verify(ctx)
+				if ro.GetLogLevel() < logging.LevelSilent {
+					fmt.Println(status.Message)
+				}
 				return err
-			}
-
-			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
-			defer cancel()
-
-			status, err := verifier.Verify(ctx)
-			if ro.GetLogLevel() > logging.LevelDebug {
-				fmt.Println(status.Message)
-			}
-			return err
+			})
 		},
 	}
 
@@ -184,8 +213,10 @@ func NewCertificateVerifier() *cobra.Command {
 //
 // Returns a *cobra.Command with all verification subcommands registered.
 func Verify() *cobra.Command {
+	o := &options.SigstoreVerifyOptions{}
+
 	cmd := &cobra.Command{
-		Use:   "verify [OPTIONS] PKI_METHOD",
+		Use:   "verify [OPTIONS] MODEL_PATH",
 		Short: "Verify models.",
 		Long: `Verify models.
 
@@ -193,20 +224,20 @@ Given a model and a cryptographic signature (in the form of a Sigstore bundle) f
 this call checks that the model matches the signature, that the model has not been tampered with.
 We support any model format, either as a single file or as a directory.
 
-We support multiple PKI methods, specified as subcommands. By default, the signature is assumed
-to be generated via Sigstore (as if invoking 'sigstore' subcommand).
+By default, Sigstore is used. Specify a PKI method subcommand (sigstore, key, certificate) for
+other verification methods.
 
 Use each subcommand's --help option for details on each mode.`,
-		Args: cobra.ArbitraryArgs,
-		RunE: func(parent *cobra.Command, args []string) error {
-			sigCmd := NewSigstoreVerifier()
-			sigCmd.SilenceUsage = parent.SilenceUsage
-			sigCmd.SilenceErrors = parent.SilenceErrors
-
-			sigCmd.SetArgs(args)
-			return sigCmd.ExecuteContext(parent.Context())
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runSigstoreVerify(cmd.Context(), o, args[0])
 		},
 	}
+
+	// Register Sigstore flags on the parent so that
+	// `verify MODEL_PATH --signature ... --identity ...` works without
+	// specifying the sigstore subcommand explicitly.
+	o.AddFlags(cmd)
 
 	// Add PKI subcommands. Each owns its own flags.
 	cmd.AddCommand(NewSigstoreVerifier())

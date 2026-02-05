@@ -26,7 +26,37 @@ import (
 	cert "github.com/sigstore/model-signing/pkg/signing/certificate"
 	key "github.com/sigstore/model-signing/pkg/signing/key"
 	sigstore "github.com/sigstore/model-signing/pkg/signing/sigstore"
+	"github.com/sigstore/model-signing/pkg/tracing"
 )
+
+// runSigstoreSign performs Sigstore-based model signing with tracing.
+// Shared by NewSigstoreSign (explicit subcommand) and Sign (default).
+func runSigstoreSign(ctx context.Context, o *options.SigstoreSignOptions, modelPath string) error {
+	opts := o.ToStandardOptions(modelPath)
+	opts.Logger = ro.NewObservability().Logger
+	attrs := map[string]interface{}{
+		"model_signing.method":                  "sigstore",
+		"model_signing.model_path":              modelPath,
+		"model_signing.signature":               opts.SignaturePath,
+		"model_signing.use_staging":             opts.UseStaging,
+		"model_signing.use_ambient_credentials": opts.UseAmbientCredentials,
+		"model_signing.allow_symlinks":          opts.AllowSymlinks,
+		"model_signing.ignore_git_paths":        opts.IgnoreGitPaths,
+	}
+	return tracing.Run(ctx, "Sign", attrs, func(ctx context.Context) error {
+		signer, err := sigstore.NewSigstoreSigner(opts)
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		defer cancel()
+		status, err := signer.Sign(ctx)
+		if ro.GetLogLevel() < logging.LevelSilent {
+			fmt.Println(status.Message)
+		}
+		return err
+	})
+}
 
 // NewSigstoreSign creates the sigstore subcommand for model signing.
 // This command signs models using Sigstore's keyless signing infrastructure
@@ -57,26 +87,7 @@ production one.`
 		Long:  long,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			modelPath := args[0]
-
-			// Convert CLI options to library options
-			opts := o.ToStandardOptions(modelPath)
-			// Pass logger from root options
-			opts.Logger = ro.NewLogger()
-
-			signer, err := sigstore.NewSigstoreSigner(opts)
-			if err != nil {
-				return err
-			}
-
-			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
-			defer cancel()
-
-			status, err := signer.Sign(ctx)
-			if ro.GetLogLevel() > logging.LevelDebug {
-				fmt.Println(status.Message)
-			}
-			return err
+			return runSigstoreSign(cmd.Context(), o, args[0])
 		},
 	}
 
@@ -112,25 +123,27 @@ func NewKeySigner() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			modelPath := args[0]
-
-			// Convert CLI options to library options
 			opts := o.ToStandardOptions(modelPath)
-			// Pass logger from root options
-			opts.Logger = ro.NewLogger()
-
-			signer, err := key.NewKeySigner(opts)
-			if err != nil {
+			opts.Logger = ro.NewObservability().Logger
+			attrs := map[string]interface{}{
+				"model_signing.method":           "key",
+				"model_signing.model_path":       modelPath,
+				"model_signing.allow_symlinks":   opts.AllowSymlinks,
+				"model_signing.ignore_git_paths": opts.IgnoreGitPaths,
+			}
+			return tracing.Run(cmd.Context(), "Sign", attrs, func(ctx context.Context) error {
+				signer, err := key.NewKeySigner(opts)
+				if err != nil {
+					return err
+				}
+				ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+				defer cancel()
+				status, err := signer.Sign(ctx)
+				if ro.GetLogLevel() < logging.LevelSilent {
+					fmt.Println(status.Message)
+				}
 				return err
-			}
-
-			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
-			defer cancel()
-
-			status, err := signer.Sign(ctx)
-			if ro.GetLogLevel() > logging.LevelDebug {
-				fmt.Println(status.Message)
-			}
-			return err
+			})
 		},
 	}
 
@@ -169,25 +182,27 @@ func NewCertificateSigner() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			modelPath := args[0]
-
-			// Convert CLI options to library options
 			opts := o.ToStandardOptions(modelPath)
-			// Pass logger from root options
-			opts.Logger = ro.NewLogger()
-
-			signer, err := cert.NewCertificateSigner(opts)
-			if err != nil {
+			opts.Logger = ro.NewObservability().Logger
+			attrs := map[string]interface{}{
+				"model_signing.method":           "certificate",
+				"model_signing.model_path":       modelPath,
+				"model_signing.allow_symlinks":   opts.AllowSymlinks,
+				"model_signing.ignore_git_paths": opts.IgnoreGitPaths,
+			}
+			return tracing.Run(cmd.Context(), "Sign", attrs, func(ctx context.Context) error {
+				signer, err := cert.NewCertificateSigner(opts)
+				if err != nil {
+					return err
+				}
+				ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+				defer cancel()
+				status, err := signer.Sign(ctx)
+				if ro.GetLogLevel() < logging.LevelSilent {
+					fmt.Println(status.Message)
+				}
 				return err
-			}
-
-			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
-			defer cancel()
-
-			status, err := signer.Sign(ctx)
-			if ro.GetLogLevel() > logging.LevelDebug {
-				fmt.Println(status.Message)
-			}
-			return err
+			})
 		},
 	}
 
@@ -201,14 +216,19 @@ func NewCertificateSigner() *cobra.Command {
 //
 // Returns a *cobra.Command with all signing subcommands registered.
 func Sign() *cobra.Command {
+	o := &options.SigstoreSignOptions{}
+
 	cmd := &cobra.Command{
-		Use:   "sign [OPTIONS] PKI_METHOD",
+		Use:   "sign [OPTIONS] MODEL_PATH",
 		Short: "Sign models.",
 		Long: `Sign models.
 
     Signing the model at MODEL_PATH, produces the signature at SIGNATURE_PATH
     (as per --signature option). Files in IGNORE_PATHS are not part of the
     signature.
+
+    By default, Sigstore is used. Specify a PKI method subcommand (sigstore,
+    key, certificate) for other signing methods.
 
     If using Sigstore, we need to provision an OIDC token. In general, this is
     taken from an interactive OIDC flow, but ambient credentials could be used
@@ -227,20 +247,20 @@ func Sign() *cobra.Command {
     authorities, and other trust settings, enabling full control over the
     trust model, including which PKI to use for signature verification.
     If --trust-config is not provided, the default Sigstore instance is
-    used, which is pre-configured with Sigstore’s own trusted transparency
+    used, which is pre-configured with Sigstore's own trusted transparency
     logs and certificate authorities. This provides a ready-to-use default
     trust model for most use cases but may not be suitable for custom or
     highly regulated environments.`,
-		Args: cobra.ArbitraryArgs,
-		RunE: func(parent *cobra.Command, args []string) error {
-			sigCmd := NewSigstoreSign()
-			sigCmd.SilenceUsage = parent.SilenceUsage
-			sigCmd.SilenceErrors = parent.SilenceErrors
-
-			sigCmd.SetArgs(args)
-			return sigCmd.ExecuteContext(parent.Context())
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runSigstoreSign(cmd.Context(), o, args[0])
 		},
 	}
+
+	// Register Sigstore flags on the parent so that
+	// `sign MODEL_PATH --ignore-paths ...` works without specifying
+	// the sigstore subcommand explicitly.
+	o.AddFlags(cmd)
 
 	// Add PKI subcommands. Each owns its own flags.
 	cmd.AddCommand(NewSigstoreSign())
