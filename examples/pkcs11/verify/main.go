@@ -54,7 +54,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/sigstore/model-signing/pkg/utils"
+	"github.com/sigstore/model-signing/pkg/logging"
 	keyVerify "github.com/sigstore/model-signing/pkg/verify/key"
 )
 
@@ -101,7 +101,7 @@ func main() {
 		log.Fatal("\n--public-key is required")
 	}
 
-	logger := utils.NewLogger(*verbose)
+	logger := logging.NewLogger(*verbose)
 
 	// Create verifier options
 	opts := keyVerify.KeyVerifierOptions{

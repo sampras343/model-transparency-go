@@ -76,8 +76,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/sigstore/model-signing/pkg/logging"
 	pkcs11Signing "github.com/sigstore/model-signing/pkg/signing/pkcs11"
-	"github.com/sigstore/model-signing/pkg/utils"
 )
 
 func main() {
@@ -194,7 +194,7 @@ func main() {
 		log.Fatal("--pkcs11-uri is required. See --help for setup instructions.")
 	}
 
-	logger := utils.NewLogger(*verbose)
+	logger := logging.NewLogger(*verbose)
 
 	// Create signer options
 	opts := pkcs11Signing.Pkcs11SignerOptions{
