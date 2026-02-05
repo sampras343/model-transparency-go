@@ -56,6 +56,17 @@ type Signer struct {
 	uri        *Pkcs11URI
 }
 
+// cleanupPKCS11 cleans up PKCS#11 resources.
+func cleanupPKCS11(ctx *pkcs11.Ctx, session pkcs11.SessionHandle) {
+	if session != 0 {
+		ctx.CloseSession(session)
+	}
+	if ctx != nil {
+		ctx.Finalize()
+		ctx.Destroy()
+	}
+}
+
 // NewSigner creates a new PKCS#11 signer.
 func NewSigner(pkcs11URI string, modulePaths []string) (*Signer, error) {
 	uri := NewPkcs11URI()
@@ -89,50 +100,39 @@ func NewSigner(pkcs11URI string, modulePaths []string) (*Signer, error) {
 	// Open session
 	session, err := openSession(ctx, uri)
 	if err != nil {
-		ctx.Finalize()
-		ctx.Destroy()
+		cleanupPKCS11(ctx, 0)
 		return nil, fmt.Errorf("failed to open session: %w", err)
 	}
 
 	// Find private and public keys
 	keyID, label, err := uri.GetKeyIDAndLabel()
 	if err != nil {
-		ctx.CloseSession(session)
-		ctx.Finalize()
-		ctx.Destroy()
+		cleanupPKCS11(ctx, session)
 		return nil, err
 	}
 
 	privateKey, err := findObject(ctx, session, pkcs11.CKO_PRIVATE_KEY, keyID, label)
 	if err != nil {
-		ctx.CloseSession(session)
-		ctx.Finalize()
-		ctx.Destroy()
+		cleanupPKCS11(ctx, session)
 		return nil, fmt.Errorf("failed to find private key: %w", err)
 	}
 
 	publicKeyHandle, err := findObject(ctx, session, pkcs11.CKO_PUBLIC_KEY, keyID, label)
 	if err != nil {
-		ctx.CloseSession(session)
-		ctx.Finalize()
-		ctx.Destroy()
+		cleanupPKCS11(ctx, session)
 		return nil, fmt.Errorf("failed to find public key: %w", err)
 	}
 
 	// Extract public key
 	publicKey, err := extractPublicKey(ctx, session, publicKeyHandle)
 	if err != nil {
-		ctx.CloseSession(session)
-		ctx.Finalize()
-		ctx.Destroy()
+		cleanupPKCS11(ctx, session)
 		return nil, fmt.Errorf("failed to extract public key: %w", err)
 	}
 
 	// Validate the curve is supported
 	if err := utils.CheckSupportedECKey(publicKey); err != nil {
-		ctx.CloseSession(session)
-		ctx.Finalize()
-		ctx.Destroy()
+		cleanupPKCS11(ctx, session)
 		return nil, err
 	}
 
@@ -147,13 +147,7 @@ func NewSigner(pkcs11URI string, modulePaths []string) (*Signer, error) {
 
 // Close closes the PKCS#11 session and context.
 func (s *Signer) Close() error {
-	if s.session != 0 {
-		s.ctx.CloseSession(s.session)
-	}
-	if s.ctx != nil {
-		s.ctx.Finalize()
-		s.ctx.Destroy()
-	}
+	cleanupPKCS11(s.ctx, s.session)
 	return nil
 }
 
@@ -162,8 +156,9 @@ func (s *Signer) PublicKey() *ecdsa.PublicKey {
 	return s.publicKey
 }
 
-// Sign signs the payload and returns a signature bundle.
-func (s *Signer) Sign(payload *interfaces.Payload) (interfaces.SignatureBundle, error) {
+// signPayload performs the core signing operation and creates a bundle.
+// This is the common logic shared between key-based and certificate-based signing.
+func (s *Signer) signPayload(payload *interfaces.Payload, verificationMaterial *bundle.VerificationMaterial) (interfaces.SignatureBundle, error) {
 	// Serialize payload to JSON
 	rawPayload, err := protojson.Marshal(payload.Statement)
 	if err != nil {
@@ -205,13 +200,18 @@ func (s *Signer) Sign(payload *interfaces.Payload) (interfaces.SignatureBundle, 
 	// Create bundle
 	bundleObj := &bundle.Bundle{
 		MediaType:            bundleMediaType,
-		VerificationMaterial: s.getVerificationMaterial(),
+		VerificationMaterial: verificationMaterial,
 		Content: &bundle.Bundle_DsseEnvelope{
 			DsseEnvelope: protoEnv,
 		},
 	}
 
 	return &SignatureBundle{bundle: bundleObj}, nil
+}
+
+// Sign signs the payload and returns a signature bundle.
+func (s *Signer) Sign(payload *interfaces.Payload) (interfaces.SignatureBundle, error) {
+	return s.signPayload(payload, s.getVerificationMaterial())
 }
 
 // getVerificationMaterial returns the verification material for the bundle.

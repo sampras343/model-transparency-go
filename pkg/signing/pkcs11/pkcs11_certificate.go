@@ -20,15 +20,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/miekg/pkcs11"
-
-	"github.com/sigstore/model-signing/internal/crypto"
-	"github.com/sigstore/model-signing/pkg/dsse"
 	"github.com/sigstore/model-signing/pkg/interfaces"
 	"github.com/sigstore/model-signing/pkg/utils"
 	bundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
 	common "github.com/sigstore/protobuf-specs/gen/pb-go/common/v1"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // CertSigner implements signing using PKCS#11 with certificates.
@@ -103,54 +98,7 @@ func NewCertSigner(
 
 // Sign signs the payload and returns a signature bundle with certificate chain.
 func (s *CertSigner) Sign(payload *interfaces.Payload) (interfaces.SignatureBundle, error) {
-	// Serialize payload to JSON
-	rawPayload, err := protojson.Marshal(payload.Statement)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal payload: %w", err)
-	}
-
-	// Compute PAE (Pre-Authentication Encoding)
-	pae := crypto.ComputePAE(utils.InTotoJSONPayloadType, rawPayload)
-
-	// Hash the PAE
-	hashAlg := utils.GetHashAlgorithm(s.publicKey)
-	hasher := hashAlg.New()
-	hasher.Write(pae)
-	digest := hasher.Sum(nil)
-
-	// Sign the digest (use SignInit + Sign per current pkcs11 API)
-	mechanism := []*pkcs11.Mechanism{pkcs11.NewMechanism(pkcs11.CKM_ECDSA, nil)}
-	if err := s.ctx.SignInit(s.session, mechanism, s.privateKey); err != nil {
-		return nil, fmt.Errorf("failed to initialize sign operation: %w", err)
-	}
-	signature, err := s.ctx.Sign(s.session, digest)
-	if err != nil {
-		return nil, fmt.Errorf("failed to sign: %w", err)
-	}
-
-	// Convert P1363 format to ASN.1 DER
-	derSig, err := utils.P1363ToASN1(signature)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert signature format: %w", err)
-	}
-
-	// Create DSSE envelope using local helper and convert to protobuf
-	env := dsse.CreateEnvelope(utils.InTotoJSONPayloadType, rawPayload, derSig)
-	protoEnv, err := env.ToProtobuf()
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert envelope to protobuf: %w", err)
-	}
-
-	// Create bundle with certificate chain
-	bundleObj := &bundle.Bundle{
-		MediaType:            bundleMediaType,
-		VerificationMaterial: s.getVerificationMaterial(),
-		Content: &bundle.Bundle_DsseEnvelope{
-			DsseEnvelope: protoEnv,
-		},
-	}
-
-	return &SignatureBundle{bundle: bundleObj}, nil
+	return s.signPayload(payload, s.getVerificationMaterial())
 }
 
 // getVerificationMaterial returns the verification material with certificate chain.
