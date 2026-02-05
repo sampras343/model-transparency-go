@@ -194,7 +194,7 @@ func (l *DefaultLogger) log(level LogLevel, format string, args ...interface{}) 
 		return
 	}
 
-	l.out.Write(data)
+	_, _ = l.out.Write(data)
 }
 
 // Debug logs a message at debug level.

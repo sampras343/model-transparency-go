@@ -31,13 +31,13 @@ import (
 //
 //nolint:revive
 type KeySignerOptions struct {
-	ModelPath      string        // ModelPath is the path to the model directory or file to sign.
-	SignaturePath  string        // SignaturePath is where the signature file will be written.
-	IgnorePaths    []string      // IgnorePaths specifies paths to exclude from hashing.
-	IgnoreGitPaths bool          // IgnoreGitPaths indicates whether to exclude git-ignored files.
-	AllowSymlinks  bool          // AllowSymlinks indicates whether to follow symbolic links.
-	PrivateKeyPath string        // PrivateKeyPath is the path to the private key file.
-	Password       string        // Password is the optional password for the private key.
+	ModelPath      string         // ModelPath is the path to the model directory or file to sign.
+	SignaturePath  string         // SignaturePath is where the signature file will be written.
+	IgnorePaths    []string       // IgnorePaths specifies paths to exclude from hashing.
+	IgnoreGitPaths bool           // IgnoreGitPaths indicates whether to exclude git-ignored files.
+	AllowSymlinks  bool           // AllowSymlinks indicates whether to follow symbolic links.
+	PrivateKeyPath string         // PrivateKeyPath is the path to the private key file.
+	Password       string         // Password is the optional password for the private key.
 	Logger         logging.Logger // Logger is used for debug and info output.
 }
 

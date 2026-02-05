@@ -31,14 +31,14 @@ import (
 //
 //nolint:revive
 type CertificateSignerOptions struct {
-	ModelPath              string        // ModelPath is the path to the model directory or file to sign.
-	SignaturePath          string        // SignaturePath is where the signature file will be written.
-	IgnorePaths            []string      // IgnorePaths specifies paths to exclude from hashing.
-	IgnoreGitPaths         bool          // IgnoreGitPaths indicates whether to exclude git-ignored files.
-	AllowSymlinks          bool          // AllowSymlinks indicates whether to follow symbolic links.
-	PrivateKeyPath         string        // PrivateKeyPath is the path to the private key file.
-	CertificateChain       []string      // CertificateChain is the list of certificate paths for signing.
-	SigningCertificatePath string        // SigningCertificatePath is the path to the signing certificate, as a PEM-encoded file
+	ModelPath              string         // ModelPath is the path to the model directory or file to sign.
+	SignaturePath          string         // SignaturePath is where the signature file will be written.
+	IgnorePaths            []string       // IgnorePaths specifies paths to exclude from hashing.
+	IgnoreGitPaths         bool           // IgnoreGitPaths indicates whether to exclude git-ignored files.
+	AllowSymlinks          bool           // AllowSymlinks indicates whether to follow symbolic links.
+	PrivateKeyPath         string         // PrivateKeyPath is the path to the private key file.
+	CertificateChain       []string       // CertificateChain is the list of certificate paths for signing.
+	SigningCertificatePath string         // SigningCertificatePath is the path to the signing certificate, as a PEM-encoded file
 	Logger                 logging.Logger // Logger is used for debug and info output.
 }
 

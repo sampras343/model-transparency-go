@@ -33,14 +33,14 @@ var _ verify.ModelVerifier = (*CertificateVerifier)(nil)
 //
 //nolint:revive
 type CertificateVerifierOptions struct {
-	ModelPath           string        // ModelPath is the path to the model directory or file to verify.
-	SignaturePath       string        // SignaturePath is the path to the signature file.
-	IgnorePaths         []string      // IgnorePaths specifies paths to exclude from verification.
-	IgnoreGitPaths      bool          // IgnoreGitPaths indicates whether to exclude git-ignored files.
-	AllowSymlinks       bool          // AllowSymlinks indicates whether to follow symbolic links.
-	CertificateChain    []string      // CertificateChain is the list of certificate paths for verification.
-	IgnoreUnsignedFiles bool          // IgnoreUnsignedFiles allows verification to succeed even if extra files exist.
-	LogFingerprints     bool          // LogFingerprints indicates whether to log certificate fingerprints.
+	ModelPath           string         // ModelPath is the path to the model directory or file to verify.
+	SignaturePath       string         // SignaturePath is the path to the signature file.
+	IgnorePaths         []string       // IgnorePaths specifies paths to exclude from verification.
+	IgnoreGitPaths      bool           // IgnoreGitPaths indicates whether to exclude git-ignored files.
+	AllowSymlinks       bool           // AllowSymlinks indicates whether to follow symbolic links.
+	CertificateChain    []string       // CertificateChain is the list of certificate paths for verification.
+	IgnoreUnsignedFiles bool           // IgnoreUnsignedFiles allows verification to succeed even if extra files exist.
+	LogFingerprints     bool           // LogFingerprints indicates whether to log certificate fingerprints.
 	Logger              logging.Logger // Logger is used for debug and info output.
 }
 
