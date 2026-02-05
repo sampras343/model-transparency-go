@@ -196,33 +196,32 @@ func NewCertificateSigner() *cobra.Command {
 	return cmd
 }
 
-// NewPkcs11Signer creates the pkcs11 subcommand for model signing.
-// This command signs models using PKCS#11-compatible devices such as hardware
-// security modules (HSMs), smart cards, or software tokens.
+// NewPkcs11KeySigner creates the pkcs11-key subcommand for model signing.
+// This command signs models using a PKCS#11 private key.
 //
-// Returns a *cobra.Command configured for PKCS#11-based signing.
-func NewPkcs11Signer() *cobra.Command {
+// Returns a *cobra.Command configured for PKCS#11 key-based signing.
+func NewPkcs11KeySigner() *cobra.Command {
 	o := &options.Pkcs11SignOptions{}
 
-	long := `Sign using PKCS#11 (HSM or software token).
+	long := `Sign using a private key using a PKCS #11 URI.
 
-    Sign model signatures using PKCS#11 hardware security modules (HSMs) or
-    software tokens. This command allows you to sign models using keys stored
-    in PKCS#11-compatible devices such as hardware security modules (HSMs),
-    smart cards, or software tokens like SoftHSM.
+    Signing the model at MODEL_PATH, produces the signature at SIGNATURE_PATH
+    (as per --signature option). Files in IGNORE_PATHS are not part of the
+    signature.
+
+    Traditionally, signing could be achieved by using a public/private key pair.
+    Pass the PKCS #11 URI of the signing key using --pkcs11-uri.
 
     The PKCS#11 URI format follows RFC 7512:
       pkcs11:token=TOKEN;object=KEY?module-name=MODULE&pin-value=PIN
 
-    Pass the PKCS#11 URI using --pkcs11-uri. Optionally, pass a signing
-    certificate via --signing-certificate and certificate chain via
-    --certificate-chain to use certificate-based signing instead of key-based
-    signing. Additional PKCS#11 module search paths can be specified using
-    --module-path (this option can be repeated as needed).`
+    Note that this method does not provide a way to tie to the identity of the
+    signer, outside of pairing the keys. Also note that we don't offer key
+    management protocols.`
 
 	cmd := &cobra.Command{
-		Use:   "pkcs11 [OPTIONS] MODEL_PATH",
-		Short: "Sign using PKCS#11 (HSM or software token).",
+		Use:   "pkcs11-key [OPTIONS] MODEL_PATH",
+		Short: "Sign using a private key using a PKCS #11 URI.",
 		Long:  long,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -232,6 +231,72 @@ func NewPkcs11Signer() *cobra.Command {
 			opts := o.ToStandardOptions(modelPath)
 			// Pass logger from root options
 			opts.Logger = utils.NewLogger(ro.Verbose)
+
+			// Ensure no certificate is provided for key-based signing
+			if opts.SigningCertificatePath != "" {
+				return fmt.Errorf("--signing-certificate should not be used with pkcs11-key, use pkcs11-certificate instead")
+			}
+
+			signer, err := pkcs11.NewPkcs11Signer(opts)
+			if err != nil {
+				return err
+			}
+
+			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
+			defer cancel()
+
+			status, err := signer.Sign(ctx)
+			if !ro.Verbose {
+				fmt.Println(status.Message)
+			}
+			return err
+		},
+	}
+
+	o.AddFlags(cmd)
+	return cmd
+}
+
+// NewPkcs11CertificateSigner creates the pkcs11-certificate subcommand for model signing.
+// This command signs models using a certificate with PKCS#11.
+//
+// Returns a *cobra.Command configured for PKCS#11 certificate-based signing.
+func NewPkcs11CertificateSigner() *cobra.Command {
+	o := &options.Pkcs11SignOptions{}
+
+	long := `Sign using a certificate.
+
+    Signing the model at MODEL_PATH, produces the signature at SIGNATURE_PATH
+    (as per --signature option). Files in IGNORE_PATHS are not part of the
+    signature.
+
+    Sign using a certificate with a PKCS #11 URI. This is similar to
+    certificate-based signing, but the private key is accessed via PKCS #11.
+
+    Pass the PKCS #11 URI of the signing key using --pkcs11-uri, the signing
+    certificate using --signing-certificate, and optionally the certificate
+    chain using --certificate-chain.
+
+    The PKCS#11 URI format follows RFC 7512:
+      pkcs11:token=TOKEN;object=KEY?module-name=MODULE&pin-value=PIN`
+
+	cmd := &cobra.Command{
+		Use:   "pkcs11-certificate [OPTIONS] MODEL_PATH",
+		Short: "Sign using a certificate.",
+		Long:  long,
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			modelPath := args[0]
+
+			// Convert CLI options to library options
+			opts := o.ToStandardOptions(modelPath)
+			// Pass logger from root options
+			opts.Logger = utils.NewLogger(ro.Verbose)
+
+			// Require certificate for certificate-based signing
+			if opts.SigningCertificatePath == "" {
+				return fmt.Errorf("--signing-certificate is required for pkcs11-certificate")
+			}
 
 			signer, err := pkcs11.NewPkcs11Signer(opts)
 			if err != nil {
@@ -304,7 +369,8 @@ func Sign() *cobra.Command {
 	cmd.AddCommand(NewSigstoreSign())
 	cmd.AddCommand(NewKeySigner())
 	cmd.AddCommand(NewCertificateSigner())
-	cmd.AddCommand(NewPkcs11Signer())
+	cmd.AddCommand(NewPkcs11KeySigner())
+	cmd.AddCommand(NewPkcs11CertificateSigner())
 
 	return cmd
 }
