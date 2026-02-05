@@ -456,7 +456,7 @@ func (s *SignatureBundle) Write(path string) error {
 	opts := protojson.MarshalOptions{
 		Multiline:       true,
 		Indent:          "  ",
-		UseProtoNames:   true,
+		UseProtoNames:   false, // Use camelCase for JSON fields (Python compatibility)
 		EmitUnpopulated: false,
 	}
 
