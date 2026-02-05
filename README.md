@@ -115,6 +115,25 @@ Run the container:
 ```bash
 [...]$ podman run --rm model-signing --help
 ```
+
+#### Optional: OpenTelemetry tracing
+
+The CLI can export distributed traces via OpenTelemetry when built with the
+`otel` build tag. By default, tracing is no-op and the existing application level logger is used.
+
+To build with OpenTelemetry support:
+
+```bash
+[...]$ go build -tags=otel -o model-signing ./cmd/model-signing
+```
+
+When the binary is built with `otel` and the following environment variables
+are expected to be set, sign and verify operations are traced and exported via OTLP:
+
+- `OTEL_EXPORTER_OTLP_ENDPOINT` or `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` – endpoint for the OTLP exporter (e.g. `http://localhost:4318`)
+- `OTEL_SERVICE_NAME` – service name in traces (default: `model-signing`)
+- `OTEL_TRACES_EXPORTER` – set to `otlp` to enable trace export; set to `none` to disable
+
 ### Model Signing CLI
 
 After installing the package, the CLI can be used by calling the binary directly, `model-signing <args>`.

@@ -29,4 +29,6 @@ go.work.sum
 # .vscode/
 
 test.sh
-docs
+
+# Generated test certificates (created at test runtime)
+scripts/tests/keys/single-cert/*.pem
