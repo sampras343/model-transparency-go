@@ -39,7 +39,11 @@ FROM alpine:latest
 RUN addgroup -S appgroup && \
     adduser -S -G appgroup -h /home/appuser -s /sbin/nologin appuser
 
-RUN apk add --no-cache ca-certificates
+# Install runtime dependencies including PKCS#11 support
+RUN apk add --no-cache \
+    ca-certificates \
+    softhsm \
+    p11-kit
 
 COPY --from=build-env /model-signing/model-signing /usr/local/bin/model-signing
 COPY LICENSE /licenses/license.txt

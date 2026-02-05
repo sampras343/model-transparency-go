@@ -41,8 +41,5 @@ docs
 # Test data
 /test-model/
 
-# PKCS11 generated files
+# PKCS11 temporary files
 softhsm2-config.sh
-public-key.pem
-public-key.der
-*.der
