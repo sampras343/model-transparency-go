@@ -32,6 +32,6 @@ func (NoopSpan) End() {}
 type NoopTracer struct{}
 
 // Start returns the same context and a no-op span.
-func (NoopTracer) Start(ctx context.Context, name string) (context.Context, Span) {
+func (NoopTracer) Start(ctx context.Context, _ string) (context.Context, Span) {
 	return ctx, NoopSpan{}
 }

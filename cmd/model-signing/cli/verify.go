@@ -35,16 +35,16 @@ func runSigstoreVerify(ctx context.Context, o *options.SigstoreVerifyOptions, mo
 	opts := o.ToStandardOptions(modelPath)
 	opts.Logger = ro.NewObservability().Logger
 	attrs := map[string]interface{}{
-		"model_signing.method":               "sigstore",
-		"model_signing.model_path":           modelPath,
-		"model_signing.signature":            opts.SignaturePath,
-		"model_signing.identity":             opts.Identity,
-		"model_signing.oidc_issuer":          opts.IdentityProvider,
-		"model_signing.use_staging":          opts.UseStaging,
-		"model_signing.allow_symlinks":       opts.AllowSymlinks,
-		"model_signing.ignore_git_paths":     opts.IgnoreGitPaths,
+		"model_signing.method":                "sigstore",
+		"model_signing.model_path":            modelPath,
+		"model_signing.signature":             opts.SignaturePath,
+		"model_signing.identity":              opts.Identity,
+		"model_signing.oidc_issuer":           opts.IdentityProvider,
+		"model_signing.use_staging":           opts.UseStaging,
+		"model_signing.allow_symlinks":        opts.AllowSymlinks,
+		"model_signing.ignore_git_paths":      opts.IgnoreGitPaths,
 		"model_signing.ignore_unsigned_files": opts.IgnoreUnsignedFiles,
-		"model_signing.trust_config_path":    opts.TrustConfigPath,
+		"model_signing.trust_config_path":     opts.TrustConfigPath,
 	}
 	return tracing.Run(ctx, "Verify", attrs, func(ctx context.Context) error {
 		verifier, err := sigstore.NewSigstoreVerifier(opts)
@@ -122,11 +122,11 @@ management protocols.`
 			opts := o.ToStandardOptions(modelPath)
 			opts.Logger = ro.NewObservability().Logger
 			attrs := map[string]interface{}{
-				"model_signing.method":               "key",
-				"model_signing.model_path":           modelPath,
-				"model_signing.signature":            opts.SignaturePath,
-				"model_signing.allow_symlinks":       opts.AllowSymlinks,
-				"model_signing.ignore_git_paths":     opts.IgnoreGitPaths,
+				"model_signing.method":                "key",
+				"model_signing.model_path":            modelPath,
+				"model_signing.signature":             opts.SignaturePath,
+				"model_signing.allow_symlinks":        opts.AllowSymlinks,
+				"model_signing.ignore_git_paths":      opts.IgnoreGitPaths,
 				"model_signing.ignore_unsigned_files": opts.IgnoreUnsignedFiles,
 			}
 			return tracing.Run(cmd.Context(), "Verify", attrs, func(ctx context.Context) error {
@@ -179,13 +179,13 @@ func NewCertificateVerifier() *cobra.Command {
 			opts := o.ToStandardOptions(modelPath)
 			opts.Logger = ro.NewObservability().Logger
 			attrs := map[string]interface{}{
-				"model_signing.method":               "certificate",
-				"model_signing.model_path":           modelPath,
-				"model_signing.signature":            opts.SignaturePath,
-				"model_signing.allow_symlinks":       opts.AllowSymlinks,
-				"model_signing.ignore_git_paths":     opts.IgnoreGitPaths,
+				"model_signing.method":                "certificate",
+				"model_signing.model_path":            modelPath,
+				"model_signing.signature":             opts.SignaturePath,
+				"model_signing.allow_symlinks":        opts.AllowSymlinks,
+				"model_signing.ignore_git_paths":      opts.IgnoreGitPaths,
 				"model_signing.ignore_unsigned_files": opts.IgnoreUnsignedFiles,
-				"model_signing.log_fingerprints":     opts.LogFingerprints,
+				"model_signing.log_fingerprints":      opts.LogFingerprints,
 			}
 			return tracing.Run(cmd.Context(), "Verify", attrs, func(ctx context.Context) error {
 				verifier, err := cert.NewCertificateVerifier(opts)
