@@ -24,9 +24,119 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
+
+// ============================================================================
+// Tests for base Signer
+// ============================================================================
+
+// TestTrimNullBytes tests the trimNullBytes helper function
+func TestTrimNullBytes(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "no null bytes",
+			input:    "hello",
+			expected: "hello",
+		},
+		{
+			name:     "trailing null bytes",
+			input:    "hello\x00\x00",
+			expected: "hello",
+		},
+		{
+			name:     "only null bytes",
+			input:    "\x00\x00\x00",
+			expected: "",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "null bytes in middle",
+			input:    "hel\x00lo",
+			expected: "hel", // trimNullBytes stops at first null byte
+		},
+		{
+			name:     "multiple trailing nulls",
+			input:    "test\x00\x00\x00\x00",
+			expected: "test",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := trimNullBytes(tt.input)
+			if result != tt.expected {
+				t.Errorf("trimNullBytes() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestDefaultModulePaths verifies that default module paths are defined
+func TestDefaultModulePaths(t *testing.T) {
+	if len(DefaultModulePaths) == 0 {
+		t.Error("DefaultModulePaths should not be empty")
+	}
+
+	// Check that paths are non-empty strings
+	for i, path := range DefaultModulePaths {
+		if path == "" {
+			t.Errorf("DefaultModulePaths[%d] is empty string", i)
+		}
+	}
+}
+
+// TestNewSigner_InvalidURI tests error handling for invalid PKCS#11 URIs
+func TestNewSigner_InvalidURI(t *testing.T) {
+	tests := []struct {
+		name      string
+		uri       string
+		wantError bool
+	}{
+		{
+			name:      "empty URI",
+			uri:       "",
+			wantError: true,
+		},
+		{
+			name:      "missing prefix",
+			uri:       "token=test;object=key",
+			wantError: true,
+		},
+		{
+			name:      "malformed URI",
+			uri:       "pkcs11:::",
+			wantError: true, // Parser catches malformed URIs
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewSigner(tt.uri, nil)
+			if tt.wantError && err == nil {
+				t.Error("Expected error for invalid URI, got nil")
+			}
+			if !tt.wantError && err != nil && tt.uri != "" {
+				// We expect errors for empty URI, but not for malformed ones (parser is lenient)
+				t.Errorf("Unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+// ============================================================================
+// Tests for CertSigner
+// ============================================================================
 
 // generateTestCertificate creates a self-signed certificate for testing
 func generateTestCertificate(t *testing.T) ([]byte, *ecdsa.PrivateKey) {
@@ -183,23 +293,7 @@ func TestNewCertSigner_MultipleChainFiles(t *testing.T) {
 
 	// We expect an error (PKCS#11 initialization will fail), but it should NOT be
 	// a certificate parsing error
-	if err != nil && !contains(err.Error(), "failed to initialize PKCS") {
+	if err != nil && !strings.Contains(err.Error(), "failed to get module") && !strings.Contains(err.Error(), "failed to initialize PKCS") {
 		t.Logf("Expected PKCS#11 initialization error, got: %v", err)
 	}
-}
-
-// Helper function to check if string contains substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
-		(s[0:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
-			indexOf(s, substr) >= 0))
-}
-
-func indexOf(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
 }

@@ -230,7 +230,7 @@ func NewPkcs11KeySigner() *cobra.Command {
 			// Convert CLI options to library options
 			opts := o.ToStandardOptions(modelPath)
 			// Pass logger from root options
-			opts.Logger = utils.NewLogger(ro.Verbose)
+			opts.Logger = ro.NewLogger()
 
 			// Ensure no certificate is provided for key-based signing
 			if opts.SigningCertificatePath != "" {
@@ -246,9 +246,7 @@ func NewPkcs11KeySigner() *cobra.Command {
 			defer cancel()
 
 			status, err := signer.Sign(ctx)
-			if !ro.Verbose {
-				fmt.Println(status.Message)
-			}
+			fmt.Println(status.Message)
 			return err
 		},
 	}
@@ -291,7 +289,7 @@ func NewPkcs11CertificateSigner() *cobra.Command {
 			// Convert CLI options to library options
 			opts := o.ToStandardOptions(modelPath)
 			// Pass logger from root options
-			opts.Logger = utils.NewLogger(ro.Verbose)
+			opts.Logger = ro.NewLogger()
 
 			// Require certificate for certificate-based signing
 			if opts.SigningCertificatePath == "" {
@@ -307,9 +305,7 @@ func NewPkcs11CertificateSigner() *cobra.Command {
 			defer cancel()
 
 			status, err := signer.Sign(ctx)
-			if !ro.Verbose {
-				fmt.Println(status.Message)
-			}
+			fmt.Println(status.Message)
 			return err
 		},
 	}

@@ -21,6 +21,7 @@ import (
 
 	"github.com/sigstore/model-signing/pkg/config"
 	"github.com/sigstore/model-signing/pkg/interfaces"
+	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/signing"
 	"github.com/sigstore/model-signing/pkg/utils"
 )
@@ -29,16 +30,16 @@ import (
 //
 //nolint:revive
 type Pkcs11SignerOptions struct {
-	ModelPath              string        // ModelPath is the path to the model directory or file to sign.
-	SignaturePath          string        // SignaturePath is where the signature file will be written.
-	IgnorePaths            []string      // IgnorePaths specifies paths to exclude from hashing.
-	IgnoreGitPaths         bool          // IgnoreGitPaths indicates whether to exclude git-ignored files.
-	AllowSymlinks          bool          // AllowSymlinks indicates whether to follow symbolic links.
-	Pkcs11URI              string        // Pkcs11URI is the PKCS#11 URI identifying the key. [required]
-	ModulePaths            []string      // ModulePaths are additional directories to search for PKCS#11 modules.
-	SigningCertificatePath string        // SigningCertificatePath is the path to the signing certificate (optional).
-	CertificateChain       []string      // CertificateChain are paths to certificate chain files (optional).
-	Logger                 *utils.Logger // Logger is used for debug and info output.
+	ModelPath              string         // ModelPath is the path to the model directory or file to sign.
+	SignaturePath          string         // SignaturePath is where the signature file will be written.
+	IgnorePaths            []string       // IgnorePaths specifies paths to exclude from hashing.
+	IgnoreGitPaths         bool           // IgnoreGitPaths indicates whether to exclude git-ignored files.
+	AllowSymlinks          bool           // AllowSymlinks indicates whether to follow symbolic links.
+	Pkcs11URI              string         // Pkcs11URI is the PKCS#11 URI identifying the key. [required]
+	ModulePaths            []string       // ModulePaths are additional directories to search for PKCS#11 modules.
+	SigningCertificatePath string         // SigningCertificatePath is the path to the signing certificate (optional).
+	CertificateChain       []string       // CertificateChain are paths to certificate chain files (optional).
+	Logger                 logging.Logger // Logger is used for debug and info output.
 }
 
 // Pkcs11Signer implements ModelSigner using PKCS#11-based signing.
@@ -46,7 +47,7 @@ type Pkcs11SignerOptions struct {
 //nolint:revive
 type Pkcs11Signer struct {
 	opts   Pkcs11SignerOptions
-	logger *utils.Logger
+	logger logging.Logger
 }
 
 // NewPkcs11Signer creates a new Pkcs11Signer with the given options.
@@ -81,7 +82,7 @@ func NewPkcs11Signer(opts Pkcs11SignerOptions) (*Pkcs11Signer, error) {
 	// Use provided logger or create a default non-verbose one
 	logger := opts.Logger
 	if logger == nil {
-		logger = utils.NewLogger(false)
+		logger = logging.NewLogger(false)
 	}
 
 	return &Pkcs11Signer{
