@@ -46,7 +46,7 @@ fi
 # ---------------------------------------------------------------------------
 # Prerequisite checks
 # ---------------------------------------------------------------------------
-for util in curl jq openssl; do
+for util in curl jq openssl git; do
 	if ! command -v "${util}" &>/dev/null; then
 		echo "Error: required utility '${util}' not found in PATH"
 		exit 1
@@ -165,10 +165,55 @@ echo "[Certificate] Verify succeeded"
 echo
 
 # =========================================================================
-# PHASE 3: Validate Traces in Jaeger
+# PHASE 3: Sigstore-based Sign and Verify
 # =========================================================================
 echo "=========================================="
-echo "PHASE 3: Validating Traces in Jaeger"
+echo "PHASE 3: Sigstore-based Sign and Verify"
+echo "=========================================="
+echo
+
+SIGSTORE_SIGFILE="${TMPDIR}/sigstore-method.sig"
+TOKENPROJ="${TMPDIR}/tokenproj"
+TOKEN_FILE="${TOKENPROJ}/oidc-token.txt"
+
+SIGSTORE_IDENTITY="https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon/.github/workflows/extremely-dangerous-oidc-beacon.yml@refs/heads/main"
+SIGSTORE_ISSUER="https://token.actions.githubusercontent.com"
+
+echo "[Sigstore] Fetching OIDC test token..."
+if ! git clone --quiet --single-branch --branch current-token --depth 1 \
+	https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon \
+	"${TOKENPROJ}" 2>/dev/null; then
+	echo "Error: Failed to fetch OIDC token"
+	exit 1
+fi
+
+echo "[Sigstore] Signing model..."
+if ! "${BINARY}" sign sigstore \
+	--signature "${SIGSTORE_SIGFILE}" \
+	--identity-token "$(cat "${TOKEN_FILE}")" \
+	"${MODELDIR}"; then
+	echo "Error: sigstore sign failed"
+	exit 1
+fi
+echo "[Sigstore] Sign succeeded"
+
+echo "[Sigstore] Verifying model..."
+if ! "${BINARY}" verify sigstore \
+	--signature "${SIGSTORE_SIGFILE}" \
+	--identity "${SIGSTORE_IDENTITY}" \
+	--identity-provider "${SIGSTORE_ISSUER}" \
+	"${MODELDIR}"; then
+	echo "Error: sigstore verify failed"
+	exit 1
+fi
+echo "[Sigstore] Verify succeeded"
+echo
+
+# =========================================================================
+# PHASE 4: Validate Traces in Jaeger
+# =========================================================================
+echo "=========================================="
+echo "PHASE 4: Validating Traces in Jaeger"
 echo "=========================================="
 echo
 
@@ -253,12 +298,32 @@ if [[ "${verify_cert_count}" -lt 1 ]]; then
 fi
 echo "  Verify span (method=certificate): FOUND (${verify_cert_count})"
 
-# --- 6. model_path attribute present on all spans ---
+# --- 6. Sign span with method=sigstore ---
+echo "[Validate] Checking Sign span with method='sigstore'..."
+SIGN_SIGSTORE_FILTER='[.data[].spans[] | select(.operationName == "Sign") | select(.tags[] | select(.key == "model_signing.method" and .value == "sigstore"))] | length'
+sign_sigstore_count=$(jaeger_query_with_retry "${TRACES_URL}" "${SIGN_SIGSTORE_FILTER}" "Sign span with method=sigstore")
+if [[ "${sign_sigstore_count}" -lt 1 ]]; then
+	echo "Error: No Sign span with model_signing.method=sigstore found"
+	exit 1
+fi
+echo "  Sign span (method=sigstore): FOUND (${sign_sigstore_count})"
+
+# --- 7. Verify span with method=sigstore ---
+echo "[Validate] Checking Verify span with method='sigstore'..."
+VERIFY_SIGSTORE_FILTER='[.data[].spans[] | select(.operationName == "Verify") | select(.tags[] | select(.key == "model_signing.method" and .value == "sigstore"))] | length'
+verify_sigstore_count=$(jaeger_query_with_retry "${TRACES_URL}" "${VERIFY_SIGSTORE_FILTER}" "Verify span with method=sigstore")
+if [[ "${verify_sigstore_count}" -lt 1 ]]; then
+	echo "Error: No Verify span with model_signing.method=sigstore found"
+	exit 1
+fi
+echo "  Verify span (method=sigstore): FOUND (${verify_sigstore_count})"
+
+# --- 8. model_path attribute present on all spans ---
 echo "[Validate] Checking model_path attribute on spans..."
 MODEL_PATH_FILTER='[.data[].spans[] | select(.operationName == "Sign" or .operationName == "Verify") | select(.tags[] | select(.key == "model_signing.model_path"))] | length'
 spans_with_path=$(jaeger_query_with_retry "${TRACES_URL}" "${MODEL_PATH_FILTER}" "spans with model_signing.model_path attribute")
-if [[ "${spans_with_path}" -lt 4 ]]; then
-	echo "Error: Expected at least 4 spans with model_signing.model_path, got ${spans_with_path}"
+if [[ "${spans_with_path}" -lt 6 ]]; then
+	echo "Error: Expected at least 6 spans with model_signing.model_path, got ${spans_with_path}"
 	exit 1
 fi
 echo "  model_signing.model_path attribute: PRESENT on ${spans_with_path} spans"
@@ -273,8 +338,8 @@ echo "=========================================="
 echo
 echo "Summary:"
 echo "  - Service '${OTEL_SERVICE}' registered in Jaeger"
-echo "  - Sign spans:   key=${sign_key_count}, certificate=${sign_cert_count}"
-echo "  - Verify spans:  key=${verify_key_count}, certificate=${verify_cert_count}"
+echo "  - Sign spans:   key=${sign_key_count}, certificate=${sign_cert_count}, sigstore=${sign_sigstore_count}"
+echo "  - Verify spans:  key=${verify_key_count}, certificate=${verify_cert_count}, sigstore=${verify_sigstore_count}"
 echo "  - model_signing.model_path present on ${spans_with_path} spans"
 echo
 
