@@ -312,12 +312,55 @@ You can verify in two ways:
 
 The tool automatically detects OCI manifest signatures and matches files by path using `org.opencontainers.image.title` annotations (ORAS-style). For multi-layer images, verification against local files attempts to match individual files by path.
 
+#### Global Options
+
+The CLI supports the following global options available for all commands:
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--log-level` | Set the minimum log level (`debug`, `info`, `warn`, `error`, `silent`) | `info` |
+| `--log-format` | Set the log output format (`text`, `json`) | `text` |
+| `--output-file` | Redirect log output to a file | stdout |
+| `--timeout` | Command execution timeout | `3m` |
+
+**CLI examples:**
+
+```bash
+# Enable debug logging
+[...]$ model-signing sign bert-base-uncased --log-level debug
+
+# JSON format logs
+[...]$ model-signing sign bert-base-uncased --log-level debug --log-format json
+
+# Suppress all output except errors
+[...]$ model-signing verify bert-base-uncased --signature model.sig --log-level error
+```
+
+**Library usage** (`pkg/logging`):
+
+Logging is also available programmatically via the `logging.Logger` interface, which all signers and verifiers accept. The interface is swappable with any logging backend.
+
+```go
+import "github.com/sigstore/model-signing/pkg/logging"
+
+logger := logging.NewLoggerWithOptions(logging.LoggerOptions{
+    Level:  logging.LevelDebug,
+    Format: logging.FormatJSON,
+})
+
+opts := key.KeySignerOptions{
+    ModelPath:      "/path/to/model",
+    PrivateKeyPath: "/path/to/key.pem",
+    Logger:         logger,
+}
+```
+
 ### Model Signing API
 
 We offer an API which can be used in integrations with ML frameworks, ML
 pipelins and ML model hubs libraries. The CLI wraps around the API.
 
-The API is split into 3 main components:
+The API is split into the following main components:
 
 - `github.com/sigstore/model-signing/pkg/hashing`: Responsible with generating a list of hashes for
   every component of the model. A component could be a file, a file shard, a
@@ -333,13 +376,16 @@ The API is split into 3 main components:
   compared agains a manifest obtained from hashing the existing model. If the
   two manifest don't match then the model integrity was compromised and the
   `model-signing` package detected that.
+- `github.com/sigstore/model-signing/pkg/logging`: Provides a swappable `Logger` interface and
+  `Formatter` interface for structured, level-based logging. All signers and
+  verifiers accept a `logging.Logger` for diagnostic output.
 
 The first two of these components allows configurability but can also be used
 directly, with a default configuration. The only difference is for the
 verification component where we need to configure the verification method since
 there are no sensible defaults that can be used.
 
-Simple code examples on how to use these APIs for different signing or verifying strategies are provided under 
+Simple code examples on how to use these APIs for different signing or verifying strategies are provided under
 [examples](examples/)
 
 ### Model Signing Format
