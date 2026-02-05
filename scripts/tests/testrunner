@@ -15,7 +15,7 @@ cd "${DIR}" || exit 1
 for tc in test-*.sh; do
 	# Skip tests that require special setup (run separately in CI)
 	case "${tc}" in
-	test-interoperability.sh|test-sign-verify-allversions.sh|test-hardening.sh)
+	test-interoperability.sh|test-sign-verify-allversions.sh|test-hardening.sh|test-otel.sh)
 		echo -e "\n>>> Skipping ${tc} (requires special setup)"
 		continue
 		;;
