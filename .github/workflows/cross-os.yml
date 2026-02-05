@@ -80,7 +80,7 @@ jobs:
       - name: Build model-signing CLI
         run: go build -v -o model-signing${{ matrix.os == 'windows-latest' && '.exe' || '' }} ./cmd/model-signing
       - name: store beacon token into oidc-token.txt
-        uses: sigstore-conformance/extremely-dangerous-public-oidc-beacon@e602e5860a152f65f8cf50dd20523114f910ab05 # main
+        uses: sigstore-conformance/extremely-dangerous-public-oidc-beacon@8c13517721d6ae11cac357e58b9c81e988dc86e4 # main
       - name: Sign the model
         run: ./model-signing${{ matrix.os == 'windows-latest' && '.exe' || '' }} sign sigstore "$(pwd)/model_root" --use-staging --signature "$(pwd)/model.sig" --identity-token $(cat oidc-token.txt)
       - name: upload model signature
