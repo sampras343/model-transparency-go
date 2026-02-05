@@ -30,6 +30,7 @@ import (
 	internalcrypto "github.com/sigstore/model-signing/internal/crypto"
 	"github.com/sigstore/model-signing/internal/payload"
 	"github.com/sigstore/model-signing/pkg/interfaces"
+	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/manifest"
 	"github.com/sigstore/model-signing/pkg/utils"
 )
@@ -64,14 +65,14 @@ type CertificateBundleVerifier struct {
 	config     CertificateVerifierConfig
 	certPool   *x509.CertPool
 	trustChain []*x509.Certificate
-	logger     *utils.Logger
+	logger     logging.Logger
 }
 
 // NewCertificateBundleVerifier creates a certificate bundle verifier with the specified configuration.
 // It loads the certificate chain and initializes the trust pool.
 // Returns an error if certificate loading fails.
 func NewCertificateBundleVerifier(cfg CertificateVerifierConfig) (*CertificateBundleVerifier, error) {
-	logger := utils.NewLogger(cfg.LogFingerprints)
+	logger := logging.NewLogger(cfg.LogFingerprints)
 
 	// Create certificate pool for verification
 	certPool := x509.NewCertPool()
@@ -528,7 +529,7 @@ func parseCertificates(certBytes []byte) ([]*x509.Certificate, error) {
 }
 
 // logCertificateFingerprint logs the SHA256 fingerprint of a certificate.
-func logCertificateFingerprint(location string, cert *x509.Certificate, logger *utils.Logger) {
+func logCertificateFingerprint(location string, cert *x509.Certificate, logger logging.Logger) {
 	fingerprint := sha256.Sum256(cert.Raw)
 	logger.Info("[%8s] SHA256 Fingerprint: %X", location, fingerprint)
 }

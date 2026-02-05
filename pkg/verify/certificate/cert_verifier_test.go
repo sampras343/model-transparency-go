@@ -21,7 +21,7 @@ import (
 	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
 	protobundlecommon "github.com/sigstore/protobuf-specs/gen/pb-go/common/v1"
 
-	"github.com/sigstore/model-signing/pkg/utils"
+	"github.com/sigstore/model-signing/pkg/logging"
 )
 
 // TestNewCertificateVerifier tests the creation of a certificate verifier.
@@ -73,7 +73,7 @@ func TestCertificateVerifier_Verify(t *testing.T) {
 			CertificateChain: []string{"/path/to/test/cert.pem"},
 			LogFingerprints:  false,
 		},
-		logger: utils.NewLogger(false),
+		logger: logging.NewLogger(false),
 	}
 
 	_, err := verifier.Verify(context.Background())

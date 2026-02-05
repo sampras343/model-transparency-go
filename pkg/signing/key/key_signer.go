@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"github.com/sigstore/model-signing/pkg/config"
+	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/oci"
 	"github.com/sigstore/model-signing/pkg/signing"
 	"github.com/sigstore/model-signing/pkg/utils"
@@ -37,7 +38,7 @@ type KeySignerOptions struct {
 	AllowSymlinks  bool          // AllowSymlinks indicates whether to follow symbolic links.
 	PrivateKeyPath string        // PrivateKeyPath is the path to the private key file.
 	Password       string        // Password is the optional password for the private key.
-	Logger         *utils.Logger // Logger is used for debug and info output.
+	Logger         logging.Logger // Logger is used for debug and info output.
 }
 
 // KeySigner implements ModelSigner using local private key-based signing.
@@ -45,7 +46,7 @@ type KeySignerOptions struct {
 //nolint:revive
 type KeySigner struct {
 	opts   KeySignerOptions
-	logger *utils.Logger
+	logger logging.Logger
 }
 
 // NewKeySigner creates a new KeySigner with the given options.
@@ -67,15 +68,9 @@ func NewKeySigner(opts KeySignerOptions) (*KeySigner, error) {
 		}
 	}
 
-	// Use provided logger or create a default non-verbose one
-	logger := opts.Logger
-	if logger == nil {
-		logger = utils.NewLogger(false)
-	}
-
 	return &KeySigner{
 		opts:   opts,
-		logger: logger,
+		logger: logging.EnsureLogger(opts.Logger),
 	}, nil
 }
 

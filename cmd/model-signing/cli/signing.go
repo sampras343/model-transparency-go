@@ -22,10 +22,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sigstore/model-signing/cmd/model-signing/cli/options"
+	"github.com/sigstore/model-signing/pkg/logging"
 	cert "github.com/sigstore/model-signing/pkg/signing/certificate"
 	key "github.com/sigstore/model-signing/pkg/signing/key"
 	sigstore "github.com/sigstore/model-signing/pkg/signing/sigstore"
-	"github.com/sigstore/model-signing/pkg/utils"
 )
 
 // NewSigstoreSign creates the sigstore subcommand for model signing.
@@ -62,7 +62,7 @@ production one.`
 			// Convert CLI options to library options
 			opts := o.ToStandardOptions(modelPath)
 			// Pass logger from root options
-			opts.Logger = utils.NewLogger(ro.Verbose)
+			opts.Logger = ro.NewLogger()
 
 			signer, err := sigstore.NewSigstoreSigner(opts)
 			if err != nil {
@@ -73,7 +73,7 @@ production one.`
 			defer cancel()
 
 			status, err := signer.Sign(ctx)
-			if !ro.Verbose {
+			if ro.GetLogLevel() > logging.LevelDebug {
 				fmt.Println(status.Message)
 			}
 			return err
@@ -116,7 +116,7 @@ func NewKeySigner() *cobra.Command {
 			// Convert CLI options to library options
 			opts := o.ToStandardOptions(modelPath)
 			// Pass logger from root options
-			opts.Logger = utils.NewLogger(ro.Verbose)
+			opts.Logger = ro.NewLogger()
 
 			signer, err := key.NewKeySigner(opts)
 			if err != nil {
@@ -127,7 +127,7 @@ func NewKeySigner() *cobra.Command {
 			defer cancel()
 
 			status, err := signer.Sign(ctx)
-			if !ro.Verbose {
+			if ro.GetLogLevel() > logging.LevelDebug {
 				fmt.Println(status.Message)
 			}
 			return err
@@ -173,7 +173,7 @@ func NewCertificateSigner() *cobra.Command {
 			// Convert CLI options to library options
 			opts := o.ToStandardOptions(modelPath)
 			// Pass logger from root options
-			opts.Logger = utils.NewLogger(ro.Verbose)
+			opts.Logger = ro.NewLogger()
 
 			signer, err := cert.NewCertificateSigner(opts)
 			if err != nil {
@@ -184,7 +184,7 @@ func NewCertificateSigner() *cobra.Command {
 			defer cancel()
 
 			status, err := signer.Sign(ctx)
-			if !ro.Verbose {
+			if ro.GetLogLevel() > logging.LevelDebug {
 				fmt.Println(status.Message)
 			}
 			return err
@@ -231,8 +231,7 @@ func Sign() *cobra.Command {
     logs and certificate authorities. This provides a ready-to-use default
     trust model for most use cases but may not be suitable for custom or
     highly regulated environments.`,
-		DisableFlagParsing: true,
-		Args:               cobra.ArbitraryArgs,
+		Args: cobra.ArbitraryArgs,
 		RunE: func(parent *cobra.Command, args []string) error {
 			sigCmd := NewSigstoreSign()
 			sigCmd.SilenceUsage = parent.SilenceUsage

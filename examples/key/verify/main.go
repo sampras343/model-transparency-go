@@ -39,7 +39,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/sigstore/model-signing/pkg/utils"
+	"github.com/sigstore/model-signing/pkg/logging"
 	keyVerify "github.com/sigstore/model-signing/pkg/verify/key"
 )
 
@@ -51,7 +51,7 @@ func main() {
 	ignoreGitPaths := flag.Bool("ignore-git-paths", true, "Ignore .git directories and .gitignore files")
 	allowSymlinks := flag.Bool("allow-symlinks", false, "Allow following symlinks in the model directory")
 	ignoreUnsignedFiles := flag.Bool("ignore-unsigned-files", false, "Ignore files not present in the signature")
-	verbose := flag.Bool("verbose", true, "Enable verbose output")
+	logLevel := flag.String("log-level", "debug", "Log level (debug, info, warn, error, silent)")
 	flag.Parse()
 
 	// Get values from flags or environment variables
@@ -76,7 +76,9 @@ func main() {
 		log.Fatal("--public-key is required")
 	}
 
-	logger := utils.NewLogger(*verbose)
+	logger := logging.NewLoggerWithOptions(logging.LoggerOptions{
+		Level: logging.ParseLogLevel(*logLevel),
+	})
 
 	// Create verifier options
 	opts := keyVerify.KeyVerifierOptions{

@@ -22,7 +22,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sigstore/model-signing/cmd/model-signing/cli/options"
-	"github.com/sigstore/model-signing/pkg/utils"
+	"github.com/sigstore/model-signing/pkg/logging"
 	cert "github.com/sigstore/model-signing/pkg/verify/certificate"
 	keyverify "github.com/sigstore/model-signing/pkg/verify/key"
 	sigstore "github.com/sigstore/model-signing/pkg/verify/sigstore"
@@ -54,7 +54,7 @@ signature, verification would fail.`
 			modelPath := args[0]
 
 			opts := o.ToStandardOptions(modelPath)
-			opts.Logger = utils.NewLogger(ro.Verbose)
+			opts.Logger = ro.NewLogger()
 
 			verifier, err := sigstore.NewSigstoreVerifier(opts)
 			if err != nil {
@@ -65,7 +65,7 @@ signature, verification would fail.`
 			defer cancel()
 
 			status, err := verifier.Verify(ctx)
-			if !ro.Verbose {
+			if ro.GetLogLevel() > logging.LevelDebug {
 				fmt.Println(status.Message)
 			}
 			return err
@@ -105,7 +105,7 @@ management protocols.`
 			modelPath := args[0]
 
 			opts := o.ToStandardOptions(modelPath)
-			opts.Logger = utils.NewLogger(ro.Verbose)
+			opts.Logger = ro.NewLogger()
 
 			verifier, err := keyverify.NewKeyVerifier(opts)
 			if err != nil {
@@ -116,7 +116,7 @@ management protocols.`
 			defer cancel()
 
 			status, err := verifier.Verify(ctx)
-			if !ro.Verbose {
+			if ro.GetLogLevel() > logging.LevelDebug {
 				fmt.Println(status.Message)
 			}
 			return err
@@ -156,7 +156,7 @@ func NewCertificateVerifier() *cobra.Command {
 			modelPath := args[0]
 
 			opts := o.ToStandardOptions(modelPath)
-			opts.Logger = utils.NewLogger(ro.Verbose)
+			opts.Logger = ro.NewLogger()
 
 			verifier, err := cert.NewCertificateVerifier(opts)
 			if err != nil {
@@ -167,7 +167,7 @@ func NewCertificateVerifier() *cobra.Command {
 			defer cancel()
 
 			status, err := verifier.Verify(ctx)
-			if !ro.Verbose {
+			if ro.GetLogLevel() > logging.LevelDebug {
 				fmt.Println(status.Message)
 			}
 			return err
@@ -197,8 +197,7 @@ We support multiple PKI methods, specified as subcommands. By default, the signa
 to be generated via Sigstore (as if invoking 'sigstore' subcommand).
 
 Use each subcommand's --help option for details on each mode.`,
-		DisableFlagParsing: true,
-		Args:               cobra.ArbitraryArgs,
+		Args: cobra.ArbitraryArgs,
 		RunE: func(parent *cobra.Command, args []string) error {
 			sigCmd := NewSigstoreVerifier()
 			sigCmd.SilenceUsage = parent.SilenceUsage

@@ -19,9 +19,9 @@ import (
 
 	"github.com/sigstore/model-signing/pkg/config"
 	"github.com/sigstore/model-signing/pkg/interfaces"
+	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/manifest"
 	"github.com/sigstore/model-signing/pkg/oci"
-	"github.com/sigstore/model-signing/pkg/utils"
 )
 
 // ManifestOptions contains options for building a manifest from a model.
@@ -42,7 +42,7 @@ type ManifestOptions struct {
 // 4. Creates the appropriate manifest
 //
 // Returns the manifest and the resolved ignore paths (for logging purposes).
-func BuildManifest(opts ManifestOptions, logger *utils.Logger) (*manifest.Manifest, []string, error) {
+func BuildManifest(opts ManifestOptions, logger logging.Logger) (*manifest.Manifest, []string, error) {
 	// Copy ignore paths to avoid mutating caller's slice
 	ignorePaths := append([]string{}, opts.IgnorePaths...)
 	// Add signature path to ignore list

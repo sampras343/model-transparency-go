@@ -19,8 +19,8 @@ import (
 
 	"github.com/sigstore/model-signing/pkg/config"
 	"github.com/sigstore/model-signing/pkg/interfaces"
+	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/oci"
-	"github.com/sigstore/model-signing/pkg/utils"
 )
 
 // VerifyOptions contains options for verifying a model.
@@ -44,7 +44,7 @@ type VerifyOptions struct {
 //
 // Returns a Result indicating success or failure.
 // nolint:revive
-func VerifyModel(verifier interfaces.BundleVerifier, opts VerifyOptions, logger *utils.Logger) (Result, error) {
+func VerifyModel(verifier interfaces.BundleVerifier, opts VerifyOptions, logger logging.Logger) (Result, error) {
 	// Copy ignore paths to avoid mutating caller's slice
 	ignorePaths := append([]string{}, opts.IgnorePaths...)
 	// Add signature path to ignore list

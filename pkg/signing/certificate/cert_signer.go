@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"github.com/sigstore/model-signing/pkg/config"
+	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/oci"
 	"github.com/sigstore/model-signing/pkg/signing"
 	"github.com/sigstore/model-signing/pkg/utils"
@@ -38,7 +39,7 @@ type CertificateSignerOptions struct {
 	PrivateKeyPath         string        // PrivateKeyPath is the path to the private key file.
 	CertificateChain       []string      // CertificateChain is the list of certificate paths for signing.
 	SigningCertificatePath string        // SigningCertificatePath is the path to the signing certificate, as a PEM-encoded file
-	Logger                 *utils.Logger // Logger is used for debug and info output.
+	Logger                 logging.Logger // Logger is used for debug and info output.
 }
 
 // CertificateSigner implements ModelSigner using local cert-based signing.
@@ -46,7 +47,7 @@ type CertificateSignerOptions struct {
 //nolint:revive
 type CertificateSigner struct {
 	opts   CertificateSignerOptions
-	logger *utils.Logger
+	logger logging.Logger
 }
 
 // NewCertificateSigner creates a new CertificateSigner with the given options.
@@ -71,15 +72,9 @@ func NewCertificateSigner(opts CertificateSignerOptions) (*CertificateSigner, er
 		}
 	}
 
-	// Use provided logger or create a default non-verbose one
-	logger := opts.Logger
-	if logger == nil {
-		logger = utils.NewLogger(false)
-	}
-
 	return &CertificateSigner{
 		opts:   opts,
-		logger: logger,
+		logger: logging.EnsureLogger(opts.Logger),
 	}, nil
 }
 

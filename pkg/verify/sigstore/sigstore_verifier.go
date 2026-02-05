@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 
 	"github.com/sigstore/model-signing/pkg/config"
+	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/oci"
 	"github.com/sigstore/model-signing/pkg/utils"
 	"github.com/sigstore/model-signing/pkg/verify"
@@ -44,7 +45,7 @@ type SigstoreVerifierOptions struct {
 	IdentityProvider    string        // IdentityProvider is the expected OIDC issuer URL.
 	TrustConfigPath     string        // TrustConfigPath is an optional path to custom trust root configuration.
 	IgnoreUnsignedFiles bool          // IgnoreUnsignedFiles allows verification to succeed even if extra files exist.
-	Logger              *utils.Logger // Logger is used for debug and info output.
+	Logger              logging.Logger // Logger is used for debug and info output.
 }
 
 // SigstoreVerifier provides high-level verification with validation.
@@ -53,7 +54,7 @@ type SigstoreVerifierOptions struct {
 //nolint:revive
 type SigstoreVerifier struct {
 	opts   SigstoreVerifierOptions
-	logger *utils.Logger
+	logger logging.Logger
 }
 
 // NewSigstoreVerifier creates a new high-level Sigstore verifier with validation.
@@ -94,15 +95,9 @@ func NewSigstoreVerifier(opts SigstoreVerifierOptions) (*SigstoreVerifier, error
 		return nil, err
 	}
 
-	// Use provided logger or create a default non-verbose one
-	logger := opts.Logger
-	if logger == nil {
-		logger = utils.NewLogger(false)
-	}
-
 	return &SigstoreVerifier{
 		opts:   opts,
-		logger: logger,
+		logger: logging.EnsureLogger(opts.Logger),
 	}, nil
 }
 

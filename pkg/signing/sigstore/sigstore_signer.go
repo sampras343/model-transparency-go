@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"github.com/sigstore/model-signing/pkg/config"
+	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/oci"
 	"github.com/sigstore/model-signing/pkg/signing"
 	"github.com/sigstore/model-signing/pkg/utils"
@@ -42,7 +43,7 @@ type SigstoreSignerOptions struct {
 	ClientID              string        // ClientID is the OAuth client ID.
 	ClientSecret          string        // ClientSecret is the OAuth client secret.
 	TrustConfigPath       string        // TrustConfigPath is an optional path to custom trust root configuration.
-	Logger                *utils.Logger // Logger is used for debug and info output.
+	Logger                logging.Logger // Logger is used for debug and info output.
 }
 
 // SigstoreSigner implements ModelSigner using Sigstore/Fulcio signing.
@@ -50,7 +51,7 @@ type SigstoreSignerOptions struct {
 //nolint:revive
 type SigstoreSigner struct {
 	opts   SigstoreSignerOptions
-	logger *utils.Logger
+	logger logging.Logger
 }
 
 // NewSigstoreSigner creates a new SigstoreSigner with the given options.
@@ -73,15 +74,9 @@ func NewSigstoreSigner(opts SigstoreSignerOptions) (*SigstoreSigner, error) {
 		return nil, err
 	}
 
-	// Use provided logger or create a default non-verbose one
-	logger := opts.Logger
-	if logger == nil {
-		logger = utils.NewLogger(false)
-	}
-
 	return &SigstoreSigner{
 		opts:   opts,
-		logger: logger,
+		logger: logging.EnsureLogger(opts.Logger),
 	}, nil
 }
 

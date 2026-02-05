@@ -53,8 +53,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/sigstore/model-signing/pkg/logging"
 	sigstoreSigning "github.com/sigstore/model-signing/pkg/signing/sigstore"
-	"github.com/sigstore/model-signing/pkg/utils"
 )
 
 func main() {
@@ -65,7 +65,7 @@ func main() {
 	useAmbientCredentials := flag.Bool("use-ambient-credentials", false, "Use ambient OIDC credentials (e.g., from SIGSTORE_ID_TOKEN)")
 	ignoreGitPaths := flag.Bool("ignore-git-paths", true, "Ignore .git directories and .gitignore files")
 	allowSymlinks := flag.Bool("allow-symlinks", false, "Allow following symlinks in the model directory")
-	verbose := flag.Bool("verbose", true, "Enable verbose output")
+	logLevel := flag.String("log-level", "debug", "Log level (debug, info, warn, error, silent)")
 	flag.Parse()
 
 	// Get values from flags or environment variables
@@ -118,7 +118,9 @@ func main() {
 		log.Fatal("--signature-path is required")
 	}
 
-	logger := utils.NewLogger(*verbose)
+	logger := logging.NewLoggerWithOptions(logging.LoggerOptions{
+		Level: logging.ParseLogLevel(*logLevel),
+	})
 
 	// Create signer options
 	opts := sigstoreSigning.SigstoreSignerOptions{

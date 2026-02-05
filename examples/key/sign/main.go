@@ -44,8 +44,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/sigstore/model-signing/pkg/logging"
 	keySigning "github.com/sigstore/model-signing/pkg/signing/key"
-	"github.com/sigstore/model-signing/pkg/utils"
 )
 
 func main() {
@@ -56,7 +56,7 @@ func main() {
 	password := flag.String("password", "", "Password for encrypted private keys (optional)")
 	ignoreGitPaths := flag.Bool("ignore-git-paths", true, "Ignore .git directories and .gitignore files")
 	allowSymlinks := flag.Bool("allow-symlinks", false, "Allow following symlinks in the model directory")
-	verbose := flag.Bool("verbose", true, "Enable verbose output")
+	logLevel := flag.String("log-level", "debug", "Log level (debug, info, warn, error, silent)")
 	flag.Parse()
 
 	// Get values from flags or environment variables
@@ -117,7 +117,9 @@ func main() {
 		log.Fatal("--private-key is required")
 	}
 
-	logger := utils.NewLogger(*verbose)
+	logger := logging.NewLoggerWithOptions(logging.LoggerOptions{
+		Level: logging.ParseLogLevel(*logLevel),
+	})
 
 	// Create signer options
 	opts := keySigning.KeySignerOptions{
