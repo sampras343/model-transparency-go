@@ -246,7 +246,9 @@ func NewPkcs11KeySigner() *cobra.Command {
 			defer cancel()
 
 			status, err := signer.Sign(ctx)
-			fmt.Println(status.Message)
+			if ro.GetLogLevel() > logging.LevelDebug {
+				fmt.Println(status.Message)
+			}
 			return err
 		},
 	}
@@ -305,7 +307,9 @@ func NewPkcs11CertificateSigner() *cobra.Command {
 			defer cancel()
 
 			status, err := signer.Sign(ctx)
-			fmt.Println(status.Message)
+			if ro.GetLogLevel() > logging.LevelDebug {
+				fmt.Println(status.Message)
+			}
 			return err
 		},
 	}

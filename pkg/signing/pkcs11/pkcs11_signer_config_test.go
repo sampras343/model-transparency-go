@@ -33,55 +33,6 @@ import (
 // Tests for base Signer
 // ============================================================================
 
-// TestTrimNullBytes tests the trimNullBytes helper function
-func TestTrimNullBytes(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "no null bytes",
-			input:    "hello",
-			expected: "hello",
-		},
-		{
-			name:     "trailing null bytes",
-			input:    "hello\x00\x00",
-			expected: "hello",
-		},
-		{
-			name:     "only null bytes",
-			input:    "\x00\x00\x00",
-			expected: "",
-		},
-		{
-			name:     "empty string",
-			input:    "",
-			expected: "",
-		},
-		{
-			name:     "null bytes in middle",
-			input:    "hel\x00lo",
-			expected: "hel", // trimNullBytes stops at first null byte
-		},
-		{
-			name:     "multiple trailing nulls",
-			input:    "test\x00\x00\x00\x00",
-			expected: "test",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := trimNullBytes(tt.input)
-			if result != tt.expected {
-				t.Errorf("trimNullBytes() = %q, want %q", result, tt.expected)
-			}
-		})
-	}
-}
-
 // TestDefaultModulePaths verifies that default module paths are defined
 func TestDefaultModulePaths(t *testing.T) {
 	if len(DefaultModulePaths) == 0 {

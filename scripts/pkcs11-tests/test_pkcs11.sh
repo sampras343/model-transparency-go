@@ -38,7 +38,7 @@ fi
 
 # Test signing with PKCS#11
 echo "Testing PKCS#11 signing..."
-if ! ./build/model-signing sign pkcs11 \
+if ! ./build/model-signing sign pkcs11-key \
 	--signature "${model_sig}" \
 	--pkcs11-uri "${pkcs11uri}" \
 	"${model_path}"; then
