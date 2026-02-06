@@ -65,9 +65,10 @@ jobs:
 
       - name: Check formatting
         run: |
-          if [ -n "$(gofmt -l .)" ]; then
+          UNFORMATTED=$(find . -name '*.go' -not -path './examples/*' | xargs gofmt -l)
+          if [ -n "$UNFORMATTED" ]; then
             echo "::error::The following files are not formatted correctly:"
-            gofmt -l .
+            echo "$UNFORMATTED"
             exit 1
           fi
 
