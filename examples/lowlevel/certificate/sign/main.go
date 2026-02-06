@@ -229,6 +229,3 @@ func findRepoRoot() string {
 		dir = parent
 	}
 }
-
-
-https://keycloak-keycloak-system.apps.rosa.vbqzu-cudqs-xjj.s9iu.p3.openshiftapps.com
