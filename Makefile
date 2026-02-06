@@ -19,7 +19,7 @@ BINARY_PATH=./cmd/model-signing
 BUILD_DIR=./build
 
 # Test parameters
-TEST_PACKAGES=$(shell go list ./... | grep -v /examples/)
+TEST_PACKAGES=./cmd/... ./pkg/... ./internal/...
 TEST_TIMEOUT=300s
 COVERAGE_DIR=./coverage
 COVERAGE_FILE=$(COVERAGE_DIR)/coverage.out
