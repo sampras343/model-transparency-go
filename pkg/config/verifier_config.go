@@ -99,8 +99,7 @@ func (c *Config) Verify(modelPath, signaturePath string) error {
 	if c.ignoreUnsignedFiles {
 		// Only hash files that are in the signature
 		for _, rd := range expectedManifest.ResourceDescriptors() {
-			filePath := filepath.Join(modelPath, rd.Identifier)
-			filesToHash = append(filesToHash, filePath)
+			filesToHash = append(filesToHash, filepath.FromSlash(rd.Identifier))
 		}
 	}
 	// If filesToHash is nil, all files will be hashed
