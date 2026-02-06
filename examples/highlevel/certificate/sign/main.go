@@ -112,7 +112,7 @@ func main() {
 		}
 		defer func() {
 			fmt.Printf("\nTo verify this signature, run:\n")
-			fmt.Printf("  go run ./examples/certificate/verify/main.go --model-path=%s --signature-path=%s --cert-chain=%s,%s\n",
+			fmt.Printf("  go run ./examples/highlevel/certificate/verify/main.go --model-path=%s --signature-path=%s --cert-chain=%s,%s\n",
 				tmpDir,
 				filepath.Join(tmpDir, "model.sig"),
 				filepath.Join(certDir, "int-ca-cert.pem"),

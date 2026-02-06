@@ -87,7 +87,7 @@ monitor](https://github.com/sigstore/rekor-monitor) that runs on GitHub Actions.
 Clone the repository and build the `model-signing` binary:
 
 ```bash
-[...]$ go build -o model-signing ./cmd/model-signing
+[...]$ go build -o model-signing ./cmd/model-signing && sudo cp -r model-signing /usr/local/bin/
 ```
 
 To install the binary to your `$GOPATH/bin`:
@@ -349,7 +349,7 @@ The CLI supports the following global options available for all commands:
 [...]$ model-signing sign bert-base-uncased --log-level debug
 
 # JSON format logs
-[...]$ model-signing sign bert-base-uncased --log-level debug --log-format json
+[...]$ model-signing sign bert-base-uncased --log-level debug --log-format json --output-file output.log
 
 # Suppress all output except errors
 [...]$ model-signing verify bert-base-uncased --signature model.sig --log-level error
@@ -404,8 +404,7 @@ directly, with a default configuration. The only difference is for the
 verification component where we need to configure the verification method since
 there are no sensible defaults that can be used.
 
-Simple code examples on how to use these APIs for different signing or verifying strategies are provided under
-[examples](examples/)
+**Using as a Go library:**: For a complete reference on interfaces, configuration types, and programmatic usage (signing/verification flows, config-based verification, extending the library) and simple code examples on how to use these APIs for different signing or verifying strategies are provided under [examples](examples/).
 
 ### Model Signing Format
 

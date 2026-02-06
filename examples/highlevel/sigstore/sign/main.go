@@ -25,21 +25,21 @@
 //
 // Usage:
 //
-//	go run ./examples/sigstore/sign/main.go \
+//	go run ./examples/highlevel/sigstore/sign/main.go \
 //	    --model-path=/path/to/model \
 //	    --signature-path=/path/to/model.sig
 //
 // With explicit OIDC token:
 //
 //	export SIGSTORE_ID_TOKEN='<your-oidc-token>'
-//	go run ./examples/sigstore/sign/main.go \
+//	go run ./examples/highlevel/sigstore/sign/main.go \
 //	    --model-path=/path/to/model \
 //	    --signature-path=/path/to/model.sig \
 //	    --use-ambient-credentials
 //
 // For testing (uses Sigstore staging infrastructure):
 //
-//	go run ./examples/sigstore/sign/main.go \
+//	go run ./examples/highlevel/sigstore/sign/main.go \
 //	    --model-path=/path/to/model \
 //	    --signature-path=/path/to/model.sig \
 //	    --staging
@@ -101,7 +101,7 @@ func main() {
 
 		defer func() {
 			fmt.Printf("\nTo verify this signature, run:\n")
-			fmt.Printf("  go run ./examples/sigstore/verify/main.go --model-path=%s --signature-path=%s --staging --identity=<your-email> --identity-provider=<oidc-provider>\n",
+			fmt.Printf("  go run ./examples/highlevel/sigstore/verify/main.go --model-path=%s --signature-path=%s --staging --identity=<your-email> --identity-provider=<oidc-provider>\n",
 				tmpDir,
 				filepath.Join(tmpDir, "model.sig"))
 			fmt.Printf("\nNote: Replace <your-email> with the identity from your OIDC token\n")

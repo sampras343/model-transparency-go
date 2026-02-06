@@ -19,7 +19,7 @@
 //
 // Usage:
 //
-//	go run ./examples/key/sign/main.go \
+//	go run ./examples/highlevel/key/sign/main.go \
 //	    --model-path=/path/to/model \
 //	    --signature-path=/path/to/model.sig \
 //	    --private-key=/path/to/private-key.pem
@@ -29,11 +29,11 @@
 //	export MODEL_PATH=/path/to/model
 //	export SIGNATURE_PATH=/path/to/model.sig
 //	export PRIVATE_KEY=/path/to/private-key.pem
-//	go run ./examples/key/sign/main.go
+//	go run ./examples/highlevel/key/sign/main.go
 //
 // Demo mode (uses test keys from the repository):
 //
-//	go run ./examples/key/sign/main.go
+//	go run ./examples/highlevel/key/sign/main.go
 package main
 
 import (
@@ -87,7 +87,7 @@ func main() {
 		}
 		defer func() {
 			fmt.Printf("\nTo verify this signature, run:\n")
-			fmt.Printf("  go run ./examples/key/verify/main.go --model-path=%s --signature-path=%s --public-key=%s\n",
+			fmt.Printf("  go run ./examples/highlevel/key/verify/main.go --model-path=%s --signature-path=%s --public-key=%s\n",
 				tmpDir,
 				filepath.Join(tmpDir, "model.sig"),
 				filepath.Join(repoRoot, "scripts", "tests", "keys", "certificate", "signing-key-pub.pem"))

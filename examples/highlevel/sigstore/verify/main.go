@@ -20,7 +20,7 @@
 //
 // Usage:
 //
-//	go run ./examples/sigstore/verify/main.go \
+//	go run ./examples/highlevel/sigstore/verify/main.go \
 //	    --model-path=/path/to/model \
 //	    --signature-path=/path/to/model.sig \
 //	    --identity=signer@example.com \
@@ -28,7 +28,7 @@
 //
 // For signatures created with staging infrastructure:
 //
-//	go run ./examples/sigstore/verify/main.go \
+//	go run ./examples/highlevel/sigstore/verify/main.go \
 //	    --model-path=/path/to/model \
 //	    --signature-path=/path/to/model.sig \
 //	    --identity=signer@example.com \

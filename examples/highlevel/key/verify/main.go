@@ -19,7 +19,7 @@
 //
 // Usage:
 //
-//	go run ./examples/key/verify/main.go \
+//	go run ./examples/highlevel/key/verify/main.go \
 //	    --model-path=/path/to/model \
 //	    --signature-path=/path/to/model.sig \
 //	    --public-key=/path/to/public-key.pem
@@ -29,7 +29,7 @@
 //	export MODEL_PATH=/path/to/model
 //	export SIGNATURE_PATH=/path/to/model.sig
 //	export PUBLIC_KEY=/path/to/public-key.pem
-//	go run ./examples/key/verify/main.go
+//	go run ./examples/highlevel/key/verify/main.go
 package main
 
 import (
