@@ -90,16 +90,10 @@ Clone the repository and build the `model-signing` binary:
 [...]$ go build -o model-signing ./cmd/model-signing && sudo cp -r model-signing /usr/local/bin/
 ```
 
-To install the binary to your `$GOPATH/bin`:
+Verify if the binary is available to use:
 
 ```bash
-[...]$ go install ./cmd/model-signing
-```
-
-Verify the installation:
-
-```bash
-[...]$ ./model-signing --help
+[...]$ model-signing --help
 ```
 
 #### Building with Podman
@@ -226,7 +220,7 @@ are currently supported, shown with their expected identities:
 To use a private Sigstore setup (e.g. custom Rekor/Fulcio), use the `--trust-config` flag:
 
 ```bash
-[...]$ model-signing sign bert-base-uncased --trust-config client_trust_config.json
+[...]$ model-signing sign bert-base-uncased --trust-config client_trust_config.json --client-id trusted-artifact-signer
 ```
 
 For verification:
@@ -261,7 +255,8 @@ generate the key pair:
 And then we use the private key to sign.
 
 ```bash
-[...]$ model-signing sign key bert-base-uncased --private-key key.priv
+[...]$ model-signing sign key bert-base-uncased \
+       --private-key key.priv --signature model_key.sig
 ```
 
 **Verifying:**
@@ -270,7 +265,7 @@ Similarly, for key verification, we can use
 
 ```bash
 [...]$ model-signing verify key bert-base-uncased \
-       --signature model.sig --public-key key.pub
+       --signature model_key.sig --public-key key.pub
 ```
 
 ### Sign-Verify with certificate
@@ -281,7 +276,7 @@ we will be using the sample test certs available in the repository
 **Signing:**
 ```bash
 [...]$ model-signing sign certificate bert-base-uncased \
-       --signature model.sig \
+       --signature model_cert.sig \
        --signing-certificate scripts/tests/keys/certificate/signing-key-cert.pem \
        --private-key scripts/tests/keys/certificate/signing-key.pem \
        --certificate-chain scripts/tests/keys/certificate/int-ca-cert.pem
@@ -290,7 +285,7 @@ we will be using the sample test certs available in the repository
 **Verifying:**
 ```bash
 [...]$ model-signing verify certificate bert-base-uncased \
-       --signature model.sig \
+       --signature model_cert.sig \
        --certificate-chain scripts/tests/keys/certificate/ca-cert.pem \
        --ignore-unsigned-files
 ```
@@ -317,16 +312,16 @@ You can verify in two ways:
 ```bash
 [...$ model-signing verify manifest.json \
   --signature model.sig \
-  --identity user@example.com \
-  --identity-provider https://accounts.google.com
+  --identity "$identity" \
+  --identity-provider "$oidc_provider"
 ```
 
 2. **Against local model files** (automatically detects OCI layer signatures):
 ```bash
 [...]$ model-signing verify model_dir \
   --signature model.sig \
-  --identity user@example.com \
-  --identity-provider https://accounts.google.com
+  --identity "$identity" \
+  --identity-provider "$oidc_provider"
 ```
 
 The tool automatically detects OCI manifest signatures and matches files by path using `org.opencontainers.image.title` annotations (ORAS-style). For multi-layer images, verification against local files attempts to match individual files by path.
