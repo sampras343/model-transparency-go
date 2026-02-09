@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.25-alpine AS builder
+FROM golang:1.25.6@sha256:ce63a16e0f7063787ebb4eb28e72d477b00b4726f79874b3205a965ffd797ab2 AS builder
 
-RUN apk add --no-cache git ca-certificates
-
+USER 0
 WORKDIR /app
+
+ENV GOTOOLCHAIN=auto
+
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -25,20 +28,22 @@ COPY cmd/ cmd/
 COPY pkg/ pkg/
 COPY internal/ internal/
 
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /model-signing ./cmd/model-signing
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /usr/local/bin/model-signing ./cmd/model-signing
 
-FROM gcr.io/distroless/static:nonroot AS final_image
+FROM golang:1.25.6@sha256:ce63a16e0f7063787ebb4eb28e72d477b00b4726f79874b3205a965ffd797ab2 AS deploy
 
-COPY --from=builder /model-signing /model-signing
+COPY --from=builder /usr/local/bin/model-signing /usr/local/bin/model-signing
+COPY LICENSE /licenses/license.txt
 
-USER nonroot:nonroot
+USER 65532:65532
 
-ENTRYPOINT ["/model-signing"]
+ENTRYPOINT ["model-signing"]
 CMD ["--help"]
 
 ARG APP_VERSION="0.0.1"
 
-LABEL org.opencontainers.image.title="Model Transparency Library" \
+LABEL summary="Provides a go library for model transparency." \
+      org.opencontainers.image.title="Model Transparency Go Library" \
       org.opencontainers.image.description="Supply chain security for ML" \
       org.opencontainers.image.version="$APP_VERSION" \
       org.opencontainers.image.authors="The Sigstore Authors <sigstore-dev@googlegroups.com>" \
