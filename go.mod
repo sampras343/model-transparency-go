@@ -1,6 +1,6 @@
 module github.com/sigstore/model-signing
 
-go 1.25.6
+go 1.25.5
 
 require (
 	github.com/coreos/go-oidc/v3 v3.17.0
