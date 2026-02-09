@@ -32,7 +32,7 @@ COLOR_GREEN=\033[32m
 COLOR_YELLOW=\033[33m
 COLOR_BLUE=\033[34m
 
-.PHONY: all build clean test test-unit test-coverage coverage-report help deps vet fmt lint
+.PHONY: all build clean test test-unit test-coverage coverage-report help deps vet fmt lint docker-build podman-build
 
 ## help: Display this help message
 help:
@@ -207,11 +207,17 @@ run: build
 ci: deps lint test-coverage build
 	@echo "$(COLOR_GREEN)✓ CI pipeline completed successfully$(COLOR_RESET)"
 
-## docker-build: Build Docker image
+## docker-build: Build container image with Docker
 docker-build:
-	@echo "$(COLOR_BLUE)Building Docker image...$(COLOR_RESET)"
-	docker build -t model-signing:latest .
+	@echo "$(COLOR_BLUE)Building container image with Docker...$(COLOR_RESET)"
+	docker build -t model-signing:latest -f Containerfile .
 	@echo "$(COLOR_GREEN)✓ Docker image built$(COLOR_RESET)"
+
+## podman-build: Build container image with Podman
+podman-build:
+	@echo "$(COLOR_BLUE)Building container image with Podman...$(COLOR_RESET)"
+	podman build -t model-signing:latest -f Containerfile .
+	@echo "$(COLOR_GREEN)✓ Podman image built$(COLOR_RESET)"
 
 ## mod-update: Update all dependencies
 mod-update:
