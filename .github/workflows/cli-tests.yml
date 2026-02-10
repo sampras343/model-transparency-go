@@ -123,4 +123,4 @@ jobs:
         run: make build
 
       - name: Run PKCS#11 tests
-        run: ./scripts/pkcs11-tests/test_pkcs11.sh
+        run: ./scripts/tests/test-pkcs11.sh

@@ -21,7 +21,7 @@
 // Verify key-based PKCS#11 signature:
 //
 //	# First, export the public key from PKCS#11
-//	./scripts/pkcs11-tests/softhsm_setup getpubkey > /tmp/pubkey.pem
+//	./scripts/tests/softhsm_setup getpubkey > /tmp/pubkey.pem
 //
 //	# Then verify
 //	go run ./examples/pkcs11/verify/main.go \
@@ -90,7 +90,7 @@ func main() {
 	if *publicKeyPath == "" {
 		fmt.Println("INFO: --public-key not provided")
 		fmt.Println("\nFor PKCS#11-signed models, you need to export the public key:")
-		fmt.Println("  ./scripts/pkcs11-tests/softhsm_setup getpubkey > /tmp/pubkey.pem")
+		fmt.Println("  ./scripts/tests/softhsm_setup getpubkey > /tmp/pubkey.pem")
 		fmt.Println("\nThen verify with:")
 		fmt.Println("  go run ./examples/pkcs11/verify/main.go \\")
 		fmt.Println("      --model-path=<path> \\")
