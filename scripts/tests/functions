@@ -1,27 +1,42 @@
 
 # Fetch an OIDC token from the sigstore-conformance beacon with expiry validation.
-# Re-fetches if the token has insufficient remaining lifetime.
-# Args: $1=clone_dir  $2=token_file  [$3=max_attempts]  [$4=min_lifetime_secs]
+# Re-fetches if the token has insufficient remaining lifetime. The beacon refreshes
+# tokens on a ~10 min cron cycle, so we use a timeout-based approach to span at
+# least one full refresh cycle.
+# Args: $1=clone_dir  $2=token_file  [$3=timeout_secs]  [$4=min_lifetime_secs]
 fetch_oidc_token() {
 	local tokenproj="$1"
 	local token_file="$2"
-	local max_attempts="${3:-5}"
+	local timeout="${3:-600}"       # 10 minutes — covers one full beacon refresh cycle
 	local min_lifetime="${4:-30}"
+	local start_time attempt
+	start_time=$(date +%s)
+	attempt=0
 
-	for attempt in $(seq 1 "${max_attempts}"); do
+	while true; do
+		attempt=$((attempt + 1))
+		local now elapsed
+		now=$(date +%s)
+		elapsed=$((now - start_time))
+
+		if [ "${elapsed}" -ge "${timeout}" ]; then
+			echo "  Error: could not obtain a valid OIDC token within ${timeout}s (${attempt} attempts)"
+			return 1
+		fi
+
 		rm -rf "${tokenproj}"
 		mkdir -p "${tokenproj}"
 
 		if ! git clone --quiet --single-branch --branch current-token --depth 1 \
 			https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon \
 			"${tokenproj}" 2>/dev/null; then
-			echo "  Warning: git clone failed (attempt ${attempt}/${max_attempts})"
+			echo "  Warning: git clone failed (attempt ${attempt}, ${elapsed}s elapsed)"
 			sleep 10
 			continue
 		fi
 
 		if [ ! -f "${token_file}" ]; then
-			echo "  Warning: token file not found (attempt ${attempt}/${max_attempts})"
+			echo "  Warning: token file not found (attempt ${attempt}, ${elapsed}s elapsed)"
 			sleep 10
 			continue
 		fi
@@ -35,31 +50,28 @@ fetch_oidc_token() {
 		exp=$(echo "${payload}" | jq -r '.exp // 0' 2>/dev/null) || true
 
 		if [ -n "${exp}" ] && [ "${exp}" != "0" ] && [ "${exp}" != "null" ]; then
-			local now remaining
+			local remaining
 			now=$(date +%s)
 			remaining=$((exp - now))
 
 			if [ "${remaining}" -ge "${min_lifetime}" ]; then
-				echo "  Token fetched (${remaining}s remaining)"
+				echo "  Token fetched (${remaining}s remaining, attempt ${attempt})"
 				return 0
 			fi
-			echo "  Warning: token expires in ${remaining}s, need >=${min_lifetime}s (attempt ${attempt}/${max_attempts})"
+			echo "  Warning: token expires in ${remaining}s, need >=${min_lifetime}s (attempt ${attempt}, ${elapsed}s elapsed)"
 		else
 			echo "  Token fetched (expiry not parseable, using as-is)"
 			return 0
 		fi
 
-		if [ "${attempt}" -lt "${max_attempts}" ]; then
-			sleep 30   # wait for beacon to mint a fresh token
-		fi
+		sleep 30   # wait for beacon to mint a fresh token
 	done
-
-	echo "  Error: could not obtain a valid OIDC token after ${max_attempts} attempts"
-	return 1
 }
 
 # Sign with sigstore, retrying with a fresh OIDC token on each attempt.
 # The token flag and value are appended to the end of the sign command.
+# If the token fetch itself fails (beacon down), we bail immediately since
+# retrying the sign won't help.
 # Args: $1=clone_dir  $2=token_file  $3=token_flag  remaining args = sign command (without token flag)
 # Example:
 #   sigstore_sign_with_retry "$TOKENPROJ" "$TOKEN_FILE" "--identity-token" \
@@ -70,11 +82,12 @@ sigstore_sign_with_retry() {
 	local token_flag="$3"
 	shift 3
 	local max_attempts="${SIGSTORE_SIGN_MAX_RETRIES:-3}"
+	local attempt
 
 	for attempt in $(seq 1 "${max_attempts}"); do
 		if ! fetch_oidc_token "${tokenproj}" "${token_file}"; then
-			echo "  Warning: token fetch failed (attempt ${attempt}/${max_attempts})"
-			continue
+			echo "  Error: OIDC beacon unavailable, cannot sign"
+			return 1
 		fi
 
 		local token
