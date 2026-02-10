@@ -12,7 +12,7 @@ COPY cmd/ cmd/
 COPY pkg/ pkg/
 COPY internal/ internal/
 
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /usr/local/bin/model-signing ./cmd/model-signing
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o /usr/local/bin/model-signing ./cmd/model-signing
 
 FROM registry.access.redhat.com/ubi9-minimal@sha256:bb08f2300cb8d12a7eb91dddf28ea63692b3ec99e7f0fa71a1b300f2756ea829 AS deploy
 

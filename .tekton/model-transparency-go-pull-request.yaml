@@ -46,7 +46,7 @@ spec:
     value: "registry.redhat.io/ubi9/go-toolset:9.7@sha256:6983c6e7023236d1b5093c75c94402c7bdfd43c36ed9c34f2feda72a0ea7c8b1"
   - name: go_test_command
     value: |
-      CGO_ENABLED=0 go build -trimpath -o bin/model-signing ./cmd/model-signing
+      CGO_ENABLED=1 go build -trimpath -o bin/model-signing ./cmd/model-signing
       go test ./...
   - name: build-platforms
     value:
