@@ -189,6 +189,7 @@ fi
 
 echo "[Sigstore] Signing model..."
 if ! "${BINARY}" sign sigstore \
+	--use-staging \
 	--signature "${SIGSTORE_SIGFILE}" \
 	--identity-token "$(cat "${TOKEN_FILE}")" \
 	"${MODELDIR}"; then
@@ -199,6 +200,7 @@ echo "[Sigstore] Sign succeeded"
 
 echo "[Sigstore] Verifying model..."
 if ! "${BINARY}" verify sigstore \
+	--use-staging \
 	--signature "${SIGSTORE_SIGFILE}" \
 	--identity "${SIGSTORE_IDENTITY}" \
 	--identity-provider "${SIGSTORE_ISSUER}" \
