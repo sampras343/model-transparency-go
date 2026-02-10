@@ -152,17 +152,19 @@ func TestSigstoreBundle_Write_Errors(t *testing.T) {
 		t.Error("Expected error for nonexistent directory")
 	}
 
-	// Try writing to a read-only directory
-	tmpDir := t.TempDir()
-	readOnlyDir := filepath.Join(tmpDir, "readonly")
-	if err := os.MkdirAll(readOnlyDir, 0555); err != nil {
-		t.Fatalf("Failed to create read-only directory: %v", err)
-	}
-	defer os.Chmod(readOnlyDir, 0755) // Cleanup
+	// Try writing to a read-only directory (skip when running as root).
+	if os.Getuid() != 0 {
+		tmpDir := t.TempDir()
+		readOnlyDir := filepath.Join(tmpDir, "readonly")
+		if err := os.MkdirAll(readOnlyDir, 0555); err != nil {
+			t.Fatalf("Failed to create read-only directory: %v", err)
+		}
+		defer os.Chmod(readOnlyDir, 0755) // Cleanup
 
-	err = sig.Write(filepath.Join(readOnlyDir, "bundle.json"))
-	if err == nil {
-		t.Error("Expected error for read-only directory")
+		err = sig.Write(filepath.Join(readOnlyDir, "bundle.json"))
+		if err == nil {
+			t.Error("Expected error for read-only directory")
+		}
 	}
 }
 

@@ -1,0 +1,80 @@
+apiVersion: tekton.dev/v1
+kind: PipelineRun
+metadata:
+  annotations:
+    build.appstudio.openshift.io/repo: https://github.com/securesign/model-transparency-go?rev={{revision}}
+    build.appstudio.redhat.com/commit_sha: '{{revision}}'
+    build.appstudio.redhat.com/target_branch: '{{target_branch}}'
+    pipelinesascode.tekton.dev/cancel-in-progress: "true"
+    pipelinesascode.tekton.dev/max-keep-runs: "3"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
+      == "main" && (".tekton/model-transparency-go-push.yaml".pathChanged() || "cmd/model-signing/***".pathChanged()
+      || "pkg/***".pathChanged() || "Makefile".pathChanged() || "Containerfile.model-transparency-go.rh".pathChanged()
+      || "go.mod".pathChanged() || "go.sum".pathChanged() || "internal/***".pathChanged()
+      )
+  creationTimestamp: null
+  labels:
+    appstudio.openshift.io/application: model-transparency-go
+    appstudio.openshift.io/component: model-transparency-go
+    pipelines.appstudio.openshift.io/type: build
+  name: model-transparency-go-on-push
+  namespace: rhtas-tenant
+spec:
+  params:
+  - name: release-version
+    value: "0.0.1"
+  - name: git-url
+    value: '{{source_url}}'
+  - name: revision
+    value: '{{revision}}'
+  - name: output-image
+    value: quay.io/securesign/model-transparency-go:{{revision}}
+  - name: dockerfile
+    value: Containerfile.model-transparency-go.rh
+  - name: path-context
+    value: .
+  - name: build-source-image
+    value: "true"
+  - name: hermetic
+    value: "true"
+  - name: prefetch-input
+    value: '{"type": "gomod", "path": "."}'
+  - name: go_unit_test
+    value: "true"
+  - name: go_base_image
+    value: "registry.redhat.io/ubi9/go-toolset:9.7@sha256:6983c6e7023236d1b5093c75c94402c7bdfd43c36ed9c34f2feda72a0ea7c8b1"
+  - name: go_test_command
+    value: |
+      CGO_ENABLED=1 go build -trimpath -o bin/model-signing ./cmd/model-signing
+      go test ./...
+  - name: build-platforms
+    value:
+      - linux/x86_64
+      - linux/arm64
+  - name: image-expires-after
+    value: 5d
+  - name: fips-check
+    value: "true"
+  pipelineRef:
+    resolver: git
+    params:
+      - name: url
+        value: 'https://github.com/securesign/pipelines.git'
+      - name: revision
+        value: 'main'
+      - name: pathInRepo
+        value: 'pipelines/docker-build-multi-platform-oci-ta.yaml'
+  taskRunSpecs:
+  - pipelineTaskName: run-unit-test
+    stepSpecs:
+    - computeResources:
+        limits:
+          memory: 5Gi
+      name: run-tests
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-model-transparency-go
+  workspaces:
+  - name: git-auth
+    secret:
+      secretName: '{{ git_auth_secret }}'
+status: {}

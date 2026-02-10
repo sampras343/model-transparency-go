@@ -85,6 +85,7 @@ fi
 echo "Signing with 'sigstore' method"
 if ! ${DIR}/model-signing \
 	sign sigstore \
+	--use-staging \
 	--signature "${sigfile_sigstore}" \
 	--identity-token "$(cat "${token_file}")" \
 	--ignore-paths "${ignorefile}" \
@@ -135,6 +136,7 @@ fi
 echo "Testing 'verify sigstore' method"
 if ! out=$(${DIR}/model-signing \
 	verify sigstore \
+	--use-staging \
 	--signature "${sigfile_sigstore}" \
 	--identity https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon/.github/workflows/extremely-dangerous-oidc-beacon.yml@refs/heads/main \
 	--identity-provider https://token.actions.githubusercontent.com \
