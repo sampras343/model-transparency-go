@@ -133,6 +133,7 @@ SIGSTORE_ISSUER="https://token.actions.githubusercontent.com"
 echo "  Go: Signing with sigstore..."
 if ! ${DIR}/model-signing \
 	sign sigstore \
+	--use-staging \
 	--signature "${GO_SIG_SIGSTORE}" \
 	--identity-token "$(cat "${TOKEN_FILE}")" \
 	"${MODELDIR}" >/dev/null 2>&1; then
@@ -143,6 +144,7 @@ fi
 echo "  Python: Verifying signature..."
 if ! model_signing \
 	verify sigstore \
+	--use_staging \
 	--signature "${GO_SIG_SIGSTORE}" \
 	--identity "${SIGSTORE_IDENTITY}" \
 	--identity_provider "${SIGSTORE_ISSUER}" \
