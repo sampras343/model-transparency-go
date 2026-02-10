@@ -3,7 +3,7 @@
 Advanced guide for PKCS#11 signing with hardware security modules (HSMs) or SoftHSM2.
 
 > **Quick Start:** See the [main README](README.md#sign-verify-with-pkcs11--hsm) for installation and basic usage.  
-> **Testing:** See [scripts/pkcs11-tests/](scripts/pkcs11-tests/) for automated testing and setup details.
+> **Testing:** See [scripts/tests/](scripts/tests/) for automated testing and setup details.
 
 ## PKCS#11 URI Format
 
@@ -130,7 +130,7 @@ model-signing verify certificate \
 
 ## Additional Resources
 
-- [Testing Scripts Documentation](scripts/pkcs11-tests/)
+- [Testing Scripts Documentation](scripts/tests/)
 - [RFC 7512 - PKCS#11 URI](https://datatracker.ietf.org/doc/html/rfc7512)
 - [SoftHSM2 Documentation](https://github.com/opendnssec/SoftHSMv2)
 - [crypto11 Library](https://github.com/ThalesGroup/crypto11)

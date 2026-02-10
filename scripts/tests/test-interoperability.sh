@@ -28,7 +28,15 @@ PY_SIG_SIGSTORE="${TMPDIR}/py-signed-sigstore.sig"
 TOKENPROJ="${TMPDIR}/tokenproj"
 TOKEN_FILE="${TOKENPROJ}/oidc-token.txt"
 
+# PKCS#11 files
+GO_SIG_PKCS11="${TMPDIR}/go-signed-pkcs11.sig"
+PKCS11_PUBKEY="${TMPDIR}/pkcs11-pubkey.pem"
+
 cleanup() {
+	# Cleanup SoftHSM2 if it was set up
+	if [ -f "${DIR}/softhsm_setup" ]; then
+		"${DIR}/softhsm_setup" teardown &>/dev/null || true
+	fi
 	rm -rf "${TMPDIR}"
 }
 trap cleanup EXIT QUIT
@@ -115,6 +123,51 @@ if ! model_signing \
 	exit 1
 fi
 echo "  PASSED"
+echo
+
+# --- PKCS#11 method ---
+echo "[Go->Python] Testing 'pkcs11' method"
+
+# Check if SoftHSM2 is available
+if ! command -v softhsm2-util &>/dev/null || ! command -v p11tool &>/dev/null; then
+	echo "  SKIPPED: SoftHSM2 or p11tool not available"
+else
+	echo "  Setting up SoftHSM2..."
+	if ! msg=$("${DIR}/softhsm_setup" setup); then
+		echo "  Error: Could not setup SoftHSM2"
+		echo "  ${msg}"
+		exit 1
+	fi
+	
+	pkcs11uri=$(echo "${msg}" | sed -n 's|^keyuri: \(.*\)|\1|p')
+	
+	# Get public key from PKCS#11 token
+	if ! msg=$("${DIR}/softhsm_setup" getpubkey > "${PKCS11_PUBKEY}"); then
+		echo "  Error: Could not get PKCS#11 public key"
+		exit 1
+	fi
+	
+	echo "  Go: Signing with PKCS#11..."
+	if ! ${DIR}/model-signing \
+		sign pkcs11-key \
+		--signature "${GO_SIG_PKCS11}" \
+		--pkcs11-uri "${pkcs11uri}" \
+		"${MODELDIR}" >/dev/null 2>&1; then
+		echo "  Error: Go 'sign pkcs11-key' failed"
+		exit 1
+	fi
+	
+	echo "  Python: Verifying signature..."
+	if ! model_signing \
+		verify key \
+		--signature "${GO_SIG_PKCS11}" \
+		--public_key "${PKCS11_PUBKEY}" \
+		"${MODELDIR}" >/dev/null 2>&1; then
+		echo "  Error: Python 'verify key' failed on PKCS#11-created signature"
+		exit 1
+	fi
+	echo "  PASSED"
+fi
 echo
 
 # --- Sigstore method ---

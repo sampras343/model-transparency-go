@@ -46,7 +46,7 @@
 // Setup SoftHSM2 for testing:
 //
 //	# Initialize SoftHSM2 (run once)
-//	./scripts/pkcs11-tests/softhsm_setup setup
+//	./scripts/tests/softhsm_setup setup
 //
 //	# The setup command will output the PKCS#11 URI to use
 //	# Example: pkcs11:token=model-signing-test;object=mykey?pin-value=1234
@@ -54,7 +54,7 @@
 // Demo mode (requires SoftHSM2 setup):
 //
 //	# First, setup SoftHSM2
-//	./scripts/pkcs11-tests/softhsm_setup setup
+//	./scripts/tests/softhsm_setup setup
 //
 //	# Then run the demo (it will prompt for PKCS11_URI if not set)
 //	go run ./examples/pkcs11/sign/main.go
@@ -136,7 +136,7 @@ func main() {
 	if demoMode {
 		fmt.Println("Running in demo mode...")
 		fmt.Println("\nTo use this example, you need to:")
-		fmt.Println("1. Setup SoftHSM2: ./scripts/pkcs11-tests/softhsm_setup setup")
+		fmt.Println("1. Setup SoftHSM2: ./scripts/tests/softhsm_setup setup")
 		fmt.Println("2. Copy the PKCS#11 URI from the output")
 		fmt.Println("3. Set it as PKCS11_URI environment variable or pass via --pkcs11-uri flag")
 		fmt.Println("\nExample:")
@@ -162,7 +162,7 @@ func main() {
 					strings.Join(chainPaths, ","))
 			} else {
 				fmt.Printf("  # First, export the public key from PKCS#11:\n")
-				fmt.Printf("  ./scripts/pkcs11-tests/softhsm_setup getpubkey > /tmp/pubkey.pem\n")
+				fmt.Printf("  ./scripts/tests/softhsm_setup getpubkey > /tmp/pubkey.pem\n")
 				fmt.Printf("  # Then verify:\n")
 				fmt.Printf("  go run ./examples/key/verify/main.go --model-path=%s --signature-path=%s --public-key=/tmp/pubkey.pem\n",
 					tmpDir,

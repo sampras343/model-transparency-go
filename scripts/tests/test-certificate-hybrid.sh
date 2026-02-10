@@ -350,6 +350,80 @@ echo ""
 echo "Test 4 Summary: Signed files verification PASSED"
 
 # ============================================
+# Test 5: PKCS#11 certificate signing (optional)
+# ============================================
+if command -v softhsm2-util &>/dev/null && command -v p11tool &>/dev/null; then
+	echo ""
+	echo "Test 5: PKCS#11 certificate signing"
+	echo "------------------------------------"
+	
+	# Setup SoftHSM2
+	if ! setup_output=$("${DIR}/softhsm_setup" setup 2>&1); then
+		echo "Error: Could not setup SoftHSM2"
+		echo "${setup_output}"
+		exit 1
+	fi
+	
+	pkcs11uri=$(echo "${setup_output}" | sed -n 's|^keyuri: \(.*\)|\1|p')
+	sigfile_pkcs11="${TMPDIR}/model-pkcs11.sig"
+	pkcs11_pubkey="${TMPDIR}/pkcs11-pubkey.pem"
+	
+	# Get public key
+	if ! "${DIR}/softhsm_setup" getpubkey > "${pkcs11_pubkey}"; then
+		echo "Error: Could not get PKCS#11 public key"
+		"${DIR}/softhsm_setup" teardown &>/dev/null || true
+		exit 1
+	fi
+	
+	echo ""
+	echo "5a. Testing PKCS#11 key-based signing..."
+	
+	# Sign with PKCS#11
+	if ! ${DIR}/model-signing \
+		sign pkcs11-key \
+		--signature "${sigfile_pkcs11}" \
+		--pkcs11-uri "${pkcs11uri}" \
+		"${MODEL_DIR}" 2>&1 | grep -v "^$"; then
+		echo "Error: 'sign pkcs11-key' failed"
+		"${DIR}/softhsm_setup" teardown &>/dev/null || true
+		exit 1
+	fi
+	
+	# Verify with public key
+	if ! ${DIR}/model-signing \
+		verify key \
+		--signature "${sigfile_pkcs11}" \
+		--public-key "${pkcs11_pubkey}" \
+		"${MODEL_DIR}" 2>&1 | grep -v "^$"; then
+		echo "Error: 'verify key' failed on PKCS#11 signature"
+		"${DIR}/softhsm_setup" teardown &>/dev/null || true
+		exit 1
+	fi
+	echo "  PKCS#11 key-based signing: PASSED"
+	
+	# Check files in PKCS#11 signature
+	res=$(get_signed_files "${sigfile_pkcs11}")
+	exp='["signme-1","signme-2"]'
+	if [ "${res}" != "${exp}" ]; then
+		echo "Error: Unexpected files in PKCS#11 signature"
+		echo "Expected: ${exp}"
+		echo "Actual  : ${res}"
+		"${DIR}/softhsm_setup" teardown &>/dev/null || true
+		exit 1
+	fi
+	echo "  PKCS#11 signature contains correct files: PASSED"
+	
+	# Cleanup SoftHSM2
+	"${DIR}/softhsm_setup" teardown &>/dev/null || true
+	
+	echo ""
+	echo "Test 5 Summary: PKCS#11 tests PASSED"
+else
+	echo ""
+	echo "Skipping Test 5: PKCS#11 tests (SoftHSM2 or p11tool not available)"
+fi
+
+# ============================================
 # Summary
 # ============================================
 echo ""
@@ -362,3 +436,6 @@ echo "  - Single certificate (sigstore-go path): Working"
 echo "  - Certificate chain (custom path): Working with warnings"
 echo "  - Cross-verification: Correctly rejects invalid certs"
 echo "  - File content: Correctly signed"
+if command -v softhsm2-util &>/dev/null && command -v p11tool &>/dev/null; then
+	echo "  - PKCS#11 signing: Working"
+fi

@@ -295,33 +295,33 @@ we will be using the sample test certs available in the repository
 
 For signing with hardware security modules (HSMs) or SoftHSM2, see:
 - **Complete guide**: [PKCS11_GUIDE.md](PKCS11_GUIDE.md)
-- **Testing scripts**: [scripts/pkcs11-tests/](scripts/pkcs11-tests/)
+- **Testing scripts**: [scripts/tests/](scripts/tests/)
 
 **Quick Start:**
 ```bash
 # Setup SoftHSM2 (one-time)
-[...]$ scripts/pkcs11-tests/softhsm_setup setup
+[...]$ scripts/tests/softhsm_setup setup
 
 # Get the key URI
-[...]$ keyuri=$(scripts/pkcs11-tests/softhsm_setup getkeyuri | sed -n 's/^keyuri: //p')
+[...]$ keyuri=$(scripts/tests/softhsm_setup getkeyuri | sed -n 's/^keyuri: //p')
 
 # Sign with PKCS#11
 [...]$ model-signing sign pkcs11 bert-base-uncased \
   --pkcs11-uri "$keyuri" --signature model.sig
 
 # Export public key for verification
-[...]$ scripts/pkcs11-tests/softhsm_setup getpubkey > public-key.pem
+[...]$ scripts/tests/softhsm_setup getpubkey > public-key.pem
 
 # Verify
 [...]$ model-signing verify key bert-base-uncased --signature model.sig --public-key public-key.pem
 
 # Cleanup (when done testing)
-[...]$ scripts/pkcs11-tests/softhsm_setup teardown
+[...]$ scripts/tests/softhsm_setup teardown
 ```
 
 **Automated Testing:**
 ```bash
-[...]$ scripts/pkcs11-tests/test_pkcs11.sh
+[...]$ scripts/tests/test-pkcs11.sh
 ```
 
 For more details including certificate-based PKCS#11 signing, troubleshooting, and advanced options, see [PKCS11_GUIDE.md](PKCS11_GUIDE.md).
