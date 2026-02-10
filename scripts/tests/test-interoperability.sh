@@ -11,6 +11,7 @@
 set -e
 
 DIR=${PWD}/$(dirname "$0")
+source "${DIR}/functions"
 TMPDIR=$(mktemp -d) || exit 1
 MODELDIR="${TMPDIR}/model"
 VENV="${TMPDIR}/venv"
@@ -119,24 +120,16 @@ echo
 # --- Sigstore method ---
 echo "[Go->Python] Testing 'sigstore' method"
 
-echo "  Fetching OIDC test token..."
-if ! git clone --quiet --single-branch --branch current-token --depth 1 \
-	https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon \
-	"${TOKENPROJ}" 2>/dev/null; then
-	echo "  Error: Failed to fetch OIDC token"
-	exit 1
-fi
-
 SIGSTORE_IDENTITY="https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon/.github/workflows/extremely-dangerous-oidc-beacon.yml@refs/heads/main"
 SIGSTORE_ISSUER="https://token.actions.githubusercontent.com"
 
-echo "  Go: Signing with sigstore..."
-if ! ${DIR}/model-signing \
+echo "  Go: Signing with sigstore (with OIDC token retry)..."
+if ! sigstore_sign_with_retry "${TOKENPROJ}" "${TOKEN_FILE}" "--identity-token" \
+	${DIR}/model-signing \
 	sign sigstore \
 	--use-staging \
 	--signature "${GO_SIG_SIGSTORE}" \
-	--identity-token "$(cat "${TOKEN_FILE}")" \
-	"${MODELDIR}" >/dev/null 2>&1; then
+	"${MODELDIR}"; then
 	echo "  Error: Go 'sign sigstore' failed"
 	exit 1
 fi
@@ -227,24 +220,12 @@ echo
 # --- Sigstore method ---
 echo "[Python->Go] Testing 'sigstore' method"
 
-# Need a fresh token for Python signing
-rm -rf "${TOKENPROJ}"
-mkdir -p "${TOKENPROJ}"
-
-echo "  Fetching fresh OIDC test token..."
-if ! git clone --quiet --single-branch --branch current-token --depth 1 \
-	https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon \
-	"${TOKENPROJ}" 2>/dev/null; then
-	echo "  Error: Failed to fetch OIDC token"
-	exit 1
-fi
-
-echo "  Python: Signing with sigstore..."
-if ! model_signing \
+echo "  Python: Signing with sigstore (with OIDC token retry)..."
+if ! sigstore_sign_with_retry "${TOKENPROJ}" "${TOKEN_FILE}" "--identity_token" \
+	model_signing \
 	sign sigstore \
 	--signature "${PY_SIG_SIGSTORE}" \
-	--identity_token "$(cat "${TOKEN_FILE}")" \
-	"${MODELDIR}" >/dev/null 2>&1; then
+	"${MODELDIR}"; then
 	echo "  Error: Python 'sign sigstore' failed"
 	exit 1
 fi
