@@ -28,6 +28,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+source "${SCRIPT_DIR}/functions"
+
 # ---------------------------------------------------------------------------
 # Resolve binary
 # ---------------------------------------------------------------------------
@@ -179,19 +181,11 @@ TOKEN_FILE="${TOKENPROJ}/oidc-token.txt"
 SIGSTORE_IDENTITY="https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon/.github/workflows/extremely-dangerous-oidc-beacon.yml@refs/heads/main"
 SIGSTORE_ISSUER="https://token.actions.githubusercontent.com"
 
-echo "[Sigstore] Fetching OIDC test token..."
-if ! git clone --quiet --single-branch --branch current-token --depth 1 \
-	https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon \
-	"${TOKENPROJ}" 2>/dev/null; then
-	echo "Error: Failed to fetch OIDC token"
-	exit 1
-fi
-
-echo "[Sigstore] Signing model..."
-if ! "${BINARY}" sign sigstore \
+echo "[Sigstore] Signing model (with OIDC token retry)..."
+if ! sigstore_sign_with_retry "${TOKENPROJ}" "${TOKEN_FILE}" "--identity-token" \
+	"${BINARY}" sign sigstore \
 	--use-staging \
 	--signature "${SIGSTORE_SIGFILE}" \
-	--identity-token "$(cat "${TOKEN_FILE}")" \
 	"${MODELDIR}"; then
 	echo "Error: sigstore sign failed"
 	exit 1

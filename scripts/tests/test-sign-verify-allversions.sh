@@ -6,6 +6,7 @@
 # 3. Verifies pre-created signatures from older versions
 
 DIR=${PWD}/$(dirname "$0")
+source "${DIR}/functions"
 TMPDIR=$(mktemp -d) || exit 1
 MODELDIR="${TMPDIR}/model"
 
@@ -69,28 +70,14 @@ if ! ${DIR}/model-signing \
 fi
 
 # Sign with sigstore method
-echo "Getting OIDC test-token for sigstore signing"
-if ! out=$(git clone \
-	--single-branch \
-	--branch current-token \
-	--depth 1 \
-	https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon \
-	"${TOKENPROJ}" 2>&1);
-then
-	echo "git clone failed"
-	echo "${out}"
-	exit 1
-fi
-
-echo "Signing with 'sigstore' method"
-if ! ${DIR}/model-signing \
+echo "Signing with 'sigstore' method (with OIDC token retry)"
+if ! sigstore_sign_with_retry "${TOKENPROJ}" "${token_file}" "--identity-token" \
+	${DIR}/model-signing \
 	sign sigstore \
 	--use-staging \
 	--signature "${sigfile_sigstore}" \
-	--identity-token "$(cat "${token_file}")" \
 	--ignore-paths "${ignorefile}" \
-	"${MODELDIR}" || \
-  test ! -f ${sigfile_sigstore}; then
+	"${MODELDIR}"; then
 	echo "Error: 'sign sigstore' failed"
 	exit 1
 fi
