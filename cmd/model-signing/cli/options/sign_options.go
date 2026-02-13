@@ -19,6 +19,7 @@ import (
 
 	cert "github.com/sigstore/model-signing/pkg/signing/certificate"
 	key "github.com/sigstore/model-signing/pkg/signing/key"
+	pkcs11 "github.com/sigstore/model-signing/pkg/signing/pkcs11"
 	sigstore "github.com/sigstore/model-signing/pkg/signing/sigstore"
 )
 
@@ -159,5 +160,56 @@ func (o *CertificateSignOptions) ToStandardOptions(modelPath string) cert.Certif
 		PrivateKeyPath:         o.PrivateKeyPath,
 		CertificateChain:       o.CertificateChain,
 		SigningCertificatePath: o.SigningCertificatePath,
+	}
+}
+
+// Pkcs11SignOptions holds the command-line options for PKCS#11-based signing.
+// It embeds composable flag groups and adds PKCS#11-specific configuration options.
+type Pkcs11SignOptions struct {
+	ModelPathFlags
+	SignatureOutputFlags
+	// URI provides the PKCS#11 URI identifying the key and module.
+	URI string
+	// ModulePaths provides additional directories to search for PKCS#11 modules.
+	ModulePaths []string
+	// SigningCertificatePath provides the path to the PEM-encoded signing certificate file.
+	// If provided, certificate-based signing will be used instead of key-based signing.
+	SigningCertificatePath string
+	// CertificateChain provides file paths for the certificate chain of trust.
+	CertificateChain []string
+}
+
+// AddFlags adds PKCS#11 signing flags to the cobra command.
+// The pkcs11-uri flag is marked as required.
+func (o *Pkcs11SignOptions) AddFlags(cmd *cobra.Command) {
+	AddAllFlags(cmd, &o.ModelPathFlags, &o.SignatureOutputFlags)
+
+	cmd.Flags().StringVar(&o.URI, "pkcs11-uri", "", "PKCS#11 URI identifying the key. Format: pkcs11:token=TOKEN;object=KEY?module-name=MODULE&pin-value=PIN [required]")
+	_ = cmd.MarkFlagRequired("pkcs11-uri")
+
+	cmd.Flags().StringSliceVar(&o.ModulePaths, "module-path", nil, "Additional directories to search for PKCS#11 modules.")
+
+	cmd.Flags().StringVar(&o.SigningCertificatePath, "signing-certificate", "", "Path to the signing certificate, as a PEM-encoded file. If provided, certificate-based signing will be used.")
+	cmd.Flags().StringSliceVar(&o.CertificateChain, "certificate-chain", nil, "File paths of certificate chain of trust (can be repeated or comma-separated).")
+}
+
+// ToStandardOptions converts CLI options to library options for PKCS#11-based signing.
+// It maps command-line flags to the standard Pkcs11SignerOptions structure
+// used by the signing library.
+//
+// The modelPath parameter specifies the path to the model to be signed.
+// Returns a Pkcs11SignerOptions struct with all fields populated from CLI flags.
+// nolint:staticcheck
+func (o *Pkcs11SignOptions) ToStandardOptions(modelPath string) pkcs11.Pkcs11SignerOptions {
+	return pkcs11.Pkcs11SignerOptions{
+		ModelPath:              modelPath,
+		SignaturePath:          o.SignatureOutputFlags.SignaturePath,
+		IgnorePaths:            o.ModelPathFlags.IgnorePaths,
+		IgnoreGitPaths:         o.ModelPathFlags.IgnoreGitPaths,
+		AllowSymlinks:          o.ModelPathFlags.AllowSymlinks,
+		URI:                    o.URI,
+		ModulePaths:            o.ModulePaths,
+		SigningCertificatePath: o.SigningCertificatePath,
+		CertificateChain:       o.CertificateChain,
 	}
 }
