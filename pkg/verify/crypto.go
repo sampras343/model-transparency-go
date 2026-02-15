@@ -45,7 +45,7 @@ func CreateSignatureVerifier(pubKey crypto.PublicKey) (sigstoresig.Verifier, err
 	case *rsa.PublicKey:
 		return sigstoresig.LoadRSAPKCS1v15Verifier(k, crypto.SHA256)
 	case ed25519.PublicKey:
-		return sigstoresig.LoadED25519Verifier(k)
+		return sigstoresig.LoadED25519phVerifier(k)
 	default:
 		return nil, fmt.Errorf("unsupported public key type: %T", pubKey)
 	}
