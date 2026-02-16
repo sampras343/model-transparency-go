@@ -12,6 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package pkcs11 provides PKCS#11-based signing using sigstore-go with HSM support.
+//
+// This package enables signing ML models using hardware security modules (HSMs)
+// or software tokens like SoftHSM2 via the PKCS#11 standard. It integrates with
+// sigstore-go's native signing API through adapter types that wrap PKCS#11 keys
+// and certificates.
+//
+// Key components:
+//   - Keypair: Adapter implementing sigstore-go's Keypair interface for PKCS#11 keys
+//   - ModelCertificateProvider: Adapter implementing CertificateProvider interface
+//   - Context: Manages PKCS#11 module loading and key discovery via crypto11
+//   - URI: Parser for RFC 7512 PKCS#11 URIs
+//
+// Supported key types: ECDSA (P-256, P-384, P-521), RSA (2048, 3072, 4096 bits)
 package pkcs11
 
 import (
@@ -19,11 +33,12 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/sigstore/model-signing/pkg/config"
-	"github.com/sigstore/model-signing/pkg/interfaces"
 	"github.com/sigstore/model-signing/pkg/logging"
+	"github.com/sigstore/model-signing/pkg/modelartifact"
 	"github.com/sigstore/model-signing/pkg/signing"
 	"github.com/sigstore/model-signing/pkg/utils"
+	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
+	sigstoresign "github.com/sigstore/sigstore-go/pkg/sign"
 )
 
 // Pkcs11SignerOptions configures a Pkcs11Signer instance.
@@ -54,113 +69,125 @@ type Pkcs11Signer struct {
 // Validates that required paths exist before returning.
 // Returns an error if validation fails.
 func NewPkcs11Signer(opts Pkcs11SignerOptions) (*Pkcs11Signer, error) {
-	// Validate if required paths exist
-	if err := utils.ValidatePathExists("model path", opts.ModelPath); err != nil {
+	if err := signing.ValidateSignerPaths(opts.ModelPath, opts.IgnorePaths); err != nil {
 		return nil, err
 	}
 	if opts.URI == "" {
 		return nil, fmt.Errorf("PKCS#11 URI is required")
 	}
-
-	// Validate certificate path if provided
 	if opts.SigningCertificatePath != "" {
 		if err := utils.ValidateFileExists("signing certificate", opts.SigningCertificatePath); err != nil {
 			return nil, err
 		}
 	}
 
-	// Validate certificate chain paths
-	if err := utils.ValidateMultiple("certificate chain", opts.CertificateChain, utils.PathTypeFile); err != nil {
-		return nil, err
-	}
-
-	// Validate ignore paths
-	if err := utils.ValidateMultiple("ignore paths", opts.IgnorePaths, utils.PathTypeAny); err != nil {
-		return nil, err
-	}
-
-	// Use provided logger or create a default non-verbose one
-	logger := opts.Logger
-	if logger == nil {
-		logger = logging.NewLogger(false)
-	}
-
 	return &Pkcs11Signer{
 		opts:   opts,
-		logger: logger,
+		logger: logging.EnsureLogger(opts.Logger),
 	}, nil
 }
 
-// Sign performs the complete signing flow using PKCS#11.
+// Sign performs the complete signing flow.
 //
 // Orchestrates:
-// 1. Hashing the model to create a manifest
-// 2. Creating a payload from the manifest
-// 3. Signing the payload with the PKCS#11 key
-// 4. Writing the signature bundle to disk
+//  1. Canonicalizing the model to create a manifest (via modelartifact)
+//  2. Marshaling the manifest to an in-toto payload (via modelartifact)
+//  3. Signing the payload with the PKCS#11 key via sigstore-go's sign.Bundle()
+//  4. Writing the signature bundle to disk
+//
+// The PKCS#11 key is accessed via the URI parameter, which specifies the token,
+// key object, and optional PIN. For certificate-based signing, the certificate
+// is embedded in the bundle's verification material.
 //
 // Returns a Result with success status and message, or an error if any step fails.
-func (ps *Pkcs11Signer) Sign(_ context.Context) (signing.Result, error) {
-	// Log signing configuration
-	ps.logger.Debug("PKCS#11 signing: model=%s, signature=%s",
-		filepath.Clean(ps.opts.ModelPath), filepath.Clean(ps.opts.SignaturePath))
-
-	// Resolve ignore paths
-	ignorePaths := ps.opts.IgnorePaths
-	// Add signature path to ignore list
-	ignorePaths = append(ignorePaths, ps.opts.SignaturePath)
-
-	// Step 1: Hash the model
-	hashingConfig := config.NewHashingConfig().
-		SetIgnoredPaths(ignorePaths, ps.opts.IgnoreGitPaths).
-		SetAllowSymlinks(ps.opts.AllowSymlinks)
-
-	manifest, err := hashingConfig.Hash(ps.opts.ModelPath, nil)
-	if err != nil {
-		return signing.Result{}, fmt.Errorf("failed to hash model: %w", err)
-	}
-	ps.logger.Debug("Hashed %d files", len(manifest.ResourceDescriptors()))
-
-	// Step 2: Create payload
-	payload, err := interfaces.NewPayload(manifest)
-	if err != nil {
-		return signing.Result{}, fmt.Errorf("failed to create payload: %w", err)
+func (s *Pkcs11Signer) Sign(ctx context.Context) (signing.Result, error) {
+	// Print signing configuration (debug only)
+	s.logger.Debugln("PKCS#11 Signing")
+	s.logger.Debug("  MODEL_PATH:         %s", filepath.Clean(s.opts.ModelPath))
+	s.logger.Debug("  --signature:        %s", filepath.Clean(s.opts.SignaturePath))
+	s.logger.Debug("  --ignore-paths:     %v", s.opts.IgnorePaths)
+	s.logger.Debug("  --ignore-git-paths: %v", s.opts.IgnoreGitPaths)
+	s.logger.Debug("  --pkcs11-uri:       %v", s.opts.URI)
+	s.logger.Debug("  --allow-symlinks:   %v", s.opts.AllowSymlinks)
+	if s.opts.SigningCertificatePath != "" {
+		s.logger.Debug("  --signing-cert:     %v", s.opts.SigningCertificatePath)
 	}
 
-	// Step 3: Create PKCS#11 signer
-	var signer interfaces.BundleSigner
-	if ps.opts.SigningCertificatePath != "" {
-		signer, err = NewCertSigner(
-			ps.opts.URI,
-			ps.opts.SigningCertificatePath,
-			ps.opts.CertificateChain,
-			ps.opts.ModulePaths,
-		)
+	// Steps 1-2: Canonicalize the model and marshal payload
+	_, payload, err := signing.PreparePayload(s.opts.ModelPath, s.opts.SignaturePath, modelartifact.Options{
+		IgnorePaths:    s.opts.IgnorePaths,
+		IgnoreGitPaths: s.opts.IgnoreGitPaths,
+		AllowSymlinks:  s.opts.AllowSymlinks,
+		Logger:         s.logger,
+	}, s.logger)
+	if err != nil {
+		return signing.Result{
+			Verified: false,
+			Message:  fmt.Sprintf("Failed to prepare payload: %v", err),
+		}, err
+	}
+
+	// Step 3: Create keypair, certificate provider (if needed), and sign with sigstore-go
+	s.logger.Debugln("\nStep 3: Signing with PKCS#11 key...")
+	keypair, err := NewKeypair(s.opts.URI, s.opts.ModulePaths)
+	if err != nil {
+		return signing.Result{
+			Verified: false,
+			Message:  fmt.Sprintf("Failed to load PKCS#11 keypair: %v", err),
+		}, fmt.Errorf("failed to load PKCS#11 keypair: %w", err)
+	}
+	defer keypair.Close()
+
+	content := &sigstoresign.DSSEData{
+		Data:        payload,
+		PayloadType: utils.InTotoJSONPayloadType,
+	}
+
+	var bundle *protobundle.Bundle
+	if s.opts.SigningCertificatePath != "" {
+		certProvider, err := NewModelCertificateProvider(s.opts.SigningCertificatePath)
+		if err != nil {
+			return signing.Result{
+				Verified: false,
+				Message:  fmt.Sprintf("Failed to load certificate: %v", err),
+			}, fmt.Errorf("failed to load certificate: %w", err)
+		}
+
+		bundle, err = sigstoresign.Bundle(content, keypair, sigstoresign.BundleOptions{
+			CertificateProvider: certProvider,
+			Context:             ctx,
+		})
+		if err != nil {
+			return signing.Result{
+				Verified: false,
+				Message:  fmt.Sprintf("Failed to sign: %v", err),
+			}, fmt.Errorf("failed to create signature bundle: %w", err)
+		}
 	} else {
-		signer, err = NewSigner(ps.opts.URI, ps.opts.ModulePaths)
+		bundle, err = sigstoresign.Bundle(content, keypair, sigstoresign.BundleOptions{
+			Context: ctx,
+		})
+		if err != nil {
+			return signing.Result{
+				Verified: false,
+				Message:  fmt.Sprintf("Failed to sign: %v", err),
+			}, fmt.Errorf("failed to create signature bundle: %w", err)
+		}
 	}
+	s.logger.Debugln("  Signing successful")
 
-	if err != nil {
-		return signing.Result{}, fmt.Errorf("failed to create PKCS#11 signer: %w", err)
+	// Step 4: Write bundle to disk
+	s.logger.Debugln("\nStep 4: Writing signature...")
+	if err := signing.WriteBundle(bundle, s.opts.SignaturePath); err != nil {
+		return signing.Result{
+			Verified: false,
+			Message:  fmt.Sprintf("Failed to write signature: %v", err),
+		}, err
 	}
-
-	if closer, ok := signer.(interface{ Close() error }); ok {
-		defer closer.Close()
-	}
-
-	signature, err := signer.Sign(payload)
-	if err != nil {
-		return signing.Result{}, fmt.Errorf("failed to sign payload: %w", err)
-	}
-
-	// Step 4: Write signature
-	if err := signature.Write(ps.opts.SignaturePath); err != nil {
-		return signing.Result{}, fmt.Errorf("failed to write signature: %w", err)
-	}
-	ps.logger.Debug("Signature written to: %s", ps.opts.SignaturePath)
+	s.logger.Debug("  Signature written to: %s", s.opts.SignaturePath)
 
 	return signing.Result{
 		Verified: true,
-		Message:  fmt.Sprintf("Successfully signed model and saved signature to %s", ps.opts.SignaturePath),
+		Message:  fmt.Sprintf("Successfully signed model and saved signature to %s", s.opts.SignaturePath),
 	}, nil
 }

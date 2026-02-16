@@ -293,9 +293,13 @@ we will be using the sample test certs available in the repository
 
 ### Sign-Verify with PKCS#11 / HSM
 
-For signing with hardware security modules (HSMs) or SoftHSM2, see:
-- **Complete guide**: [PKCS11_GUIDE.md](PKCS11_GUIDE.md)
-- **Testing scripts**: [scripts/tests/](scripts/tests/)
+Sign models using hardware security modules (HSMs) or SoftHSM2 with PKCS#11. The implementation uses `sigstore-go`'s native signing API with custom adapters for PKCS#11 keys and certificates.
+
+**Architecture:**
+- `PKCS11Keypair`: Adapter implementing `sigstore-go`'s `Keypair` interface
+- `ModelCertificateProvider`: Adapter implementing `CertificateProvider` interface  
+- `PKCS11Context`: Manages PKCS#11 module loading via `crypto11` library
+- Supports both key-based and certificate-based signing
 
 **Quick Start:**
 ```bash
@@ -305,26 +309,43 @@ For signing with hardware security modules (HSMs) or SoftHSM2, see:
 # Get the key URI
 [...]$ keyuri=$(scripts/tests/softhsm_setup getkeyuri | sed -n 's/^keyuri: //p')
 
-# Sign with PKCS#11
-[...]$ model-signing sign pkcs11 bert-base-uncased \
+# Sign with PKCS#11 key
+[...]$ model-signing sign pkcs11-key bert-base-uncased \
   --pkcs11-uri "$keyuri" --signature model.sig
+
+# Sign with PKCS#11 certificate
+[...]$ model-signing sign pkcs11-certificate bert-base-uncased \
+  --pkcs11-uri "$keyuri" \
+  --signing-certificate path/to/cert.pem \
+  --signature model.sig
 
 # Export public key for verification
 [...]$ scripts/tests/softhsm_setup getpubkey > public-key.pem
 
 # Verify
-[...]$ model-signing verify key bert-base-uncased --signature model.sig --public-key public-key.pem
+[...]$ model-signing verify key bert-base-uncased \
+  --signature model.sig --public-key public-key.pem
 
 # Cleanup (when done testing)
 [...]$ scripts/tests/softhsm_setup teardown
 ```
 
-**Automated Testing:**
+**Testing:**
 ```bash
+# Run automated PKCS#11 tests
 [...]$ scripts/tests/test-pkcs11.sh
+
+# Run unit tests
+[...]$ go test ./pkg/signing/pkcs11/...
 ```
 
-For more details including certificate-based PKCS#11 signing, troubleshooting, and advanced options, see [PKCS11_GUIDE.md](PKCS11_GUIDE.md).
+**Documentation:**
+- **Complete guide**: [PKCS11_GUIDE.md](PKCS11_GUIDE.md) - Setup, troubleshooting, and advanced options
+- **Testing scripts**: [scripts/tests/](scripts/tests/) - SoftHSM2 setup helpers
+
+**Supported Key Types:**
+- ECDSA: P-256, P-384, P-521
+- RSA: 2048, 3072, 4096 bits
 
 ### Sign-Verify OCI Images
 

@@ -423,7 +423,14 @@ func TestURI_RFC7512Examples(t *testing.T) {
 
 func TestURI_ModuleName(t *testing.T) {
 	uri := NewURI()
-	uri.SetModuleDirectories(DefaultModulePaths)
+	defaultModulePaths := []string{
+		"/usr/lib64/pkcs11/",
+		"/usr/lib/pkcs11/",
+		"/usr/lib/x86_64-linux-gnu/softhsm/",
+		"/usr/lib/softhsm/",
+		"/usr/local/lib/softhsm/",
+	}
+	uri.SetModuleDirectories(defaultModulePaths)
 	uri.SetAllowAnyModule(true)
 
 	err := uri.Parse("pkcs11:?module-name=softhsm2")
