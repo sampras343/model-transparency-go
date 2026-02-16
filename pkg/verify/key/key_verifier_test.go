@@ -117,10 +117,10 @@ func TestNewKeyVerifier_ValidPaths(t *testing.T) {
 	opts := KeyVerifierOptions{
 		ModelPath:      modelDir,
 		SignaturePath:  sigFile,
-		PublicKeyPath:  keyFile,
 		IgnorePaths:    []string{},
 		IgnoreGitPaths: false,
 		AllowSymlinks:  false,
+		PublicKeyPath:  keyFile,
 	}
 
 	verifier, err := NewKeyVerifier(opts)
@@ -163,10 +163,10 @@ func TestNewKeyVerifier_WithIgnorePaths(t *testing.T) {
 	opts := KeyVerifierOptions{
 		ModelPath:      modelDir,
 		SignaturePath:  sigFile,
-		PublicKeyPath:  keyFile,
 		IgnorePaths:    []string{ignoreDir},
 		IgnoreGitPaths: true,
 		AllowSymlinks:  false,
+		PublicKeyPath:  keyFile,
 	}
 
 	verifier, err := NewKeyVerifier(opts)
@@ -203,8 +203,8 @@ func TestNewKeyVerifier_InvalidIgnorePath(t *testing.T) {
 	opts := KeyVerifierOptions{
 		ModelPath:     modelDir,
 		SignaturePath: sigFile,
-		PublicKeyPath: keyFile,
 		IgnorePaths:   []string{"/nonexistent/path"},
+		PublicKeyPath: keyFile,
 	}
 
 	_, err := NewKeyVerifier(opts)
@@ -237,8 +237,8 @@ func TestNewKeyVerifier_EmptyIgnorePaths(t *testing.T) {
 	opts := KeyVerifierOptions{
 		ModelPath:     modelDir,
 		SignaturePath: sigFile,
-		PublicKeyPath: keyFile,
 		IgnorePaths:   []string{},
+		PublicKeyPath: keyFile,
 	}
 
 	verifier, err := NewKeyVerifier(opts)
@@ -275,11 +275,11 @@ func TestNewKeyVerifier_AllOptions(t *testing.T) {
 	opts := KeyVerifierOptions{
 		ModelPath:           modelDir,
 		SignaturePath:       sigFile,
-		PublicKeyPath:       keyFile,
 		IgnorePaths:         []string{},
 		IgnoreGitPaths:      true,
 		AllowSymlinks:       true,
 		IgnoreUnsignedFiles: true,
+		PublicKeyPath:       keyFile,
 	}
 
 	verifier, err := NewKeyVerifier(opts)

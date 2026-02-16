@@ -107,12 +107,6 @@ func ValidateFileExists(fieldName, path string) error {
 	return NewPathValidator(fieldName, path, PathTypeFile).Validate()
 }
 
-// ValidateFolderExists validates that a path exists and is a directory.
-// Returns nil if the path is a valid directory, or an error if the path is empty, does not exist, or is a file.
-func ValidateFolderExists(fieldName, path string) error {
-	return NewPathValidator(fieldName, path, PathTypeFolder).Validate()
-}
-
 // ValidatePathExists validates that a path exists (file or directory).
 // Returns nil if the path exists, or an error if the path is empty or does not exist.
 func ValidatePathExists(fieldName, path string) error {
@@ -127,14 +121,4 @@ func ValidateOptionalFile(fieldName, path string) error {
 		return nil
 	}
 	return ValidateFileExists(fieldName, path)
-}
-
-// ValidateOptionalFolder validates a folder path only if it's not empty.
-// Useful for optional directories.
-// Returns nil if the path is empty or is a valid directory, or an error if the path does not exist or is a file.
-func ValidateOptionalFolder(fieldName, path string) error {
-	if path == "" {
-		return nil
-	}
-	return ValidateFolderExists(fieldName, path)
 }

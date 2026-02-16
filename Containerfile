@@ -26,7 +26,6 @@ RUN go mod download
 
 COPY cmd/ cmd/
 COPY pkg/ pkg/
-COPY internal/ internal/
 
 RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o /usr/local/bin/model-signing ./cmd/model-signing
 

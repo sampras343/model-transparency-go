@@ -15,12 +15,34 @@
 // Package signing provides high-level model signing orchestration.
 package signing
 
-import "context"
+import (
+	"context"
+
+	"github.com/sigstore/model-signing/pkg/oci"
+	"github.com/sigstore/model-signing/pkg/utils"
+)
 
 // Result represents the outcome of a signing operation.
 type Result struct {
 	Verified bool   // Verified indicates whether the signing operation succeeded.
 	Message  string // Message contains a human-readable description of the result.
+}
+
+// ValidateSignerPaths checks that the common signing paths are valid.
+// Call this at the start of each signer's New* constructor before
+// performing type-specific validation.
+func ValidateSignerPaths(modelPath string, ignorePaths []string) error {
+	if err := utils.ValidatePathExists("model path", modelPath); err != nil {
+		return err
+	}
+	// Validate ignore paths only for non-OCI manifests.
+	// For OCI manifests, ignore paths refer to layer entries, not local files.
+	if !oci.IsOCIManifest(modelPath) {
+		if err := utils.ValidateMultiple("ignore paths", ignorePaths, utils.PathTypeAny); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ModelSigner performs complete model signing.

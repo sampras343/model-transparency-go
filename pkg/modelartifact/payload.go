@@ -12,39 +12,122 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package payload provides internal utilities for converting DSSE payloads to manifests.
-//
-// This package contains functions for parsing and validating signed payloads
-// used internally by the verification implementations. External consumers should
-// use the higher-level APIs in pkg/verify instead.
-package payload
+package modelartifact
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 
+	intoto "github.com/in-toto/attestation/go/v1"
 	"github.com/sigstore/model-signing/pkg/hashing/digests"
 	"github.com/sigstore/model-signing/pkg/hashing/engines/memory"
 	"github.com/sigstore/model-signing/pkg/manifest"
 	"github.com/sigstore/model-signing/pkg/utils"
+	"google.golang.org/protobuf/encoding/protojson"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
-// DSSEPayloadToManifest converts a DSSE payload (as a map) to a Manifest.
-// Handles the current v1.0 predicate format with full validation of subjects, digests, and resources.
-// Returns the reconstructed Manifest or an error if the payload is invalid or inconsistent.
-func DSSEPayloadToManifest(dssePayload map[string]interface{}) (*manifest.Manifest, error) {
+// MarshalPayload converts a Manifest into an in-toto JSON payload suitable
+// for DSSE signing. This is the canonical bytes representation that gets
+// signed by sigstore-go.
+//
+// The payload is an in-toto Statement with:
+//   - subject: model name + SHA256 root digest over all file digests
+//   - predicateType: "https://model_signing/signature/v1.0"
+//   - predicate: serialization metadata + resource list
+func MarshalPayload(m *manifest.Manifest) ([]byte, error) {
+	// Build resources list and collect digests for root hash
+	descriptors := m.ResourceDescriptors()
+	resources := make([]map[string]interface{}, 0, len(descriptors))
+	digestList := make([]digests.Digest, 0, len(descriptors))
+
+	for _, desc := range descriptors {
+		digestList = append(digestList, desc.Digest)
+
+		resource := map[string]interface{}{
+			"name":      desc.Identifier,
+			"algorithm": desc.Digest.Algorithm(),
+			"digest":    desc.Digest.Hex(),
+		}
+		resources = append(resources, resource)
+	}
+
+	// Compute root digest (SHA256 over all individual digests in order)
+	rootDigest, err := memory.ComputeRootDigest(digestList)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compute root digest: %w", err)
+	}
+
+	// Build subject with model name and root digest
+	subject := &intoto.ResourceDescriptor{
+		Name: m.ModelName(),
+		Digest: map[string]string{
+			"sha256": rootDigest.Hex(),
+		},
+	}
+
+	// Build predicate with serialization metadata + resources
+	serializationParams := convertToProtoCompatible(m.SerializationParameters())
+	resourcesCompat := convertToProtoCompatible(resources)
+
+	predicateMap := map[string]interface{}{
+		"serialization": serializationParams,
+		"resources":     resourcesCompat,
+	}
+
+	predicateStruct, err := structpb.NewStruct(predicateMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build predicate struct: %w", err)
+	}
+
+	// Create in-toto statement
+	statement := &intoto.Statement{
+		Type:          utils.InTotoStatementType,
+		Subject:       []*intoto.ResourceDescriptor{subject},
+		PredicateType: utils.PredicateType,
+		Predicate:     predicateStruct,
+	}
+
+	// Serialize to JSON
+	opts := protojson.MarshalOptions{
+		UseProtoNames:   false,
+		EmitUnpopulated: false,
+	}
+
+	return opts.Marshal(statement)
+}
+
+// UnmarshalPayload reconstructs a Manifest from a verified in-toto JSON
+// payload (as extracted from a DSSE envelope after verification).
+//
+// Validates the root digest against the resource digests. Handles both
+// v1.0 and v0.2 (compat) predicate formats.
+func UnmarshalPayload(data []byte) (*manifest.Manifest, error) {
+	// Parse JSON into a generic map for flexible handling
+	var dssePayload map[string]interface{}
+	if err := json.Unmarshal(data, &dssePayload); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal payload JSON: %w", err)
+	}
+
 	predicateType, ok := dssePayload["predicateType"].(string)
 	if !ok {
 		return nil, fmt.Errorf("predicateType field missing or not a string")
 	}
 
+	if predicateType == utils.PredicateTypeCompat {
+		return unmarshalPayloadCompat(dssePayload)
+	}
+
 	if predicateType != utils.PredicateType {
-		if predicateType == utils.PredicateTypeCompat {
-			return DSSEPayloadToManifestCompat(dssePayload)
-		}
 		return nil, fmt.Errorf("predicate type mismatch, expected %s, got %s", utils.PredicateType, predicateType)
 	}
 
+	return unmarshalPayloadV1(dssePayload)
+}
+
+// unmarshalPayloadV1 handles the v1.0 predicate format.
+func unmarshalPayloadV1(dssePayload map[string]interface{}) (*manifest.Manifest, error) {
 	// Extract subjects
 	subjectsRaw, ok := dssePayload["subject"]
 	if !ok {
@@ -143,7 +226,6 @@ func DSSEPayloadToManifest(dssePayload map[string]interface{}) (*manifest.Manife
 			return nil, fmt.Errorf("resource digest missing or not a string")
 		}
 
-		// Parse digest from hex
 		digestBytes, err := hex.DecodeString(digestValue)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse digest for %s: %w", name, err)
@@ -160,7 +242,7 @@ func DSSEPayloadToManifest(dssePayload map[string]interface{}) (*manifest.Manife
 		items = append(items, item)
 	}
 
-	// Verify root digest using helper function
+	// Verify root digest
 	rootDigest, err := memory.ComputeRootDigest(digestList)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compute root digest: %w", err)
@@ -175,74 +257,36 @@ func DSSEPayloadToManifest(dssePayload map[string]interface{}) (*manifest.Manife
 	return manifest.NewManifest(modelName, items, serializationType), nil
 }
 
-// DSSEPayloadToManifestCompat converts a DSSE payload in the v0.2 experimental format to a Manifest.
-// Maintained for backward compatibility with signatures created before v1.0.
-// Returns a Manifest with placeholder values for missing v0.2 fields, or an error if conversion fails.
-func DSSEPayloadToManifestCompat(dssePayload map[string]interface{}) (*manifest.Manifest, error) {
-	// Model name is not defined in v0.2, use a constant
-	modelName := "compat-undefined-not-present"
-
-	// Serialization format is not present, build a fake one
-	serializationArgs := map[string]interface{}{
-		"method":         utils.SerializationMethodFiles,
-		"hash_type":      utils.DefaultHashAlgorithm,
-		"allow_symlinks": false,
+// convertToProtoCompatible recursively converts Go types to protobuf-compatible types.
+// Handles typed slices like []string or []map[string]interface{} which
+// structpb.NewStruct cannot process directly.
+func convertToProtoCompatible(v interface{}) interface{} {
+	switch val := v.(type) {
+	case map[string]interface{}:
+		result := make(map[string]interface{}, len(val))
+		for k, v := range val {
+			result[k] = convertToProtoCompatible(v)
+		}
+		return result
+	case []map[string]interface{}:
+		result := make([]interface{}, len(val))
+		for i, m := range val {
+			result[i] = convertToProtoCompatible(m)
+		}
+		return result
+	case []string:
+		result := make([]interface{}, len(val))
+		for i, s := range val {
+			result[i] = s
+		}
+		return result
+	case []interface{}:
+		result := make([]interface{}, len(val))
+		for i, v := range val {
+			result[i] = convertToProtoCompatible(v)
+		}
+		return result
+	default:
+		return val
 	}
-
-	serializationType, err := manifest.SerializationTypeFromArgs(serializationArgs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create compat serialization type: %w", err)
-	}
-
-	// Extract subjects (the only field with actual content in v0.2)
-	subjectsRaw, ok := dssePayload["subject"]
-	if !ok {
-		return nil, fmt.Errorf("subject field missing in compat format")
-	}
-
-	subjects, ok := subjectsRaw.([]interface{})
-	if !ok {
-		return nil, fmt.Errorf("subject field is not an array")
-	}
-
-	items := make([]manifest.ManifestItem, 0, len(subjects))
-	for _, subjectRaw := range subjects {
-		subject, ok := subjectRaw.(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("subject is not an object")
-		}
-
-		name, ok := subject["name"].(string)
-		if !ok {
-			return nil, fmt.Errorf("subject name missing or not a string")
-		}
-
-		digestMap, ok := subject["digest"].(map[string]interface{})
-		if !ok {
-			return nil, fmt.Errorf("subject digest missing or not an object")
-		}
-
-		// v0.2 only supported sha256
-		algorithm := utils.DefaultHashAlgorithm
-		digestValue, ok := digestMap[algorithm].(string)
-		if !ok {
-			return nil, fmt.Errorf("subject digest %s missing or not a string", utils.DefaultHashAlgorithm)
-		}
-
-		digestBytes, err := hex.DecodeString(digestValue)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse digest for %s: %w", name, err)
-		}
-
-		digest := digests.NewDigest(algorithm, digestBytes)
-		item, err := serializationType.NewItem(name, digest)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create manifest item for %s: %w", name, err)
-		}
-
-		items = append(items, item)
-	}
-
-	// Note: There is no verification that the manifest is complete at this point
-	return manifest.NewManifest(modelName, items, serializationType), nil
 }
