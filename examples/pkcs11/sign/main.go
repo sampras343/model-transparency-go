@@ -90,7 +90,7 @@ func main() {
 	modulePaths := flag.String("module-paths", "", "Comma-separated additional directories to search for PKCS#11 modules (optional)")
 	ignoreGitPaths := flag.Bool("ignore-git-paths", true, "Ignore .git directories and .gitignore files")
 	allowSymlinks := flag.Bool("allow-symlinks", false, "Allow following symlinks in the model directory")
-	verbose := flag.Bool("verbose", true, "Enable verbose output")
+	logLevel := flag.String("log-level", "debug", "Log level (debug, info, warn, error, silent)")
 	flag.Parse()
 
 	// Get values from flags or environment variables
@@ -131,14 +131,13 @@ func main() {
 		}
 	}
 
-	// Demo mode: create a temporary model and prompt for PKCS#11 URI
+	// Demo mode: use test setup with SoftHSM2 (if available)
 	demoMode := *modelPath == "" && *pkcs11URI == ""
 	if demoMode {
 		fmt.Println("Running in demo mode...")
 		fmt.Println("\nTo use this example, you need to:")
 		fmt.Println("1. Setup SoftHSM2: ./scripts/tests/softhsm_setup setup")
-		fmt.Println("2. Copy the PKCS#11 URI from the output")
-		fmt.Println("3. Set it as PKCS11_URI environment variable or pass via --pkcs11-uri flag")
+		fmt.Println("2. Set PKCS11_URI environment variable from the output")
 		fmt.Println("\nExample:")
 		fmt.Println("  export PKCS11_URI='pkcs11:token=model-signing-test;object=mykey?pin-value=1234'")
 		fmt.Println("  go run ./examples/pkcs11/sign/main.go")
@@ -148,6 +147,8 @@ func main() {
 			log.Fatal("\nPKCS11_URI not set. Please setup SoftHSM2 and provide the URI.")
 		}
 
+		repoRoot := findRepoRoot()
+
 		// Create a temporary model directory
 		tmpDir, err := os.MkdirTemp("", "model-signing-pkcs11-example-*")
 		if err != nil {
@@ -156,13 +157,13 @@ func main() {
 		defer func() {
 			fmt.Printf("\nTo verify this signature, run:\n")
 			if *signingCertPath != "" {
-				fmt.Printf("  go run ./examples/pkcs11/verify/main.go --model-path=%s --signature-path=%s --cert-chain=%s\n",
+				fmt.Printf("  go run ./examples/certificate/verify/main.go --model-path=%s --signature-path=%s --cert-chain=%s\n",
 					tmpDir,
 					filepath.Join(tmpDir, "model.sig"),
 					strings.Join(chainPaths, ","))
 			} else {
 				fmt.Printf("  # First, export the public key from PKCS#11:\n")
-				fmt.Printf("  ./scripts/tests/softhsm_setup getpubkey > /tmp/pubkey.pem\n")
+				fmt.Printf("  %s/scripts/tests/softhsm_setup getpubkey > /tmp/pubkey.pem\n", repoRoot)
 				fmt.Printf("  # Then verify:\n")
 				fmt.Printf("  go run ./examples/key/verify/main.go --model-path=%s --signature-path=%s --public-key=/tmp/pubkey.pem\n",
 					tmpDir,
@@ -172,10 +173,10 @@ func main() {
 		}()
 
 		// Create sample model files
-		if err := os.WriteFile(filepath.Join(tmpDir, "model.bin"), []byte("sample model data from PKCS#11\n"), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(tmpDir, "model.bin"), []byte("sample model data\n"), 0644); err != nil {
 			log.Fatalf("Failed to create model file: %v", err)
 		}
-		if err := os.WriteFile(filepath.Join(tmpDir, "config.json"), []byte(`{"version": "1.0", "signer": "pkcs11"}`), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(tmpDir, "config.json"), []byte(`{"version": "1.0"}`), 0644); err != nil {
 			log.Fatalf("Failed to create config file: %v", err)
 		}
 
@@ -194,7 +195,9 @@ func main() {
 		log.Fatal("--pkcs11-uri is required. See --help for setup instructions.")
 	}
 
-	logger := logging.NewLogger(*verbose)
+	logger := logging.NewLoggerWithOptions(logging.LoggerOptions{
+		Level: logging.ParseLogLevel(*logLevel),
+	})
 
 	// Create signer options
 	opts := pkcs11Signing.Pkcs11SignerOptions{
@@ -224,4 +227,21 @@ func main() {
 	}
 
 	fmt.Printf("\n%s\n", result.Message)
+}
+
+func findRepoRoot() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "."
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "."
+		}
+		dir = parent
+	}
 }

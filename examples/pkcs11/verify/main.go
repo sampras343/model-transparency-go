@@ -66,7 +66,7 @@ func main() {
 	ignoreGitPaths := flag.Bool("ignore-git-paths", true, "Ignore .git directories and .gitignore files")
 	allowSymlinks := flag.Bool("allow-symlinks", false, "Allow following symlinks in the model directory")
 	ignoreUnsignedFiles := flag.Bool("ignore-unsigned-files", false, "Ignore files not present in the signature")
-	verbose := flag.Bool("verbose", true, "Enable verbose output")
+	logLevel := flag.String("log-level", "debug", "Log level (debug, info, warn, error, silent)")
 	flag.Parse()
 
 	// Get values from flags or environment variables
@@ -101,7 +101,9 @@ func main() {
 		log.Fatal("\n--public-key is required")
 	}
 
-	logger := logging.NewLogger(*verbose)
+	logger := logging.NewLoggerWithOptions(logging.LoggerOptions{
+		Level: logging.ParseLogLevel(*logLevel),
+	})
 
 	// Create verifier options
 	opts := keyVerify.KeyVerifierOptions{
@@ -129,5 +131,4 @@ func main() {
 	}
 
 	fmt.Printf("\n%s\n", result.Message)
-	fmt.Println("\n✓ PKCS#11 signature verified successfully!")
 }
