@@ -283,12 +283,8 @@ func (p *URI) GetKeyIDAndLabel() ([]byte, string, error) {
 	var label string
 
 	if idStr, ok := p.pathAttributes["id"]; ok {
-		// The id attribute is percent-encoded bytes
-		decoded, err := url.QueryUnescape(idStr)
-		if err != nil {
-			return nil, "", fmt.Errorf("failed to decode id attribute: %w", err)
-		}
-		keyID = []byte(decoded)
+		// The id attribute is already decoded during URI parsing
+		keyID = []byte(idStr)
 	}
 
 	if obj, ok := p.pathAttributes["object"]; ok {

@@ -6,7 +6,12 @@
 # 1. Go binary creates signatures -> Python library verifies them
 # 2. Python library creates signatures -> Go binary verifies them
 #
-# All three signing methods are tested: key, certificate, sigstore
+# Signing methods tested:
+# - key: Full bidirectional interoperability (Go <-> Python)
+# - certificate: Full bidirectional interoperability (Go <-> Python)
+# - sigstore: Full bidirectional interoperability (Go <-> Python)
+# - pkcs11-key: Full bidirectional interoperability (Go <-> Python, requires Python pkcs11 extra)
+# - pkcs11-certificate: Full bidirectional interoperability (Go <-> Python, requires Python pkcs11 extra)
 
 set -e
 
@@ -30,7 +35,9 @@ TOKEN_FILE="${TOKENPROJ}/oidc-token.txt"
 
 # PKCS#11 files
 GO_SIG_PKCS11="${TMPDIR}/go-signed-pkcs11.sig"
+GO_SIG_PKCS11_CERT="${TMPDIR}/go-signed-pkcs11-certificate.sig"
 PKCS11_PUBKEY="${TMPDIR}/pkcs11-pubkey.pem"
+PKCS11_CERT="${TMPDIR}/pkcs11-certificate.pem"
 
 cleanup() {
 	# Cleanup SoftHSM2 if it was set up
@@ -54,8 +61,8 @@ echo "Setting up Python environment..."
 python3 -m venv "${VENV}" || exit 1
 source "${VENV}/bin/activate"
 
-# Install model-signing from PyPI (pinned to 1.1.1 for compatibility)
-if ! pip install --quiet model-signing==1.1.1; then
+# Install model-signing from PyPI with PKCS#11 support (pinned to 1.1.1 for compatibility)
+if ! pip install --quiet 'model-signing[pkcs11]==1.1.1'; then
 	echo "Error: Failed to install model-signing Python package"
 	exit 1
 fi
@@ -125,8 +132,8 @@ fi
 echo "  PASSED"
 echo
 
-# --- PKCS#11 method ---
-echo "[Go->Python] Testing 'pkcs11' method"
+# --- PKCS#11 key method ---
+echo "[Go->Python] Testing 'pkcs11-key' method"
 
 # Check if SoftHSM2 is available
 if ! command -v softhsm2-util &>/dev/null || ! command -v p11tool &>/dev/null; then
@@ -164,6 +171,69 @@ else
 		--public_key "${PKCS11_PUBKEY}" \
 		"${MODELDIR}" >/dev/null 2>&1; then
 		echo "  Error: Python 'verify key' failed on PKCS#11-created signature"
+		exit 1
+	fi
+	echo "  PASSED"
+	echo
+	
+	# --- PKCS#11 Certificate method ---
+	echo "[Go->Python] Testing 'pkcs11-certificate' method"
+	
+	echo "  Generating certificate from PKCS#11 key..."
+	# Export GNUTLS_PIN for automatic authentication
+	export GNUTLS_PIN=1234
+	
+	# Generate self-signed CA certificate
+	if ! certtool --generate-self-signed \
+		--load-privkey "pkcs11:token=model-signing-test;object=mykey;type=private" \
+		--load-pubkey "pkcs11:token=model-signing-test;object=mykey;type=public" \
+		--outfile "${PKCS11_CERT}" \
+		--template <(cat <<EOF
+cn = "PKCS11 Interop Test CA"
+organization = "Model Signing Interop Test"
+unit = "Testing"
+state = "California"
+country = US
+expiration_days = 365
+ca
+signing_key
+cert_signing_key
+EOF
+	) >/dev/null 2>&1; then
+		echo "  Error: Certificate generation failed"
+		exit 1
+	fi
+	
+	echo "  Go: Signing with PKCS#11 certificate..."
+	output=$(${DIR}/model-signing \
+		sign pkcs11-certificate \
+		--signature "${GO_SIG_PKCS11_CERT}" \
+		--pkcs11-uri "${pkcs11uri}" \
+		--signing-certificate "${PKCS11_CERT}" \
+		"${MODELDIR}" 2>&1)
+	if [ $? -ne 0 ]; then
+		echo "  Error: Go 'sign pkcs11-certificate' failed"
+		echo "${output}"
+		exit 1
+	fi
+	
+	echo "  Go: Verifying signature (Go self-test)..."
+	if ! ${DIR}/model-signing \
+		verify certificate \
+		--signature "${GO_SIG_PKCS11_CERT}" \
+		--certificate-chain "${PKCS11_CERT}" \
+		"${MODELDIR}" >/dev/null 2>&1; then
+		echo "  Error: Go 'verify certificate' failed on PKCS#11 certificate signature"
+		exit 1
+	fi
+	
+	echo "  Python: Verifying signature..."
+	if ! model_signing \
+		verify certificate \
+		--signature "${GO_SIG_PKCS11_CERT}" \
+		--certificate_chain "${PKCS11_CERT}" \
+		"${MODELDIR}" >/dev/null 2>&1; then
+		echo "  Error: Python 'verify certificate' failed on PKCS#11 certificate signature"
 		exit 1
 	fi
 	echo "  PASSED"
@@ -300,6 +370,144 @@ if ! grep -q "succeeded" <<< "${out}"; then
 	exit 1
 fi
 echo "  PASSED"
+echo
+
+# --- PKCS#11 key method ---
+echo "[Python->Go] Testing 'pkcs11-key' method"
+
+# Check if SoftHSM2 is available
+if ! command -v softhsm2-util &>/dev/null || ! command -v p11tool &>/dev/null; then
+	echo "  SKIPPED: SoftHSM2 or p11tool not available"
+else
+	# Check if PKCS#11 support was installed (it's an optional extra)
+	if ! python3 -c "import pkcs11" &>/dev/null; then
+		echo "  SKIPPED: Python pkcs11 module not available (requires model-signing[pkcs11])"
+	else
+		echo "  Setting up SoftHSM2..."
+		# Note: SoftHSM2 was already set up in PART 1, but it may have been torn down
+		# Set it up again if needed
+		if ! msg=$("${DIR}/softhsm_setup" setup 2>&1); then
+			echo "  Error: Could not setup SoftHSM2"
+			echo "  ${msg}"
+			exit 1
+		fi
+		
+		PY_SIG_PKCS11="${TMPDIR}/py-signed-pkcs11.sig"
+		pkcs11uri=$(echo "${msg}" | sed -n 's|^keyuri: \(.*\)|\1|p')
+		
+		# Get public key from PKCS#11 token
+		if ! "${DIR}/softhsm_setup" getpubkey > "${PKCS11_PUBKEY}" 2>/dev/null; then
+			echo "  Error: Could not get PKCS#11 public key"
+			exit 1
+		fi
+		
+		echo "  Python: Signing with PKCS#11..."
+		if ! model_signing \
+			sign pkcs11-key \
+			--signature "${PY_SIG_PKCS11}" \
+			--pkcs11_uri "${pkcs11uri}" \
+			"${MODELDIR}" >/dev/null 2>&1; then
+			echo "  Error: Python 'sign pkcs11-key' failed"
+			exit 1
+		fi
+		
+		echo "  Go: Verifying signature..."
+		if ! out=$(${DIR}/model-signing \
+			verify key \
+			--signature "${PY_SIG_PKCS11}" \
+			--public-key "${PKCS11_PUBKEY}" \
+			"${MODELDIR}" 2>&1); then
+			echo "  Error: Go 'verify key' failed on Python PKCS#11 signature"
+			echo "  ${out}"
+			exit 1
+		fi
+		if ! grep -q "succeeded" <<< "${out}"; then
+			echo "  Error: Go verification did not succeed"
+			echo "  ${out}"
+			exit 1
+		fi
+		echo "  PASSED"
+	fi
+fi
+echo
+
+# --- PKCS#11 certificate method ---
+echo "[Python->Go] Testing 'pkcs11-certificate' method"
+
+# Check if SoftHSM2 is available
+if ! command -v softhsm2-util &>/dev/null || ! command -v p11tool &>/dev/null; then
+	echo "  SKIPPED: SoftHSM2 or p11tool not available"
+else
+	# Check if PKCS#11 support was installed (it's an optional extra)
+	if ! python3 -c "import pkcs11" &>/dev/null; then
+		echo "  SKIPPED: Python pkcs11 module not available (requires model-signing[pkcs11])"
+	else
+		echo "  Setting up SoftHSM2..."
+		# Note: SoftHSM2 was already set up in PART 1, but it may have been torn down
+		# Set it up again if needed
+		if ! msg=$("${DIR}/softhsm_setup" setup 2>&1); then
+			echo "  Error: Could not setup SoftHSM2"
+			echo "  ${msg}"
+			exit 1
+		fi
+		
+		PY_SIG_PKCS11_CERT="${TMPDIR}/py-signed-pkcs11-certificate.sig"
+		pkcs11uri=$(echo "${msg}" | sed -n 's|^keyuri: \(.*\)|\1|p')
+		
+		# Export GNUTLS_PIN for automatic authentication
+		export GNUTLS_PIN=1234
+		
+		echo "  Generating certificate from PKCS#11 key..."
+		# Generate self-signed CA certificate
+		if ! certtool --generate-self-signed \
+			--load-privkey "pkcs11:token=model-signing-test;object=mykey;type=private" \
+			--load-pubkey "pkcs11:token=model-signing-test;object=mykey;type=public" \
+			--outfile "${PKCS11_CERT}" \
+			--template <(cat <<EOF
+cn = "PKCS11 Python Interop Test CA"
+organization = "Model Signing Interop Test"
+unit = "Testing"
+state = "California"
+country = US
+expiration_days = 365
+ca
+signing_key
+cert_signing_key
+EOF
+		) >/dev/null 2>&1; then
+			echo "  Error: Certificate generation failed"
+			exit 1
+		fi
+		
+		echo "  Python: Signing with PKCS#11 certificate..."
+		if ! model_signing \
+			sign pkcs11-certificate \
+			--signature "${PY_SIG_PKCS11_CERT}" \
+			--pkcs11_uri "${pkcs11uri}" \
+			--signing_certificate "${PKCS11_CERT}" \
+			"${MODELDIR}" >/dev/null 2>&1; then
+			echo "  Error: Python 'sign pkcs11-certificate' failed"
+			exit 1
+		fi
+		
+		echo "  Go: Verifying signature..."
+		if ! out=$(${DIR}/model-signing \
+			verify certificate \
+			--signature "${PY_SIG_PKCS11_CERT}" \
+			--certificate-chain "${PKCS11_CERT}" \
+			"${MODELDIR}" 2>&1); then
+			echo "  Error: Go 'verify certificate' failed on Python PKCS#11 certificate signature"
+			echo "  ${out}"
+			exit 1
+		fi
+		if ! grep -q "succeeded" <<< "${out}"; then
+			echo "  Error: Go verification did not succeed"
+			echo "  ${out}"
+			exit 1
+		fi
+		echo "  PASSED"
+	fi
+fi
 echo
 
 # Deactivate venv

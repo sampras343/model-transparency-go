@@ -350,11 +350,11 @@ echo ""
 echo "Test 4 Summary: Signed files verification PASSED"
 
 # ============================================
-# Test 5: PKCS#11 certificate signing (optional)
+# Test 5: PKCS#11 signing
 # ============================================
 if command -v softhsm2-util &>/dev/null && command -v p11tool &>/dev/null; then
 	echo ""
-	echo "Test 5: PKCS#11 certificate signing"
+	echo "Test 5: PKCS#11 signing"
 	echo "------------------------------------"
 	
 	# Setup SoftHSM2
@@ -412,6 +412,79 @@ if command -v softhsm2-util &>/dev/null && command -v p11tool &>/dev/null; then
 		exit 1
 	fi
 	echo "  PKCS#11 signature contains correct files: PASSED"
+	
+	# 5b. Testing PKCS#11 certificate-based signing
+	if command -v certtool &>/dev/null; then
+		echo ""
+		echo "5b. Testing PKCS#11 certificate-based signing..."
+		
+		sigfile_pkcs11_cert="${TMPDIR}/model-pkcs11-cert.sig"
+		pkcs11_cert="${TMPDIR}/pkcs11-cert.pem"
+		
+		# Generate certificate from PKCS#11 key
+		export GNUTLS_PIN=1234
+		if ! certtool --generate-self-signed \
+			--load-privkey "pkcs11:token=model-signing-test;object=mykey;type=private" \
+			--load-pubkey "pkcs11:token=model-signing-test;object=mykey;type=public" \
+			--outfile "${pkcs11_cert}" \
+			--template <(cat <<'EOF'
+cn = PKCS11 Test Cert
+organization = Test
+expiration_days = 365
+signing_key
+EOF
+) >/dev/null 2>&1; then
+			echo "Error: Certificate generation failed"
+			"${DIR}/softhsm_setup" teardown &>/dev/null || true
+			exit 1
+		fi
+		
+		# Sign with PKCS#11 certificate
+		if ! ${DIR}/model-signing \
+			sign pkcs11-certificate \
+			--signature "${sigfile_pkcs11_cert}" \
+			--pkcs11-uri "${pkcs11uri}" \
+			--signing-certificate "${pkcs11_cert}" \
+			"${MODEL_DIR}" 2>&1 | grep -v "^$"; then
+			echo "Error: 'sign pkcs11-certificate' failed"
+			"${DIR}/softhsm_setup" teardown &>/dev/null || true
+			exit 1
+		fi
+		
+		# Verify bundle format (should be x509CertificateChain for cross-platform compatibility)
+		if ! check_bundle_format "${sigfile_pkcs11_cert}" "chain"; then
+			echo "Error: Bundle format check failed for PKCS#11 certificate"
+			"${DIR}/softhsm_setup" teardown &>/dev/null || true
+			exit 1
+		fi
+		
+		# Verify with certificate
+		if ! ${DIR}/model-signing \
+			verify certificate \
+			--signature "${sigfile_pkcs11_cert}" \
+			--certificate-chain "${pkcs11_cert}" \
+			"${MODEL_DIR}" 2>&1 | grep -v "^$"; then
+			echo "Error: 'verify certificate' failed on PKCS#11 certificate signature"
+			"${DIR}/softhsm_setup" teardown &>/dev/null || true
+			exit 1
+		fi
+		echo "  PKCS#11 certificate-based signing: PASSED"
+		
+		# Check files in PKCS#11 certificate signature
+		res=$(get_signed_files "${sigfile_pkcs11_cert}")
+		exp='["signme-1","signme-2"]'
+		if [ "${res}" != "${exp}" ]; then
+			echo "Error: Unexpected files in PKCS#11 certificate signature"
+			echo "Expected: ${exp}"
+			echo "Actual  : ${res}"
+			"${DIR}/softhsm_setup" teardown &>/dev/null || true
+			exit 1
+		fi
+		echo "  PKCS#11 certificate signature contains correct files: PASSED"
+	else
+		echo ""
+		echo "5b. SKIPPED: certtool not available for PKCS#11 certificate tests"
+	fi
 	
 	# Cleanup SoftHSM2
 	"${DIR}/softhsm_setup" teardown &>/dev/null || true

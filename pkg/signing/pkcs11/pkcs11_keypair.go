@@ -22,17 +22,12 @@ package pkcs11
 import (
 	"context"
 	"crypto"
-	"crypto/ecdsa"
 	"crypto/rand"
-	"crypto/rsa"
-	"crypto/sha256"
-	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 
+	"github.com/sigstore/model-signing/pkg/utils"
 	protocommon "github.com/sigstore/protobuf-specs/gen/pb-go/common/v1"
 	sigstoresign "github.com/sigstore/sigstore-go/pkg/sign"
-	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
@@ -49,6 +44,7 @@ type Keypair struct {
 
 // NewKeypair creates a new PKCS#11 keypair from a PKCS#11 URI.
 // It loads the PKCS#11 module, finds the key, and wraps it in a Keypair adapter.
+// NOTE: The PKCS#11 context must remain open for the lifetime of the Keypair.
 func NewKeypair(uri string, modulePaths []string) (*Keypair, error) {
 	// Parse PKCS#11 URI
 	parsedURI, err := ParsePKCS11URI(uri)
@@ -68,30 +64,12 @@ func NewKeypair(uri string, modulePaths []string) (*Keypair, error) {
 		return nil, fmt.Errorf("failed to find signing key: %w", err)
 	}
 
-	// Determine algorithm details from public key
-	algDetails, err := getAlgorithmDetails(signer.Public())
+	// Initialize algorithm details and hint
+	algDetails, hint, err := utils.InitializeKeypairData(signer.Public())
 	if err != nil {
 		ctx.Close()
-		return nil, fmt.Errorf("failed to determine algorithm: %w", err)
+		return nil, err
 	}
-
-	// Generate key hint (SHA256 of public key in PEM format, hex encoded)
-	// This matches Python model_signing implementation (sign_ec_key.py:136-141)
-	pubKeyBytes, err := x509.MarshalPKIXPublicKey(signer.Public())
-	if err != nil {
-		ctx.Close()
-		return nil, fmt.Errorf("failed to marshal public key: %w", err)
-	}
-
-	// Convert to PEM format to match Python's encoding
-	pemBlock := pem.EncodeToMemory(&pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: pubKeyBytes,
-	})
-
-	// Compute SHA256 hash and encode as lowercase hex (matching Python)
-	hashedBytes := sha256.Sum256(pemBlock)
-	hint := []byte(fmt.Sprintf("%x", hashedBytes))
 
 	return &Keypair{
 		signer:     signer,
@@ -117,16 +95,7 @@ func (pk *Keypair) GetHint() []byte {
 
 // GetKeyAlgorithm returns the key algorithm as a string.
 func (pk *Keypair) GetKeyAlgorithm() string {
-	switch pk.algDetails.GetKeyType() {
-	case signature.ECDSA:
-		return "ECDSA"
-	case signature.RSA:
-		return "RSA"
-	case signature.ED25519:
-		return "ED25519"
-	default:
-		return "UNKNOWN"
-	}
+	return utils.KeyTypeToString(pk.algDetails.GetKeyType())
 }
 
 // GetPublicKey returns the public key.
@@ -136,11 +105,7 @@ func (pk *Keypair) GetPublicKey() crypto.PublicKey {
 
 // GetPublicKeyPem returns the public key in PEM format.
 func (pk *Keypair) GetPublicKeyPem() (string, error) {
-	pubKeyBytes, err := cryptoutils.MarshalPublicKeyToPEM(pk.signer.Public())
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal public key to PEM: %w", err)
-	}
-	return string(pubKeyBytes), nil
+	return utils.GetPublicKeyPEM(pk.signer.Public())
 }
 
 // SignData signs the provided data and returns the signature and digest.
@@ -162,31 +127,8 @@ func (pk *Keypair) SignData(_ context.Context, data []byte) ([]byte, []byte, err
 	return sig, digest, nil
 }
 
-// Close closes the PKCS#11 context. This should be called when done with the keypair.
+// Close is a no-op as the PKCS#11 context must remain open for the Keypair's lifetime.
+// The underlying crypto.Signer remains valid as long as the context is active.
 func (pk *Keypair) Close() error {
-	// The context is managed separately - this is a placeholder for future cleanup
 	return nil
-}
-
-// getAlgorithmDetails determines the algorithm details from a public key.
-func getAlgorithmDetails(pubKey crypto.PublicKey) (signature.AlgorithmDetails, error) {
-	switch pk := pubKey.(type) {
-	case *ecdsa.PublicKey:
-		// Determine the curve and corresponding algorithm
-		switch pk.Curve.Params().Name {
-		case "P-256":
-			return signature.GetAlgorithmDetails(protocommon.PublicKeyDetails_PKIX_ECDSA_P256_SHA_256)
-		case "P-384":
-			return signature.GetAlgorithmDetails(protocommon.PublicKeyDetails_PKIX_ECDSA_P384_SHA_384)
-		case "P-521":
-			return signature.GetAlgorithmDetails(protocommon.PublicKeyDetails_PKIX_ECDSA_P521_SHA_512)
-		default:
-			return signature.AlgorithmDetails{}, fmt.Errorf("unsupported ECDSA curve: %s", pk.Curve.Params().Name)
-		}
-	case *rsa.PublicKey:
-		// Use RSA with SHA256 (most common)
-		return signature.GetAlgorithmDetails(protocommon.PublicKeyDetails_PKIX_RSA_PKCS1V15_2048_SHA256)
-	default:
-		return signature.AlgorithmDetails{}, fmt.Errorf("unsupported public key type: %T", pubKey)
-	}
 }

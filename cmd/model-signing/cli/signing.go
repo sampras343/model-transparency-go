@@ -241,30 +241,34 @@ func NewPkcs11KeySigner() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			modelPath := args[0]
-
-			// Convert CLI options to library options
 			opts := o.ToStandardOptions(modelPath)
-			// Pass logger from root options
-			opts.Logger = ro.NewLogger()
+			opts.Logger = ro.NewObservability().Logger
 
 			// Ensure no certificate is provided for key-based signing
 			if opts.SigningCertificatePath != "" {
 				return fmt.Errorf("--signing-certificate should not be used with pkcs11-key, use pkcs11-certificate instead")
 			}
 
-			signer, err := pkcs11.NewPkcs11Signer(opts)
-			if err != nil {
+			attrs := map[string]interface{}{
+				"model_signing.method":           "pkcs11-key",
+				"model_signing.model_path":       modelPath,
+				"model_signing.allow_symlinks":   opts.AllowSymlinks,
+				"model_signing.ignore_git_paths": opts.IgnoreGitPaths,
+				"model_signing.pkcs11_uri":       opts.URI,
+			}
+			return tracing.Run(cmd.Context(), "Sign", attrs, func(ctx context.Context) error {
+				signer, err := pkcs11.NewPkcs11Signer(opts)
+				if err != nil {
+					return err
+				}
+				ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+				defer cancel()
+				status, err := signer.Sign(ctx)
+				if ro.GetLogLevel() < logging.LevelSilent {
+					fmt.Println(status.Message)
+				}
 				return err
-			}
-
-			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
-			defer cancel()
-
-			status, err := signer.Sign(ctx)
-			if ro.GetLogLevel() > logging.LevelDebug {
-				fmt.Println(status.Message)
-			}
-			return err
+			})
 		},
 	}
 
@@ -302,30 +306,35 @@ func NewPkcs11CertificateSigner() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			modelPath := args[0]
-
-			// Convert CLI options to library options
 			opts := o.ToStandardOptions(modelPath)
-			// Pass logger from root options
-			opts.Logger = ro.NewLogger()
+			opts.Logger = ro.NewObservability().Logger
 
 			// Require certificate for certificate-based signing
 			if opts.SigningCertificatePath == "" {
 				return fmt.Errorf("--signing-certificate is required for pkcs11-certificate")
 			}
 
-			signer, err := pkcs11.NewPkcs11Signer(opts)
-			if err != nil {
+			attrs := map[string]interface{}{
+				"model_signing.method":              "pkcs11-certificate",
+				"model_signing.model_path":          modelPath,
+				"model_signing.allow_symlinks":      opts.AllowSymlinks,
+				"model_signing.ignore_git_paths":    opts.IgnoreGitPaths,
+				"model_signing.pkcs11_uri":          opts.URI,
+				"model_signing.signing_certificate": opts.SigningCertificatePath,
+			}
+			return tracing.Run(cmd.Context(), "Sign", attrs, func(ctx context.Context) error {
+				signer, err := pkcs11.NewPkcs11Signer(opts)
+				if err != nil {
+					return err
+				}
+				ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+				defer cancel()
+				status, err := signer.Sign(ctx)
+				if ro.GetLogLevel() < logging.LevelSilent {
+					fmt.Println(status.Message)
+				}
 				return err
-			}
-
-			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
-			defer cancel()
-
-			status, err := signer.Sign(ctx)
-			if ro.GetLogLevel() > logging.LevelDebug {
-				fmt.Println(status.Message)
-			}
-			return err
+			})
 		},
 	}
 

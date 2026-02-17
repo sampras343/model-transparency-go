@@ -192,3 +192,139 @@ func TestNewPkcs11Signer_WithModulePaths(t *testing.T) {
 		t.Errorf("Expected module path %s, got %s", modulePath, signer.opts.ModulePaths[0])
 	}
 }
+
+func TestNewPkcs11Signer_URIFormatValidation(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create model directory
+	modelDir := filepath.Join(tmpDir, "model")
+	if err := os.MkdirAll(modelDir, 0755); err != nil {
+		t.Fatalf("Failed to create model directory: %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		uri       string
+		wantError bool
+		errorMsg  string
+	}{
+		{
+			name:      "valid URI with token and object",
+			uri:       "pkcs11:token=mytoken;object=mykey",
+			wantError: false,
+		},
+		{
+			name:      "valid URI with token, object, and pin-value",
+			uri:       "pkcs11:token=mytoken;object=mykey?pin-value=1234",
+			wantError: false,
+		},
+		{
+			name:      "valid URI with token, object, and module-name",
+			uri:       "pkcs11:token=mytoken;object=mykey?module-name=softhsm2",
+			wantError: false,
+		},
+		{
+			name:      "valid URI with full RFC 7512 format",
+			uri:       "pkcs11:token=mytoken;object=mykey?module-name=softhsm2&pin-value=1234",
+			wantError: false,
+		},
+		{
+			name:      "valid URI with id instead of object",
+			uri:       "pkcs11:token=mytoken;id=%AB%CD",
+			wantError: false,
+		},
+		{
+			name:      "valid URI with slot-id",
+			uri:       "pkcs11:slot-id=0;object=mykey",
+			wantError: false,
+		},
+		{
+			name:      "missing pkcs11 prefix",
+			uri:       "token=mytoken;object=mykey",
+			wantError: true,
+			errorMsg:  "missing 'pkcs11:' prefix",
+		},
+		{
+			name:      "empty URI",
+			uri:       "pkcs11:",
+			wantError: true,
+			errorMsg:  "must specify at least one of",
+		},
+		{
+			name:      "malformed path attribute (missing value)",
+			uri:       "pkcs11:token=mytoken;object",
+			wantError: true,
+			errorMsg:  "malformed path attribute",
+		},
+		{
+			name:      "malformed query attribute (missing value)",
+			uri:       "pkcs11:token=mytoken;object=mykey?pin-value",
+			wantError: true,
+			errorMsg:  "malformed query attribute",
+		},
+		{
+			name:      "conflicting PIN attributes",
+			uri:       "pkcs11:token=mytoken;object=mykey?pin-value=1234&pin-source=file:///pin.txt",
+			wantError: true,
+			errorMsg:  "must not contain both pin-source and pin-value",
+		},
+		{
+			name:      "invalid slot-id (not a number)",
+			uri:       "pkcs11:slot-id=abc;object=mykey",
+			wantError: true,
+			errorMsg:  "slot-id must be a number",
+		},
+		{
+			name:      "invalid type",
+			uri:       "pkcs11:token=mytoken;object=mykey;type=invalid",
+			wantError: true,
+			errorMsg:  "invalid type",
+		},
+		{
+			name:      "relative module-path",
+			uri:       "pkcs11:token=mytoken;object=mykey?module-path=relative/path",
+			wantError: true,
+			errorMsg:  "must be absolute",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := Pkcs11SignerOptions{
+				ModelPath:     modelDir,
+				SignaturePath: filepath.Join(tmpDir, "sig.json"),
+				URI:           tt.uri,
+			}
+
+			signer, err := NewPkcs11Signer(opts)
+
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("Expected error for URI %q, got nil", tt.uri)
+				} else if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
+					t.Errorf("Expected error containing %q, got: %v", tt.errorMsg, err)
+				}
+				if signer != nil {
+					t.Error("Expected nil signer when error occurs")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error for valid URI %q, got: %v", tt.uri, err)
+				}
+				if signer == nil {
+					t.Error("Expected non-nil signer for valid URI")
+				}
+			}
+		})
+	}
+}
+
+// contains checks if a string contains a substring.
+func contains(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

@@ -171,7 +171,7 @@ func (s *CertificateSigner) Sign(ctx context.Context) (signing.Result, error) {
 	// followed by the chain certs. The verifier's
 	// compat layer converts this back to singular "certificate" for sigstore-go.
 	if len(s.opts.CertificateChain) > 0 {
-		if err := embedCertChainInBundleFile(s.opts.SignaturePath, s.opts.CertificateChain); err != nil {
+		if err := EmbedCertChainInBundleFile(s.opts.SignaturePath, s.opts.CertificateChain); err != nil {
 			return signing.Result{
 				Verified: false,
 				Message:  fmt.Sprintf("Failed to embed certificate chain: %v", err),
@@ -191,7 +191,7 @@ func (s *CertificateSigner) Sign(ctx context.Context) (signing.Result, error) {
 	}, nil
 }
 
-// embedCertChainInBundleFile post-processes a written bundle JSON file to replace
+// EmbedCertChainInBundleFile post-processes a written bundle JSON file to replace
 // the singular "certificate" verification material with "x509CertificateChain"
 // containing the signing cert followed by the provided chain certificates.
 //
@@ -199,7 +199,7 @@ func (s *CertificateSigner) Sign(ctx context.Context) (signing.Result, error) {
 // bundle.NewBundle() rejects x509CertificateChain for v0.3 bundles. The verifier's
 // compat layer (applyBundleCompat) converts it back to singular "certificate" before
 // passing to sigstore-go, and ExtractBundleCertChain extracts the intermediates.
-func embedCertChainInBundleFile(bundlePath string, chainPaths []string) error {
+func EmbedCertChainInBundleFile(bundlePath string, chainPaths []string) error {
 	data, err := os.ReadFile(bundlePath)
 	if err != nil {
 		return fmt.Errorf("failed to read bundle file: %w", err)

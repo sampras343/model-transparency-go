@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# PKCS#11 signing and verification test
-# Tests signing with PKCS#11 URI and verifying with public key
+# PKCS#11 signing and verification tests
+# Tests both key-based and certificate-based PKCS#11 signing
 
 set -e
 
@@ -25,24 +25,12 @@ trap cleanup SIGTERM EXIT
 
 echo ">>> Running PKCS#11 tests..."
 
+# Setup SoftHSM2
 if ! msg=$(softhsm_setup setup); then
 	echo -e "Could not setup softhsm:\n${msg}"
 	exit 77
 fi
 pkcs11uri=$(echo "${msg}" | sed -n 's|^keyuri: \(.*\)|\1|p')
-
-model_sig=${TMPDIR}/model.sig
-pub_key=${TMPDIR}/pubkey.pem
-model_path=${TMPDIR}
-
-if ! msg=$(softhsm_setup getpubkey > "${pub_key}"); then
-	echo -e "Could not get public key:\n${msg}"
-	exit 77
-fi
-
-# Create some test files in the model directory
-echo "test file 1" > "${model_path}/file1.txt"
-echo "test file 2" > "${model_path}/file2.txt"
 
 # Determine project root (go up from scripts/tests)
 PROJECT_ROOT=$(cd "${DIR}/../.." && pwd)
@@ -53,27 +41,121 @@ if [ ! -f "${PROJECT_ROOT}/build/model-signing" ]; then
 	(cd "${PROJECT_ROOT}" && make build) || exit 1
 fi
 
-# Test signing with PKCS#11
-echo "Testing PKCS#11 signing..."
+# ===========================================
+# Test 1: PKCS#11 Key-Based Signing
+# ===========================================
+echo ""
+echo "Test 1: PKCS#11 Key-Based Signing"
+echo "-----------------------------------"
+
+model_sig_key=${TMPDIR}/model-key.sig
+pub_key=${TMPDIR}/pubkey.pem
+model_path=${TMPDIR}
+
+# Get public key
+if ! softhsm_setup getpubkey > "${pub_key}" 2>/dev/null; then
+	echo "Could not get public key"
+	exit 77
+fi
+
+# Create test files
+echo "test file 1" > "${model_path}/file1.txt"
+echo "test file 2" > "${model_path}/file2.txt"
+
+echo "  Signing with PKCS#11 key..."
 if ! "${PROJECT_ROOT}/build/model-signing" sign pkcs11-key \
-	--signature "${model_sig}" \
+	--signature "${model_sig_key}" \
 	--pkcs11-uri "${pkcs11uri}" \
-	"${model_path}"; then
-	echo "Could not sign with PKCS#11."
+	"${model_path}" >/dev/null 2>&1; then
+	echo "  Error: PKCS#11 key signing failed"
 	exit 1
 fi
 
-echo "Signature created successfully: ${model_sig}"
-
-# Test verification with key
-echo "Testing verification..."
+echo "  Verifying with public key..."
 if ! "${PROJECT_ROOT}/build/model-signing" verify key \
-	--signature "${model_sig}" \
+	--signature "${model_sig_key}" \
 	--public-key "${pub_key}"  \
-	"${model_path}"; then
-	echo "Could not verify signature."
+	"${model_path}" >/dev/null 2>&1; then
+	echo "  Error: Verification failed"
+	exit 1
+fi
+echo "  PASSED"
+
+# ===========================================
+# Test 2: PKCS#11 Certificate-Based Signing
+# ===========================================
+
+# Check if certtool is available for certificate tests
+if ! command -v certtool &>/dev/null; then
+	echo ""
+	echo "Test 2: PKCS#11 Certificate-Based Signing"
+	echo "-----------------------------------"
+	echo "  SKIPPED: certtool not available"
+	echo ""
+	echo "=========================================="
+	echo "PKCS#11 key signing tests PASSED!"
+	echo "=========================================="
+	exit 0
+fi
+
+echo ""
+echo "Test 2: PKCS#11 Certificate-Based Signing"
+echo "-----------------------------------"
+
+model_sig_cert=${TMPDIR}/model-cert.sig
+cert_file=${TMPDIR}/pkcs11-cert.pem
+
+# Export GNUTLS_PIN for automatic authentication
+export GNUTLS_PIN=1234
+
+echo "  Generating certificate from PKCS#11 key..."
+if ! certtool --generate-self-signed \
+	--load-privkey "pkcs11:token=model-signing-test;object=mykey;type=private" \
+	--load-pubkey "pkcs11:token=model-signing-test;object=mykey;type=public" \
+	--outfile "${cert_file}" \
+	--template <(cat <<'EOF'
+cn = PKCS11 Test CA
+organization = Model Signing Test
+organizational_unit = Testing
+country = US
+state = California
+expiration_days = 365
+ca
+signing_key
+cert_signing_key
+EOF
+) >/dev/null 2>&1; then
+	echo "  Error: Certificate generation failed"
 	exit 1
 fi
 
-echo "✓ PKCS#11 sign and verify test passed!"
+echo "  Signing with PKCS#11 certificate..."
+if ! "${PROJECT_ROOT}/build/model-signing" sign pkcs11-certificate \
+	--signature "${model_sig_cert}" \
+	--pkcs11-uri "${pkcs11uri}" \
+	--signing-certificate "${cert_file}" \
+	"${model_path}" >/dev/null 2>&1; then
+	echo "  Error: PKCS#11 certificate signing failed"
+	exit 1
+fi
+
+echo "  Verifying with certificate..."
+if ! "${PROJECT_ROOT}/build/model-signing" verify certificate \
+	--signature "${model_sig_cert}" \
+	--certificate-chain "${cert_file}" \
+	"${model_path}" >/dev/null 2>&1; then
+	echo "  Error: Verification failed"
+	exit 1
+fi
+echo "  PASSED"
+
+# ===========================================
+# Summary
+# ===========================================
+echo ""
+echo "=========================================="
+echo "All PKCS#11 tests PASSED!"
+echo "=========================================="
+echo ""
+
 exit 0

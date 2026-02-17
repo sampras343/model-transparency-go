@@ -177,5 +177,13 @@ func ParsePKCS11URI(uriString string) (*URI, error) {
 	if err := uri.Parse(uriString); err != nil {
 		return nil, err
 	}
+
+	// Validate that URI has sufficient information to locate a key
+	tokenLabel := uri.GetTokenLabel()
+	keyID, keyLabel, _ := uri.GetKeyIDAndLabel()
+	if tokenLabel == "" && keyID == nil && keyLabel == "" {
+		return nil, fmt.Errorf("PKCS#11 URI must specify at least one of: token, id, or object (key label)")
+	}
+
 	return uri, nil
 }

@@ -36,6 +36,7 @@ import (
 	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/modelartifact"
 	"github.com/sigstore/model-signing/pkg/signing"
+	cert "github.com/sigstore/model-signing/pkg/signing/certificate"
 	"github.com/sigstore/model-signing/pkg/utils"
 	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
 	sigstoresign "github.com/sigstore/sigstore-go/pkg/sign"
@@ -66,7 +67,7 @@ type Pkcs11Signer struct {
 }
 
 // NewPkcs11Signer creates a new Pkcs11Signer with the given options.
-// Validates that required paths exist before returning.
+// Validates that required paths exist and PKCS#11 URI format before returning.
 // Returns an error if validation fails.
 func NewPkcs11Signer(opts Pkcs11SignerOptions) (*Pkcs11Signer, error) {
 	if err := signing.ValidateSignerPaths(opts.ModelPath, opts.IgnorePaths); err != nil {
@@ -74,6 +75,10 @@ func NewPkcs11Signer(opts Pkcs11SignerOptions) (*Pkcs11Signer, error) {
 	}
 	if opts.URI == "" {
 		return nil, fmt.Errorf("PKCS#11 URI is required")
+	}
+	// Validate URI format per RFC 7512 before proceeding.
+	if _, err := ParsePKCS11URI(opts.URI); err != nil {
+		return nil, fmt.Errorf("invalid PKCS#11 URI: %w", err)
 	}
 	if opts.SigningCertificatePath != "" {
 		if err := utils.ValidateFileExists("signing certificate", opts.SigningCertificatePath); err != nil {
@@ -145,7 +150,7 @@ func (s *Pkcs11Signer) Sign(ctx context.Context) (signing.Result, error) {
 
 	var bundle *protobundle.Bundle
 	if s.opts.SigningCertificatePath != "" {
-		certProvider, err := NewModelCertificateProvider(s.opts.SigningCertificatePath)
+		certProvider, err := cert.NewModelCertificateProvider(s.opts.SigningCertificatePath, keypair)
 		if err != nil {
 			return signing.Result{
 				Verified: false,
@@ -184,6 +189,26 @@ func (s *Pkcs11Signer) Sign(ctx context.Context) (signing.Result, error) {
 			Message:  fmt.Sprintf("Failed to write signature: %v", err),
 		}, err
 	}
+
+	// Post-processing: If certificate is provided, always embed in x509CertificateChain format
+	// for cross-platform compatibility. If chain certs are also provided, include them.
+	if s.opts.SigningCertificatePath != "" {
+		if err := cert.EmbedCertChainInBundleFile(s.opts.SignaturePath, s.opts.CertificateChain); err != nil {
+			return signing.Result{
+				Verified: false,
+				Message:  fmt.Sprintf("Failed to embed certificate chain: %v", err),
+			}, fmt.Errorf("failed to embed certificate chain: %w", err)
+		}
+		if len(s.opts.CertificateChain) > 0 {
+			s.logger.Debug("  Embedded %d chain certificate(s) in bundle", len(s.opts.CertificateChain))
+			s.logger.Warnln("WARNING: Bundle uses X509CertificateChain format (not sigstore-go native). " +
+				"This format is used for certificate chain compatibility and is handled by " +
+				"the custom verification path.")
+		} else {
+			s.logger.Debug("  Converted to X509CertificateChain format for cross-platform compatibility")
+		}
+	}
+
 	s.logger.Debug("  Signature written to: %s", s.opts.SignaturePath)
 
 	return signing.Result{

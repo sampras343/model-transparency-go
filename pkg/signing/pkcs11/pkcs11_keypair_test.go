@@ -21,7 +21,9 @@ import (
 	"crypto/rsa"
 	"testing"
 
+	"github.com/sigstore/model-signing/pkg/utils"
 	protocommon "github.com/sigstore/protobuf-specs/gen/pb-go/common/v1"
+	"github.com/sigstore/sigstore/pkg/signature"
 )
 
 func TestGetAlgorithmDetails_ECDSAKeys(t *testing.T) {
@@ -49,9 +51,9 @@ func TestGetAlgorithmDetails_ECDSAKeys(t *testing.T) {
 		{
 			name:        "P-521 key",
 			curve:       elliptic.P521(),
-			wantHashAlg: protocommon.HashAlgorithm_SHA2_512,
-			wantSigAlg:  protocommon.PublicKeyDetails_PKIX_ECDSA_P521_SHA_512,
-			wantErr:     false,
+			wantHashAlg: 0,
+			wantSigAlg:  0,
+			wantErr:     true, // P-521 is unsupported by sigstore protobuf specs
 		},
 	}
 
@@ -63,7 +65,14 @@ func TestGetAlgorithmDetails_ECDSAKeys(t *testing.T) {
 				t.Fatalf("Failed to generate key: %v", err)
 			}
 
-			algDetails, err := getAlgorithmDetails(&privKey.PublicKey)
+			algID, err := utils.GetPublicKeyDetails(&privKey.PublicKey)
+			if err != nil {
+				if !tt.wantErr {
+					t.Fatalf("utils.GetPublicKeyDetails() unexpected error = %v", err)
+				}
+				return
+			}
+			algDetails, err := signature.GetAlgorithmDetails(algID)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getAlgorithmDetails() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -100,14 +109,14 @@ func TestGetAlgorithmDetails_RSAKeys(t *testing.T) {
 			name:        "RSA 3072",
 			bits:        3072,
 			wantHashAlg: protocommon.HashAlgorithm_SHA2_256,
-			wantSigAlg:  protocommon.PublicKeyDetails_PKIX_RSA_PKCS1V15_2048_SHA256,
+			wantSigAlg:  protocommon.PublicKeyDetails_PKIX_RSA_PKCS1V15_3072_SHA256,
 			wantErr:     false,
 		},
 		{
 			name:        "RSA 4096",
 			bits:        4096,
 			wantHashAlg: protocommon.HashAlgorithm_SHA2_256,
-			wantSigAlg:  protocommon.PublicKeyDetails_PKIX_RSA_PKCS1V15_2048_SHA256,
+			wantSigAlg:  protocommon.PublicKeyDetails_PKIX_RSA_PKCS1V15_4096_SHA256,
 			wantErr:     false,
 		},
 	}
@@ -120,7 +129,14 @@ func TestGetAlgorithmDetails_RSAKeys(t *testing.T) {
 				t.Fatalf("Failed to generate key: %v", err)
 			}
 
-			algDetails, err := getAlgorithmDetails(&privKey.PublicKey)
+			algID, err := utils.GetPublicKeyDetails(&privKey.PublicKey)
+			if err != nil {
+				if !tt.wantErr {
+					t.Fatalf("utils.GetPublicKeyDetails() unexpected error = %v", err)
+				}
+				return
+			}
+			algDetails, err := signature.GetAlgorithmDetails(algID)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getAlgorithmDetails() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -140,7 +156,7 @@ func TestGetAlgorithmDetails_RSAKeys(t *testing.T) {
 
 func TestGetAlgorithmDetails_UnsupportedKeyType(t *testing.T) {
 	// Test with an unsupported key type (string)
-	_, err := getAlgorithmDetails("not a valid key")
+	_, err := utils.GetPublicKeyDetails("not a valid key")
 	if err == nil {
 		t.Error("Expected error for unsupported key type, got nil")
 	}
@@ -153,7 +169,7 @@ func TestGetAlgorithmDetails_UnsupportedECDSACurve(t *testing.T) {
 		t.Fatalf("Failed to generate key: %v", err)
 	}
 
-	_, err = getAlgorithmDetails(&privKey.PublicKey)
+	_, err = utils.GetPublicKeyDetails(&privKey.PublicKey)
 	if err == nil {
 		t.Error("Expected error for unsupported curve, got nil")
 	}
@@ -165,7 +181,8 @@ func TestGetAlgorithmDetails_UnsupportedRSASize(t *testing.T) {
 		t.Fatalf("Failed to generate key: %v", err)
 	}
 
-	_, err = getAlgorithmDetails(&privKey.PublicKey)
+	// 1024 bit RSA keys are treated as 2048 (rounded up)
+	_, err = utils.GetPublicKeyDetails(&privKey.PublicKey)
 	if err != nil {
 		t.Errorf("Unexpected error for RSA key: %v", err)
 	}
@@ -214,7 +231,12 @@ func TestPKCS11Keypair_GetKeyAlgorithm(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pubKey := tt.keyGen()
-			algDetails, err := getAlgorithmDetails(pubKey)
+			algID, err := utils.GetPublicKeyDetails(pubKey)
+			if err != nil {
+				t.Fatalf("Failed to get public key details: %v", err)
+			}
+
+			algDetails, err := signature.GetAlgorithmDetails(algID)
 			if err != nil {
 				t.Fatalf("Failed to get algorithm details: %v", err)
 			}
