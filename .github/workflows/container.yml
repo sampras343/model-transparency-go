@@ -28,8 +28,5 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Build container image
-        run: docker build -t model-signing:test -f Containerfile .
-
-      - name: Verify container runs
-        run: docker run --rm model-signing:test --help
+      - name: Build and verify container
+        run: make container-build

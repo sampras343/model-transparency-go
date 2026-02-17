@@ -45,7 +45,7 @@ jobs:
           check-latest: true
 
       - name: Build model-signing binary
-        run: go build -o scripts/tests/model-signing ./cmd/model-signing
+        run: make build-test-binary
 
       - name: Run CLI tests
         run: ./scripts/tests/testrunner
@@ -70,7 +70,7 @@ jobs:
           python-version: '3.12'
 
       - name: Build model-signing binary
-        run: go build -o scripts/tests/model-signing ./cmd/model-signing
+        run: make build-test-binary
 
       - name: Run interoperability tests
         run: ./scripts/tests/test-interoperability.sh
@@ -91,7 +91,7 @@ jobs:
           check-latest: true
 
       - name: Build model-signing binary
-        run: go build -o scripts/tests/model-signing ./cmd/model-signing
+        run: make build-test-binary
 
       - name: Run hardening tests
         run: ./scripts/tests/test-hardening.sh

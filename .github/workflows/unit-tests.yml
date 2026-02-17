@@ -34,7 +34,7 @@ jobs:
           check-latest: true
 
       - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./cmd/... ./pkg/...
+        run: make test-ci
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2

@@ -38,11 +38,8 @@ jobs:
           go-version-file: './go.mod'
           check-latest: true
 
-      - name: Install doc2go
-        run: go install go.abhg.dev/doc2go@latest
-
       - name: Generate documentation
-        run: doc2go -out ./html ./...
+        run: make docs
 
       - name: Upload docs artifact
         if: github.event_name == 'push'
