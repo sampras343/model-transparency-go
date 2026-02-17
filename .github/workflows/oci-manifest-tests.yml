@@ -50,7 +50,7 @@ jobs:
           python-version: '3.12'
 
       - name: Build model-signing binary
-        run: go build -o scripts/tests/model-signing ./cmd/model-signing
+        run: make build-test-binary
 
       - name: Run OCI manifest tests
         run: ./scripts/tests/test-oci-manifest.sh

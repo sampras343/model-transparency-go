@@ -3,13 +3,13 @@
 
 # Go parameters
 GOCMD=go
-GOBUILD=CGO_ENABLED=1 $(GOCMD) build
+GOBUILD=$(GOCMD) build
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
 GOCLEAN=$(GOCMD) clean
 GOVET=$(GOCMD) vet
-GOFMT=$(GOCMD) fmt
+GOFMT=gofmt
 
 # Binary name
 BINARY_NAME=model-signing
@@ -32,7 +32,9 @@ COLOR_GREEN=\033[32m
 COLOR_YELLOW=\033[33m
 COLOR_BLUE=\033[34m
 
-.PHONY: all build clean test test-unit test-coverage coverage-report help deps vet fmt lint docker-build podman-build
+.PHONY: all build clean test test-unit test-ci test-coverage coverage-report help deps vet fmt fmt-check lint \
+	docker-build podman-build container-build build-test-binary build-test-binary-otel \
+	mod-tidy-check license-check docs
 
 ## help: Display this help message
 help:
@@ -49,6 +51,12 @@ help:
 	@echo -e "  $(COLOR_GREEN)fmt$(COLOR_RESET)             - Format code with go fmt"
 	@echo -e "  $(COLOR_GREEN)deps$(COLOR_RESET)            - Download dependencies"
 	@echo -e "  $(COLOR_GREEN)lint$(COLOR_RESET)            - Run linters (vet + fmt check)"
+	@echo -e "  $(COLOR_GREEN)test-ci$(COLOR_RESET)         - Run tests with race detector and coverage (CI)"
+	@echo -e "  $(COLOR_GREEN)mod-tidy-check$(COLOR_RESET)  - Verify go.mod and go.sum are tidy"
+	@echo -e "  $(COLOR_GREEN)license-check$(COLOR_RESET)   - Check license headers"
+	@echo -e "  $(COLOR_GREEN)docs$(COLOR_RESET)            - Generate API documentation"
+	@echo -e "  $(COLOR_GREEN)container-build$(COLOR_RESET) - Build and verify container image"
+	@echo -e "  $(COLOR_GREEN)build-test-binary$(COLOR_RESET) - Build binary for integration tests"
 	@echo ""
 	@echo -e "$(COLOR_BOLD)Examples:$(COLOR_RESET)"
 	@echo "  make build              # Build the binary"
@@ -156,13 +164,13 @@ vet:
 ## fmt: Format code with go fmt
 fmt:
 	@echo "$(COLOR_BLUE)Formatting code...$(COLOR_RESET)"
-	$(GOFMT) $(TEST_PACKAGES)
+	$(GOCMD) fmt $(TEST_PACKAGES)
 	@echo "$(COLOR_GREEN)✓ Code formatted$(COLOR_RESET)"
 
 ## fmt-check: Check if code is formatted
 fmt-check:
 	@echo "$(COLOR_BLUE)Checking code formatting...$(COLOR_RESET)"
-	@UNFORMATTED=$$($(GOFMT) -l .); \
+	@UNFORMATTED=$$(find . -name '*.go' -not -path './examples/*' -not -path './vendor/*' | xargs $(GOFMT) -l); \
 	if [ -n "$$UNFORMATTED" ]; then \
 		echo "$(COLOR_YELLOW)The following files are not formatted:$(COLOR_RESET)"; \
 		echo "$$UNFORMATTED"; \
@@ -206,6 +214,56 @@ run: build
 ## ci: Run CI pipeline (lint, test, build)
 ci: deps lint test-coverage build
 	@echo "$(COLOR_GREEN)✓ CI pipeline completed successfully$(COLOR_RESET)"
+
+## test-ci: Run tests with race detector and coverage (CI mode)
+test-ci:
+	@echo "$(COLOR_BLUE)Running tests with race detector and coverage...$(COLOR_RESET)"
+	$(GOTEST) -v -race -coverprofile=coverage.out -covermode=atomic $(TEST_PACKAGES)
+	@echo "$(COLOR_GREEN)✓ CI tests passed$(COLOR_RESET)"
+
+## mod-tidy-check: Verify go.mod and go.sum are tidy
+mod-tidy-check:
+	@echo "$(COLOR_BLUE)Checking go.mod and go.sum...$(COLOR_RESET)"
+	$(GOMOD) tidy
+	@if ! git diff --quiet go.mod go.sum; then \
+		echo "$(COLOR_YELLOW)go.mod or go.sum is not tidy. Run 'go mod tidy'.$(COLOR_RESET)"; \
+		git diff go.mod go.sum; \
+		exit 1; \
+	fi
+	@echo "$(COLOR_GREEN)✓ go.mod and go.sum are tidy$(COLOR_RESET)"
+
+## license-check: Check license headers
+license-check:
+	@echo "$(COLOR_BLUE)Checking license headers...$(COLOR_RESET)"
+	go install github.com/google/addlicense@v1.1.1
+	addlicense -check -l apache -c 'The Sigstore Authors' -ignore "third_party/**" -ignore "**/*.sh" -v *
+	@echo "$(COLOR_GREEN)✓ License headers are correct$(COLOR_RESET)"
+
+## docs: Generate API documentation
+docs:
+	@echo "$(COLOR_BLUE)Generating documentation...$(COLOR_RESET)"
+	go install go.abhg.dev/doc2go@latest
+	doc2go -out ./html ./...
+	@echo "$(COLOR_GREEN)✓ Documentation generated in ./html/$(COLOR_RESET)"
+
+## build-test-binary: Build binary for integration tests
+build-test-binary:
+	@echo "$(COLOR_BLUE)Building test binary...$(COLOR_RESET)"
+	$(GOBUILD) -o scripts/tests/$(BINARY_NAME) $(BINARY_PATH)
+	@echo "$(COLOR_GREEN)✓ Test binary built: scripts/tests/$(BINARY_NAME)$(COLOR_RESET)"
+
+## build-test-binary-otel: Build binary with OTel for integration tests
+build-test-binary-otel:
+	@echo "$(COLOR_BLUE)Building test binary with OTel...$(COLOR_RESET)"
+	$(GOBUILD) -tags=otel -o scripts/tests/$(BINARY_NAME) $(BINARY_PATH)
+	@echo "$(COLOR_GREEN)✓ OTel test binary built: scripts/tests/$(BINARY_NAME)$(COLOR_RESET)"
+
+## container-build: Build and verify container image
+container-build:
+	@echo "$(COLOR_BLUE)Building container image...$(COLOR_RESET)"
+	docker build -t model-signing:test -f Containerfile .
+	docker run --rm model-signing:test --help
+	@echo "$(COLOR_GREEN)✓ Container image built and verified$(COLOR_RESET)"
 
 ## docker-build: Build container image with Docker
 docker-build:
