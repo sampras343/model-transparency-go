@@ -38,41 +38,32 @@ jobs:
           go-version-file: './go.mod'
           check-latest: true
 
-      - name: Install pkgsite
-        run: go install golang.org/x/pkgsite/cmd/pkgsite@latest
+      - name: Install doc2go
+        run: go install go.abhg.dev/doc2go@latest
 
       - name: Generate documentation
-        run: |
-          # Create output directory
-          mkdir -p ./html
-
-          # Run pkgsite to generate static documentation
-          # pkgsite serves documentation on localhost, we'll use an alternative approach
-
-          # Alternative: Use go doc to generate markdown/text documentation
-          echo "# API Documentation" > ./html/index.html
-          echo "<html><head><title>Model Signing Go Documentation</title>" >> ./html/index.html
-          echo "<style>body{font-family:sans-serif;max-width:1200px;margin:0 auto;padding:20px;}pre{background:#f4f4f4;padding:10px;overflow-x:auto;}.package{margin:20px 0;border-left:3px solid #007d9c;padding-left:15px;}</style></head><body>" >> ./html/index.html
-          echo "<h1>Model Signing Go Documentation</h1>" >> ./html/index.html
-          echo "<p>Generated from commit <code>$(git rev-parse --short HEAD)</code></p>" >> ./html/index.html
-
-          # Generate package list and documentation
-          echo "<h2>Packages</h2>" >> ./html/index.html
-
-          for pkg in $(go list ./... | grep -v /vendor/); do
-            pkg_name=$(echo $pkg | sed 's/github.com\/sigstore\/model-signing\///')
-            echo "<div class='package'>" >> ./html/index.html
-            echo "<h3>$pkg_name</h3>" >> ./html/index.html
-            echo "<pre>" >> ./html/index.html
-            go doc -all $pkg | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' >> ./html/index.html || echo "Package documentation not available" >> ./html/index.html
-            echo "</pre>" >> ./html/index.html
-            echo "</div>" >> ./html/index.html
-          done
-
-          echo "<hr><p><small>For full interactive documentation, visit <a href='https://pkg.go.dev/github.com/sigstore/model-signing'>pkg.go.dev/github.com/sigstore/model-signing</a></small></p>" >> ./html/index.html
-          echo "</body></html>" >> ./html/index.html
+        run: doc2go -out ./html ./...
 
       - name: Upload docs artifact
+        if: github.event_name == 'push'
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
         with:
           path: ./html/
+  # This is copied from the official `pdoc` example:
+  #   https://github.com/mitmproxy/pdoc/blob/main/.github/workflows/docs.yml
+  #
+  # Deploy the artifact to GitHub pages.
+  # This is a separate job so that only actions/deploy-pages has the necessary permissions.
+  deploy:
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write # to deploy to Pages
+      id-token: write # to verify the deployment originates from an appropriate source
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
