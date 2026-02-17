@@ -87,7 +87,7 @@ monitor](https://github.com/sigstore/rekor-monitor) that runs on GitHub Actions.
 Clone the repository and build the `model-signing` binary:
 
 ```bash
-[...]$ go build -o model-signing ./cmd/model-signing && sudo cp -r model-signing /usr/local/bin/
+[...]$ go build -o model-signing ./cmd/model-signing && sudo mv model-signing /usr/local/bin/
 ```
 
 Verify if the binary is available to use:
@@ -347,7 +347,11 @@ The CLI supports the following global options available for all commands:
 [...]$ model-signing sign bert-base-uncased --log-level debug --log-format json --output-file output.log
 
 # Suppress all output except errors
-[...]$ model-signing verify bert-base-uncased --signature model.sig --log-level error
+[...]$ model-signing verify bert-base-uncased \
+  --signature model.sig \
+  --identity "$identity" \
+  --identity-provider "$oidc_provider" \
+  --log-level error
 ```
 
 **Library usage** (`pkg/logging`):
