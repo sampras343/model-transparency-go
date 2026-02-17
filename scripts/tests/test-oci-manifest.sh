@@ -3,11 +3,12 @@
 # This script tests cross-signing and cross-verification between OCI manifests
 # and local directories across all strategies (key, certificate, sigstore):
 #
-# 1. Installs ORAS CLI
+# 1. Installs ORAS CLI and Python model_signing package
 # 2. Creates model files and pushes them as an OCI artifact to a local registry
 # 3. Retrieves the OCI manifest
-# 4. For each strategy: sign with manifest → verify with directory, and vice versa
-# 5. Runs negative tests (tampered model detection)
+# 4. Go-only: sign with manifest → verify with directory, and vice versa
+# 5. Cross-language: Go signs manifest → Python verifies directory, and vice versa
+# 6. Runs negative tests (tampered model detection)
 
 set -euo pipefail
 
@@ -16,6 +17,7 @@ source "${DIR}/functions"
 
 TMPDIR=$(mktemp -d) || exit 1
 MODELDIR="${TMPDIR}/model"
+VENV="${TMPDIR}/venv"
 REGISTRY_CONTAINER=""
 
 cleanup()
@@ -39,6 +41,23 @@ if ! command -v oras &>/dev/null; then
 	rm -f "oras_${ORAS_VERSION}_linux_amd64.tar.gz"
 fi
 oras version
+
+# ============================================================
+# Setup: Install Python model_signing
+# ============================================================
+echo
+echo "=== Setting up Python environment ==="
+
+python3 -m venv "${VENV}" || exit 1
+source "${VENV}/bin/activate"
+
+if ! pip install --quiet model-signing==1.1.1; then
+	echo "Error: Failed to install model-signing Python package"
+	exit 1
+fi
+
+echo -n "Python model_signing version: "
+model_signing --version
 
 # ============================================================
 # Setup: Create model files
@@ -255,13 +274,138 @@ ${DIR}/model-signing \
 echo "  PASSED"
 
 # ============================================================
+# CROSS-LANGUAGE: Go signs OCI manifest → Python verifies directory
+# ============================================================
+echo
+echo "=== CROSS-LANGUAGE: Go signs OCI manifest → Python verifies directory ==="
+
+# Key
+echo
+echo "Test 7: Go signs OCI manifest → Python verifies directory (key)"
+
+# Reuse sigfile_key_manifest from Test 1 (Go signed OCI manifest with --ignore-paths config.json)
+model_signing \
+	verify key \
+	--signature "${sigfile_key_manifest}" \
+	--public_key "${DIR}/keys/certificate/signing-key-pub.pem" \
+	"${MODELDIR}"
+
+echo "  PASSED"
+
+# Certificate
+echo
+echo "Test 8: Go signs OCI manifest → Python verifies directory (certificate)"
+
+# Reuse sigfile_cert_manifest from Test 3
+model_signing \
+	verify certificate \
+	--signature "${sigfile_cert_manifest}" \
+	--certificate_chain "${DIR}/keys/certificate/ca-cert.pem" \
+	"${MODELDIR}"
+
+echo "  PASSED"
+
+# Sigstore — use production (not staging) for cross-language compatibility
+sigfile_go_sigstore_prod="${TMPDIR}/model.sig-go-sigstore-prod"
+
+echo
+echo "Test 9: Go signs OCI manifest → Python verifies directory (sigstore)"
+
+sigstore_sign_with_retry "${TOKENPROJ}" "${token_file}" "--identity-token" \
+	${DIR}/model-signing \
+	sign sigstore \
+	--signature "${sigfile_go_sigstore_prod}" \
+	--ignore-paths config.json \
+	"${MANIFEST}"
+
+model_signing \
+	verify sigstore \
+	--signature "${sigfile_go_sigstore_prod}" \
+	--identity "${SIGSTORE_IDENTITY}" \
+	--identity_provider "${SIGSTORE_ISSUER}" \
+	"${MODELDIR}"
+
+echo "  PASSED"
+
+# ============================================================
+# CROSS-LANGUAGE: Python signs directory → Go verifies OCI manifest
+# ============================================================
+
+py_sig_key="${TMPDIR}/model.sig-py-key"
+py_sig_cert="${TMPDIR}/model.sig-py-cert"
+py_sig_sigstore="${TMPDIR}/model.sig-py-sigstore"
+
+echo
+echo "=== CROSS-LANGUAGE: Python signs directory → Go verifies OCI manifest ==="
+
+# Key
+echo
+echo "Test 10: Python signs directory → Go verifies OCI manifest (key)"
+
+model_signing \
+	sign key \
+	--signature "${py_sig_key}" \
+	--private_key "${DIR}/keys/certificate/signing-key.pem" \
+	"${MODELDIR}"
+
+${DIR}/model-signing \
+	verify key \
+	--signature "${py_sig_key}" \
+	--public-key "${DIR}/keys/certificate/signing-key-pub.pem" \
+	--ignore-unsigned-files \
+	"${MANIFEST}"
+
+echo "  PASSED"
+
+# Certificate
+echo
+echo "Test 11: Python signs directory → Go verifies OCI manifest (certificate)"
+
+model_signing \
+	sign certificate \
+	--signature "${py_sig_cert}" \
+	--private_key "${DIR}/keys/certificate/signing-key.pem" \
+	--signing_certificate "${DIR}/keys/certificate/signing-key-cert.pem" \
+	--certificate_chain "${DIR}/keys/certificate/int-ca-cert.pem" \
+	"${MODELDIR}"
+
+${DIR}/model-signing \
+	verify certificate \
+	--signature "${py_sig_cert}" \
+	--certificate-chain "${DIR}/keys/certificate/ca-cert.pem" \
+	--ignore-unsigned-files \
+	"${MANIFEST}"
+
+echo "  PASSED"
+
+# Sigstore
+echo
+echo "Test 12: Python signs directory → Go verifies OCI manifest (sigstore)"
+
+sigstore_sign_with_retry "${TOKENPROJ}" "${token_file}" "--identity_token" \
+	model_signing \
+	sign sigstore \
+	--signature "${py_sig_sigstore}" \
+	"${MODELDIR}"
+
+${DIR}/model-signing \
+	verify sigstore \
+	--signature "${py_sig_sigstore}" \
+	--identity "${SIGSTORE_IDENTITY}" \
+	--identity-provider "${SIGSTORE_ISSUER}" \
+	--ignore-unsigned-files \
+	"${MANIFEST}"
+
+echo "  PASSED"
+
+# ============================================================
 # Negative tests
 # ============================================================
 echo
 echo "=== Negative tests ==="
 
 echo
-echo "Test 7: Verification fails after tampering with model file"
+echo "Test 13: Verification fails after tampering with model file"
 
 echo "tampered-data" >> "${MODELDIR}/model.safetensors"
 
@@ -275,6 +419,9 @@ if ${DIR}/model-signing \
 fi
 
 echo "  PASSED (verification correctly failed)"
+
+# Deactivate venv
+deactivate
 
 echo
 echo "All OCI manifest cross-verification tests passed!"
