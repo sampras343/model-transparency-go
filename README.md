@@ -295,57 +295,123 @@ we will be using the sample test certs available in the repository
 
 Sign models using hardware security modules (HSMs) or SoftHSM2 with PKCS#11. The implementation uses `sigstore-go`'s native signing API with custom adapters for PKCS#11 keys and certificates.
 
-**Architecture:**
-- `PKCS11Keypair`: Adapter implementing `sigstore-go`'s `Keypair` interface
-- `ModelCertificateProvider`: Adapter implementing `CertificateProvider` interface  
-- `PKCS11Context`: Manages PKCS#11 module loading via `crypto11` library
-- Supports both key-based and certificate-based signing
+#### Overview
 
-**Quick Start:**
+The PKCS#11 implementation provides two signing methods:
+- **pkcs11-key**: Sign with a PKCS#11 private key, verify with exported public key
+- **pkcs11-certificate**: Sign with a PKCS#11 private key and certificate chain
+
+Both methods produce standard sigstore bundles compatible with other signing methods.
+
+#### Quick Start
+
+**Setup SoftHSM2:**
 ```bash
-# Setup SoftHSM2 (one-time)
+# One-time setup
 [...]$ scripts/tests/softhsm_setup setup
 
 # Get the key URI
 [...]$ keyuri=$(scripts/tests/softhsm_setup getkeyuri | sed -n 's/^keyuri: //p')
+```
 
-# Sign with PKCS#11 key
+**Sign with PKCS#11 key:**
+```bash
 [...]$ model-signing sign pkcs11-key bert-base-uncased \
   --pkcs11-uri "$keyuri" --signature model.sig
+```
 
-# Sign with PKCS#11 certificate
+**Sign with PKCS#11 certificate:**
+```bash
 [...]$ model-signing sign pkcs11-certificate bert-base-uncased \
   --pkcs11-uri "$keyuri" \
   --signing-certificate path/to/cert.pem \
-  --signature model.sig
+  --signature model-cert.sig
+```
 
-# Export public key for verification
+**Verify with PKCS#11 key:**
+```bash
+# Verify key-based signature (export public key first)
 [...]$ scripts/tests/softhsm_setup getpubkey > public-key.pem
-
-# Verify
 [...]$ model-signing verify key bert-base-uncased \
   --signature model.sig --public-key public-key.pem
+```
 
-# Cleanup (when done testing)
+**Verify with PKCS#11 certificate:**
+```bash
+[...]$ model-signing verify certificate bert-base-uncased \
+  --signature model-cert.sig \
+  --certificate-chain path/to/cert.pem
+```
+
+**Cleanup:**
+```bash
 [...]$ scripts/tests/softhsm_setup teardown
 ```
 
-**Testing:**
-```bash
-# Run automated PKCS#11 tests
-[...]$ scripts/tests/test-pkcs11.sh
+#### Supported Key Types
 
-# Run unit tests
-[...]$ go test ./pkg/signing/pkcs11/...
+- ECDSA: P-256, P-384
+- RSA: 2048, 3072, 4096 bits
+
+#### PKCS#11 URI Format
+
+Follows RFC 7512 specification:
+```
+pkcs11:token=TOKEN;object=KEY?module-name=MODULE&pin-value=PIN
 ```
 
-**Documentation:**
-- **Complete guide**: [PKCS11_GUIDE.md](PKCS11_GUIDE.md) - Setup, troubleshooting, and advanced options
-- **Testing scripts**: [scripts/tests/](scripts/tests/) - SoftHSM2 setup helpers
+**Key URI Attributes:**
+- `token` - Token label
+- `object` - Key label (can also use `id` for key ID)
+- `slot-id` - Direct slot number
+- `module-name` - Module name (auto-searches standard paths)
+- `module-path` - Explicit module path
+- `pin-value` - PIN inline (development/testing only)
+- `pin-source` - PIN from file: `file:///secure/pin` (production)
 
-**Supported Key Types:**
-- ECDSA: P-256, P-384, P-521
-- RSA: 2048, 3072, 4096 bits
+**URI Examples:**
+```bash
+# Development (SoftHSM2 with inline PIN)
+pkcs11:token=mytoken;object=mykey?module-name=softhsm2&pin-value=1234
+
+# Production (secure PIN from file)
+pkcs11:token=mytoken;object=mykey?module-name=softhsm2&pin-source=file:///secure/pin
+
+# Using slot ID
+pkcs11:slot-id=0;object=mykey?module-name=softhsm2&pin-value=1234
+
+# Explicit module path
+pkcs11:token=mytoken;object=mykey?module-path=/usr/lib64/pkcs11/libsofthsm2.so&pin-source=file:///secure/pin
+```
+
+#### Production HSM Usage
+
+**Supported Hardware HSMs:**
+- YubiKey (via `ykcs11` module)
+- AWS CloudHSM (PKCS#11 client library)
+- Thales Luna HSM (Cryptoki library)
+- Utimaco HSM (CryptoServer library)
+- Any PKCS#11-compliant HSM
+
+**YubiKey Example:**
+```bash
+# Generate key on YubiKey (one-time)
+[...]$ ykman piv keys generate --algorithm ECCP256 --pin-policy ONCE 9a pubkey.pem
+[...]$ ykman piv certificates generate --subject "CN=My Key" 9a pubkey.pem
+
+# Sign with YubiKey
+[...]$ model-signing sign pkcs11-key bert-base-uncased \
+  --pkcs11-uri "pkcs11:slot-id=0;object=Private key for Digital Signature?module-name=libykcs11&pin-source=file:///secure/yubikey-pin" \
+  --signature model.sig
+```
+
+**AWS CloudHSM Example:**
+```bash
+# After configuring CloudHSM client
+[...]$ model-signing sign pkcs11-key bert-base-uncased \
+  --pkcs11-uri "pkcs11:token=cavium;object=model-signing-key?module-path=/opt/cloudhsm/lib/libcloudhsm_pkcs11.so&pin-source=file:///secure/hsm-pin" \
+  --signature model.sig
+```
 
 ### Sign-Verify OCI Images
 
