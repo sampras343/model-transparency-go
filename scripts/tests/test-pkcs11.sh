@@ -82,13 +82,13 @@ fi
 echo "  PASSED"
 
 # ===========================================
-# Test 2: PKCS#11 Certificate-Based Signing
+# Test 2: PKCS#11 Self-Signed Certificate Signing
 # ===========================================
 
 # Check if certtool is available for certificate tests
 if ! command -v certtool &>/dev/null; then
 	echo ""
-	echo "Test 2: PKCS#11 Certificate-Based Signing"
+	echo "Test 2: PKCS#11 Self-Signed Certificate Signing"
 	echo "-----------------------------------"
 	echo "  SKIPPED: certtool not available"
 	echo ""
@@ -99,7 +99,7 @@ if ! command -v certtool &>/dev/null; then
 fi
 
 echo ""
-echo "Test 2: PKCS#11 Certificate-Based Signing"
+echo "Test 2: PKCS#11 Self-Signed Certificate Signing"
 echo "-----------------------------------"
 
 model_sig_cert=${TMPDIR}/model-cert.sig
@@ -145,6 +145,80 @@ if ! "${PROJECT_ROOT}/build/model-signing" verify certificate \
 	--certificate-chain "${cert_file}" \
 	"${model_path}" >/dev/null 2>&1; then
 	echo "  Error: Verification failed"
+	exit 1
+fi
+echo "  PASSED"
+
+# ===========================================
+# Test 3: PKCS#11 Certificate Chain Signing
+# ===========================================
+echo ""
+echo "Test 3: PKCS#11 Certificate Chain Signing (CA + Leaf)"
+echo "-----------------------------------"
+
+model_sig_chain=${TMPDIR}/model-chain.sig
+ca_key=${TMPDIR}/ca-key.pem
+ca_cert=${TMPDIR}/ca-cert.pem
+leaf_cert=${TMPDIR}/leaf-cert.pem
+
+echo "  Generating CA key and self-signed CA certificate..."
+if ! certtool --generate-privkey --outfile "${ca_key}" >/dev/null 2>&1; then
+	echo "  Error: CA key generation failed"
+	exit 1
+fi
+
+if ! certtool --generate-self-signed \
+	--load-privkey "${ca_key}" \
+	--outfile "${ca_cert}" \
+	--template <(cat <<'EOF'
+cn = PKCS11 Test CA
+organization = Model Signing Test
+country = US
+expiration_days = 365
+ca
+cert_signing_key
+EOF
+) >/dev/null 2>&1; then
+	echo "  Error: CA certificate generation failed"
+	exit 1
+fi
+
+echo "  Generating leaf signing certificate issued by CA..."
+if ! certtool --generate-certificate \
+	--load-privkey "pkcs11:token=model-signing-test;object=mykey;type=private" \
+	--load-pubkey "pkcs11:token=model-signing-test;object=mykey;type=public" \
+	--load-ca-certificate "${ca_cert}" \
+	--load-ca-privkey "${ca_key}" \
+	--outfile "${leaf_cert}" \
+	--template <(cat <<'EOF'
+cn = PKCS11 Test Signing Cert
+organization = Model Signing Test
+country = US
+expiration_days = 365
+signing_key
+EOF
+) >/dev/null 2>&1; then
+	echo "  Error: Leaf certificate generation failed"
+	exit 1
+fi
+
+echo "  Signing with PKCS#11 leaf certificate and chain..."
+if ! "${PROJECT_ROOT}/build/model-signing" sign pkcs11-certificate \
+	--signature "${model_sig_chain}" \
+	--pkcs11-uri "${pkcs11uri}" \
+	--signing-certificate "${leaf_cert}" \
+	--certificate-chain "${ca_cert}" \
+	"${model_path}" >/dev/null 2>&1; then
+	echo "  Error: PKCS#11 certificate chain signing failed"
+	exit 1
+fi
+
+echo "  Verifying with CA certificate chain..."
+if ! "${PROJECT_ROOT}/build/model-signing" verify certificate \
+	--signature "${model_sig_chain}" \
+	--certificate-chain "${ca_cert}" \
+	"${model_path}" >/dev/null 2>&1; then
+	echo "  Error: Certificate chain verification failed"
 	exit 1
 fi
 echo "  PASSED"
