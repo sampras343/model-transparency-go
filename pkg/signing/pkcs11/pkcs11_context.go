@@ -136,54 +136,31 @@ func (pc *Context) Close() error {
 }
 
 // findPKCS11Module finds the PKCS#11 module library path.
-// It checks the module-path attribute in the URI and the provided module paths.
+// It configures the URI with any caller-provided search directories and
+// delegates all resolution logic to uri.GetModule().
 func findPKCS11Module(uri *URI, modulePaths []string) (string, error) {
-	// Check if module path is specified in URI
-	modulePath, err := uri.GetModule()
-	if err == nil && modulePath != "" {
-		if _, err := os.Stat(modulePath); err == nil {
-			return modulePath, nil
-		}
-	}
+	if len(modulePaths) > 0 {
+		allDirs := make([]string, 0, len(modulePaths)+len(defaultModuleDirs))
+		allDirs = append(allDirs, modulePaths...)
+		allDirs = append(allDirs, defaultModuleDirs...)
+		uri.SetModuleDirectories(allDirs)
 
-	// Search in provided module paths
-	for _, dir := range modulePaths {
-		matches, err := filepath.Glob(filepath.Join(dir, "*.so"))
-		if err != nil {
-			continue
+		existing := uri.allowedModulePaths
+		if len(existing) == 0 {
+			existing = defaultModuleDirs
 		}
-		if len(matches) > 0 {
-			return matches[0], nil
-		}
-	}
-
-	// Try common default paths for SoftHSM2
-	defaultPaths := []string{
-		"/usr/lib/softhsm/libsofthsm2.so",
-		"/usr/lib64/softhsm/libsofthsm2.so",
-		"/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so",
-		"/usr/lib64/pkcs11/libsofthsm2.so",
-		"/usr/lib/pkcs11/libsofthsm2.so",
-		"/usr/local/lib/softhsm/libsofthsm2.so",
-		"/opt/homebrew/lib/softhsm/libsofthsm2.so",               // macOS ARM
-		"/usr/local/Cellar/softhsm/*/lib/softhsm/libsofthsm2.so", // macOS Intel
-	}
-
-	for _, path := range defaultPaths {
-		// Handle glob patterns
-		if strings.Contains(path, "*") {
-			matches, err := filepath.Glob(path)
-			if err == nil && len(matches) > 0 {
-				return matches[0], nil
+		allowed := make([]string, len(existing), len(existing)+len(modulePaths))
+		copy(allowed, existing)
+		for _, dir := range modulePaths {
+			if !strings.HasSuffix(dir, string(filepath.Separator)) {
+				dir += string(filepath.Separator)
 			}
-		} else {
-			if _, err := os.Stat(path); err == nil {
-				return path, nil
-			}
+			allowed = append(allowed, dir)
 		}
+		uri.SetAllowedModulePaths(allowed)
 	}
 
-	return "", fmt.Errorf("PKCS#11 module not found in any standard location")
+	return uri.GetModule()
 }
 
 // ParsePKCS11URI parses a PKCS#11 URI string and returns a URI object.

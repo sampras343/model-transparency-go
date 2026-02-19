@@ -17,6 +17,7 @@ package pkcs11
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -301,7 +302,7 @@ func TestNewPkcs11Signer_URIFormatValidation(t *testing.T) {
 			if tt.wantError {
 				if err == nil {
 					t.Errorf("Expected error for URI %q, got nil", tt.uri)
-				} else if tt.errorMsg != "" && !contains(err.Error(), tt.errorMsg) {
+				} else if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
 					t.Errorf("Expected error containing %q, got: %v", tt.errorMsg, err)
 				}
 				if signer != nil {
@@ -317,14 +318,4 @@ func TestNewPkcs11Signer_URIFormatValidation(t *testing.T) {
 			}
 		})
 	}
-}
-
-// contains checks if a string contains a substring.
-func contains(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }

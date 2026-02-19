@@ -85,6 +85,9 @@ func NewPkcs11Signer(opts Pkcs11SignerOptions) (*Pkcs11Signer, error) {
 			return nil, err
 		}
 	}
+	if err := utils.ValidateMultiple("certificate chain", opts.CertificateChain, utils.PathTypeFile); err != nil {
+		return nil, err
+	}
 
 	return &Pkcs11Signer{
 		opts:   opts,

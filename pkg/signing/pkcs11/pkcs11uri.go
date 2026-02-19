@@ -41,17 +41,18 @@ type URI struct {
 	allowAnyModule     bool
 }
 
-// defaultAllowedModuleDirs lists directories where PKCS#11 modules are
-// typically installed. These are used as the default allow-list so that
-// only modules in known system locations are loaded.
-var defaultAllowedModuleDirs = []string{
-	"/usr/lib64/pkcs11/",
-	"/usr/lib/pkcs11/",
-	"/usr/lib/x86_64-linux-gnu/softhsm/",
-	"/usr/lib/softhsm/",
-	"/usr/lib64/softhsm/",
-	"/usr/local/lib/softhsm/",
-	"/opt/homebrew/lib/softhsm/",
+// defaultModuleDirs lists directories where PKCS#11 modules are typically
+// installed across Linux distributions and macOS. This single list is used
+// both as the default search path and the default allow-list so that only
+// modules in known system locations are loaded.
+var defaultModuleDirs = []string{
+	"/usr/lib64/pkcs11/",                 // Fedora, RHEL, openSUSE
+	"/usr/lib/pkcs11/",                   // Fedora 32-bit, Arch Linux
+	"/usr/lib/x86_64-linux-gnu/softhsm/", // Ubuntu/Debian x86_64
+	"/usr/lib/softhsm/",                  // Ubuntu/Debian (older or 32-bit)
+	"/usr/lib64/softhsm/",                // Fedora/RHEL SoftHSM2
+	"/usr/local/lib/softhsm/",            // macOS Homebrew (Intel), manual installs
+	"/opt/homebrew/lib/softhsm/",         // macOS Homebrew (ARM)
 }
 
 // NewURI creates a new PKCS#11 URI parser.
@@ -60,7 +61,7 @@ func NewURI() *URI {
 		pathAttributes:     make(map[string]string),
 		queryAttributes:    make(map[string]string),
 		moduleDirectories:  []string{},
-		allowedModulePaths: defaultAllowedModuleDirs,
+		allowedModulePaths: defaultModuleDirs,
 		allowAnyModule:     false,
 	}
 }
@@ -207,6 +208,15 @@ func (p *URI) GetPIN() (string, error) {
 }
 
 // GetModule returns the PKCS#11 module path to use.
+//
+// Resolution order:
+//  1. If module-path is set to a regular file, use it directly.
+//  2. If module-path is set to a directory, restrict the search to that directory.
+//  3. If module-name is set, search for a file whose name contains that string.
+//  4. Otherwise, return the first .so file found in the search directories.
+//
+// Search directories are, in order: moduleDirectories (set by the caller),
+// then defaultModuleDirs.
 func (p *URI) GetModule() (string, error) {
 	var searchDirs []string
 
@@ -228,31 +238,46 @@ func (p *URI) GetModule() (string, error) {
 			return "", fmt.Errorf("module-path '%s' points to an invalid file type", modulePath)
 		}
 
-		// If it's a directory, search in it using module-name below
 		searchDirs = []string{modulePath}
 	}
 
-	// Search for module by name
-	moduleName, ok := p.queryAttributes["module-name"]
-	if !ok {
-		return "", fmt.Errorf("module-name attribute is not set")
-	}
-	moduleName = strings.ToLower(moduleName)
-
 	if searchDirs == nil {
 		searchDirs = p.moduleDirectories
-	}
-	if len(searchDirs) == 0 {
-		// Default search directories for various Linux distributions
-		searchDirs = []string{
-			"/usr/lib64/pkcs11/",                 // Fedora, RHEL, openSUSE
-			"/usr/lib/pkcs11/",                   // Fedora 32 bit, ArchLinux
-			"/usr/lib/x86_64-linux-gnu/softhsm/", // Ubuntu/Debian x86_64
-			"/usr/lib/softhsm/",                  // Ubuntu/Debian (older or 32-bit)
-			"/usr/local/lib/softhsm/",            // Homebrew on macOS
+		if len(searchDirs) == 0 {
+			searchDirs = defaultModuleDirs
 		}
 	}
 
+	// If module-name is specified, search for a file whose name contains it.
+	if moduleName, ok := p.queryAttributes["module-name"]; ok {
+		moduleName = strings.ToLower(moduleName)
+
+		for _, dir := range searchDirs {
+			entries, err := os.ReadDir(dir)
+			if err != nil {
+				continue
+			}
+
+			for _, entry := range entries {
+				if entry.IsDir() {
+					continue
+				}
+
+				fileName := strings.ToLower(entry.Name())
+				if strings.Contains(fileName, moduleName) {
+					fullPath := filepath.Join(dir, entry.Name())
+					if !p.isAllowedPath(fullPath) {
+						return "", fmt.Errorf("module '%s' is not allowed by policy", fullPath)
+					}
+					return fullPath, nil
+				}
+			}
+		}
+
+		return "", fmt.Errorf("no module '%s' could be found in %v", p.queryAttributes["module-name"], searchDirs)
+	}
+
+	// No module-name: scan search directories for any .so file.
 	for _, dir := range searchDirs {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
@@ -264,18 +289,17 @@ func (p *URI) GetModule() (string, error) {
 				continue
 			}
 
-			fileName := strings.ToLower(entry.Name())
-			if strings.Contains(fileName, moduleName) {
+			if strings.HasSuffix(strings.ToLower(entry.Name()), ".so") {
 				fullPath := filepath.Join(dir, entry.Name())
 				if !p.isAllowedPath(fullPath) {
-					return "", fmt.Errorf("module '%s' is not allowed by policy", fullPath)
+					continue
 				}
 				return fullPath, nil
 			}
 		}
 	}
 
-	return "", fmt.Errorf("no module '%s' could be found in %v", moduleName, searchDirs)
+	return "", fmt.Errorf("PKCS#11 module not found; set module-path or module-name in the URI, or provide module search directories")
 }
 
 // isAllowedPath checks whether the given path is allowed.
