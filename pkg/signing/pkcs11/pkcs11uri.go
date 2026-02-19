@@ -41,14 +41,27 @@ type URI struct {
 	allowAnyModule     bool
 }
 
+// defaultAllowedModuleDirs lists directories where PKCS#11 modules are
+// typically installed. These are used as the default allow-list so that
+// only modules in known system locations are loaded.
+var defaultAllowedModuleDirs = []string{
+	"/usr/lib64/pkcs11/",
+	"/usr/lib/pkcs11/",
+	"/usr/lib/x86_64-linux-gnu/softhsm/",
+	"/usr/lib/softhsm/",
+	"/usr/lib64/softhsm/",
+	"/usr/local/lib/softhsm/",
+	"/opt/homebrew/lib/softhsm/",
+}
+
 // NewURI creates a new PKCS#11 URI parser.
 func NewURI() *URI {
 	return &URI{
 		pathAttributes:     make(map[string]string),
 		queryAttributes:    make(map[string]string),
 		moduleDirectories:  []string{},
-		allowedModulePaths: []string{},
-		allowAnyModule:     true,
+		allowedModulePaths: defaultAllowedModuleDirs,
+		allowAnyModule:     false,
 	}
 }
 
