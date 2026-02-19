@@ -158,7 +158,7 @@ func TestURI_SlotID(t *testing.T) {
 	tests := []struct {
 		name      string
 		uri       string
-		wantSlot  int
+		wantSlot  int64
 		wantErr   bool
 		errString string
 	}{

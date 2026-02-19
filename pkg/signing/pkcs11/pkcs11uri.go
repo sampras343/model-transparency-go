@@ -325,29 +325,19 @@ func (p *URI) GetKeyIDAndLabel() ([]byte, string, error) {
 }
 
 // GetSlotID returns the slot ID from the URI, or -1 if not specified.
-func (p *URI) GetSlotID() (int, error) {
+// PKCS#11 slot IDs are CK_ULONG (32-bit unsigned integers).
+func (p *URI) GetSlotID() (int64, error) {
 	slotIDStr, ok := p.pathAttributes["slot-id"]
 	if !ok {
 		return -1, nil
 	}
 
-	// Parse as int
-	slotID, err := strconv.Atoi(slotIDStr)
+	slotID, err := strconv.ParseUint(slotIDStr, 10, 32)
 	if err != nil {
 		return -1, fmt.Errorf("invalid slot-id: %w", err)
 	}
 
-	// Validate lower bound
-	if slotID < 0 {
-		return -1, fmt.Errorf("slot-id must be a non-negative number")
-	}
-
-	// Validate upper bound - PKCS#11 slot IDs are 32-bit unsigned integers
-	if slotID > 0xFFFFFFFF {
-		return -1, fmt.Errorf("slot-id is larger than 32 bit")
-	}
-
-	return slotID, nil
+	return int64(slotID), nil
 }
 
 // GetTokenLabel returns the token label from the URI.
