@@ -21,7 +21,7 @@ import (
 	"crypto/rsa"
 	"testing"
 
-	"github.com/sigstore/model-signing/pkg/utils"
+	"github.com/sigstore/model-signing/pkg/signing"
 	protocommon "github.com/sigstore/protobuf-specs/gen/pb-go/common/v1"
 	"github.com/sigstore/sigstore/pkg/signature"
 )
@@ -65,10 +65,10 @@ func TestGetAlgorithmDetails_ECDSAKeys(t *testing.T) {
 				t.Fatalf("Failed to generate key: %v", err)
 			}
 
-			algID, err := utils.GetPublicKeyDetails(&privKey.PublicKey)
+			algID, err := signing.GetPublicKeyDetails(&privKey.PublicKey)
 			if err != nil {
 				if !tt.wantErr {
-					t.Fatalf("utils.GetPublicKeyDetails() unexpected error = %v", err)
+					t.Fatalf("signing.GetPublicKeyDetails() unexpected error = %v", err)
 				}
 				return
 			}
@@ -129,10 +129,10 @@ func TestGetAlgorithmDetails_RSAKeys(t *testing.T) {
 				t.Fatalf("Failed to generate key: %v", err)
 			}
 
-			algID, err := utils.GetPublicKeyDetails(&privKey.PublicKey)
+			algID, err := signing.GetPublicKeyDetails(&privKey.PublicKey)
 			if err != nil {
 				if !tt.wantErr {
-					t.Fatalf("utils.GetPublicKeyDetails() unexpected error = %v", err)
+					t.Fatalf("signing.GetPublicKeyDetails() unexpected error = %v", err)
 				}
 				return
 			}
@@ -156,7 +156,7 @@ func TestGetAlgorithmDetails_RSAKeys(t *testing.T) {
 
 func TestGetAlgorithmDetails_UnsupportedKeyType(t *testing.T) {
 	// Test with an unsupported key type (string)
-	_, err := utils.GetPublicKeyDetails("not a valid key")
+	_, err := signing.GetPublicKeyDetails("not a valid key")
 	if err == nil {
 		t.Error("Expected error for unsupported key type, got nil")
 	}
@@ -169,7 +169,7 @@ func TestGetAlgorithmDetails_UnsupportedECDSACurve(t *testing.T) {
 		t.Fatalf("Failed to generate key: %v", err)
 	}
 
-	_, err = utils.GetPublicKeyDetails(&privKey.PublicKey)
+	_, err = signing.GetPublicKeyDetails(&privKey.PublicKey)
 	if err == nil {
 		t.Error("Expected error for unsupported curve, got nil")
 	}
@@ -182,7 +182,7 @@ func TestGetAlgorithmDetails_UnsupportedRSASize(t *testing.T) {
 	}
 
 	// 1024 bit RSA keys are treated as 2048 (rounded up)
-	_, err = utils.GetPublicKeyDetails(&privKey.PublicKey)
+	_, err = signing.GetPublicKeyDetails(&privKey.PublicKey)
 	if err != nil {
 		t.Errorf("Unexpected error for RSA key: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestPKCS11Keypair_GetKeyAlgorithm(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pubKey := tt.keyGen()
-			algID, err := utils.GetPublicKeyDetails(pubKey)
+			algID, err := signing.GetPublicKeyDetails(pubKey)
 			if err != nil {
 				t.Fatalf("Failed to get public key details: %v", err)
 			}

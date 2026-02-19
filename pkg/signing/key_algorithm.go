@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package utils provides common utility functions for key algorithm detection and manipulation.
-package utils
+// Package signing provides signing utilities and key algorithm detection functions.
+package signing
 
 import (
 	"crypto"

@@ -142,7 +142,7 @@ echo
 echo "[Go->Python] Testing 'pkcs11-key' method"
 
 # Check if SoftHSM2 is available
-if ! command -v softhsm2-util &>/dev/null || ! command -v p11tool &>/dev/null; then
+if ! ensure_pkcs11_deps; then
 	echo "  SKIPPED: SoftHSM2 or p11tool not available"
 else
 	echo "  Setting up SoftHSM2..."
@@ -462,7 +462,7 @@ echo
 echo "[Python->Go] Testing 'pkcs11-key' method"
 
 # Check if SoftHSM2 is available
-if ! command -v softhsm2-util &>/dev/null || ! command -v p11tool &>/dev/null; then
+if ! ensure_pkcs11_deps; then
 	echo "  SKIPPED: SoftHSM2 or p11tool not available"
 else
 	echo "  Setting up SoftHSM2..."

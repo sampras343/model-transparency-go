@@ -19,7 +19,7 @@ import (
 	"crypto"
 	"crypto/rand"
 
-	"github.com/sigstore/model-signing/pkg/utils"
+	"github.com/sigstore/model-signing/pkg/signing"
 	protocommon "github.com/sigstore/protobuf-specs/gen/pb-go/common/v1"
 	sigstoresig "github.com/sigstore/sigstore/pkg/signature"
 )
@@ -41,7 +41,7 @@ type ModelKeypair struct {
 // If password is non-empty, the key is assumed to be encrypted.
 func NewModelKeypair(keyPath string, password string) (*ModelKeypair, error) {
 	// Load private key from PEM file
-	signer, err := utils.LoadPrivateKeyFromPEM(keyPath, password)
+	signer, err := signing.LoadPrivateKeyFromPEM(keyPath, password)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func NewModelKeypair(keyPath string, password string) (*ModelKeypair, error) {
 	pubKey := signer.Public()
 
 	// Initialize algorithm details and hint
-	algDetails, hint, err := utils.InitializeKeypairData(pubKey)
+	algDetails, hint, err := signing.InitializeKeypairData(pubKey)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func (k *ModelKeypair) GetHint() []byte {
 
 // GetKeyAlgorithm returns the top-level key algorithm name.
 func (k *ModelKeypair) GetKeyAlgorithm() string {
-	return utils.KeyTypeToString(k.algDetails.GetKeyType())
+	return signing.KeyTypeToString(k.algDetails.GetKeyType())
 }
 
 // GetPublicKey returns the public key.
@@ -89,7 +89,7 @@ func (k *ModelKeypair) GetPublicKey() crypto.PublicKey {
 
 // GetPublicKeyPem returns the public key in PEM format.
 func (k *ModelKeypair) GetPublicKeyPem() (string, error) {
-	return utils.GetPublicKeyPEM(k.publicKey)
+	return signing.GetPublicKeyPEM(k.publicKey)
 }
 
 // SignData signs the given data using the wrapped private key.
@@ -99,7 +99,7 @@ func (k *ModelKeypair) SignData(_ context.Context, data []byte) ([]byte, []byte,
 	hf := k.algDetails.GetHashType()
 
 	// Compute digest (no-op for pure Ed25519 which doesn't pre-hash)
-	dataToSign := utils.ComputeDigest(data, hf)
+	dataToSign := signing.ComputeDigest(data, hf)
 
 	sig, err := k.privateKey.Sign(rand.Reader, dataToSign, hf)
 	if err != nil {

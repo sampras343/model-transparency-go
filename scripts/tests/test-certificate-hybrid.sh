@@ -352,7 +352,7 @@ echo "Test 4 Summary: Signed files verification PASSED"
 # ============================================
 # Test 5: PKCS#11 signing
 # ============================================
-if command -v softhsm2-util &>/dev/null && command -v p11tool &>/dev/null; then
+if ensure_pkcs11_deps; then
 	echo ""
 	echo "Test 5: PKCS#11 signing"
 	echo "------------------------------------"
@@ -509,6 +509,6 @@ echo "  - Single certificate (sigstore-go path): Working"
 echo "  - Certificate chain (custom path): Working with warnings"
 echo "  - Cross-verification: Correctly rejects invalid certs"
 echo "  - File content: Correctly signed"
-if command -v softhsm2-util &>/dev/null && command -v p11tool &>/dev/null; then
+if ensure_pkcs11_deps &>/dev/null; then
 	echo "  - PKCS#11 signing: Working"
 fi

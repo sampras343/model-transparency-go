@@ -6,9 +6,10 @@
 set -e
 
 DIR=$(dirname "$0")
+source "${DIR}/functions"
 
-# Check if SoftHSM2 is available
-if ! command -v softhsm2-util &>/dev/null || ! command -v p11tool &>/dev/null; then
+# Ensure PKCS#11 dependencies are available
+if ! ensure_pkcs11_deps; then
 	echo "Skipping PKCS#11 tests: SoftHSM2 or p11tool not available"
 	exit 0
 fi
