@@ -51,6 +51,7 @@ func TestFindPKCS11Module_ExplicitPath(t *testing.T) {
 
 	uri := NewURI()
 	uri.queryAttributes = map[string]string{"module-path": mockModule}
+	uri.SetAllowAnyModule(true)
 
 	modulePath, err := findPKCS11Module(uri, nil)
 	if err != nil {

@@ -320,20 +320,20 @@ Both methods produce standard sigstore bundles compatible with other signing met
   --pkcs11-uri "$keyuri" --signature model.sig
 ```
 
-**Sign with PKCS#11 certificate:**
-```bash
-[...]$ model-signing sign pkcs11-certificate bert-base-uncased \
-  --pkcs11-uri "$keyuri" \
-  --signing-certificate path/to/cert.pem \
-  --signature model-cert.sig
-```
-
 **Verify with PKCS#11 key:**
 ```bash
 # Verify key-based signature (export public key first)
 [...]$ scripts/tests/softhsm_setup getpubkey > public-key.pem
 [...]$ model-signing verify key bert-base-uncased \
   --signature model.sig --public-key public-key.pem
+```
+
+**Sign with PKCS#11 certificate:**
+```bash
+[...]$ model-signing sign pkcs11-certificate bert-base-uncased \
+  --pkcs11-uri "$keyuri" \
+  --signing-certificate path/to/cert.pem \
+  --signature model-cert.sig
 ```
 
 **Verify with PKCS#11 certificate:**

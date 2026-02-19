@@ -25,7 +25,7 @@
 //   - Context: Manages PKCS#11 module loading and key discovery via crypto11
 //   - URI: Parser for RFC 7512 PKCS#11 URIs
 //
-// Supported key types: ECDSA (P-256, P-384, P-521), RSA (2048, 3072, 4096 bits)
+// Supported key types: ECDSA (P-256, P-384), RSA (2048, 3072, 4096 bits)
 package pkcs11
 
 import (
