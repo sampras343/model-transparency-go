@@ -19,9 +19,18 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 )
+
+// pinValuePattern matches pin-value=... in a PKCS#11 URI query string.
+var pinValuePattern = regexp.MustCompile(`(pin-value=)[^&]*`)
+
+// SanitizeURI redacts the pin-value from a PKCS#11 URI string for safe logging.
+func SanitizeURI(uri string) string {
+	return pinValuePattern.ReplaceAllString(uri, "${1}***")
+}
 
 // URI represents a parsed PKCS#11 URI according to RFC 7512.
 type URI struct {
@@ -186,6 +195,8 @@ func (p *URI) GetPIN() (string, error) {
 
 // GetModule returns the PKCS#11 module path to use.
 func (p *URI) GetModule() (string, error) {
+	var searchDirs []string
+
 	// If module-path is specified, use it
 	if modulePath, ok := p.queryAttributes["module-path"]; ok {
 		info, err := os.Stat(modulePath)
@@ -204,8 +215,8 @@ func (p *URI) GetModule() (string, error) {
 			return "", fmt.Errorf("module-path '%s' points to an invalid file type", modulePath)
 		}
 
-		// If it's a directory, search in it
-		p.moduleDirectories = []string{modulePath}
+		// If it's a directory, search in it using module-name below
+		searchDirs = []string{modulePath}
 	}
 
 	// Search for module by name
@@ -215,7 +226,9 @@ func (p *URI) GetModule() (string, error) {
 	}
 	moduleName = strings.ToLower(moduleName)
 
-	searchDirs := p.moduleDirectories
+	if searchDirs == nil {
+		searchDirs = p.moduleDirectories
+	}
 	if len(searchDirs) == 0 {
 		// Default search directories for various Linux distributions
 		searchDirs = []string{

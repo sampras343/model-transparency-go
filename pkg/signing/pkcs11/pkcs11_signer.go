@@ -112,7 +112,7 @@ func (s *Pkcs11Signer) Sign(ctx context.Context) (signing.Result, error) {
 	s.logger.Debug("  --signature:        %s", filepath.Clean(s.opts.SignaturePath))
 	s.logger.Debug("  --ignore-paths:     %v", s.opts.IgnorePaths)
 	s.logger.Debug("  --ignore-git-paths: %v", s.opts.IgnoreGitPaths)
-	s.logger.Debug("  --pkcs11-uri:       %v", s.opts.URI)
+	s.logger.Debug("  --pkcs11-uri:       %v", SanitizeURI(s.opts.URI))
 	s.logger.Debug("  --allow-symlinks:   %v", s.opts.AllowSymlinks)
 	if s.opts.SigningCertificatePath != "" {
 		s.logger.Debug("  --signing-cert:     %v", s.opts.SigningCertificatePath)

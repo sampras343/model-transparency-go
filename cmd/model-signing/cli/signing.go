@@ -254,7 +254,7 @@ func NewPkcs11KeySigner() *cobra.Command {
 				"model_signing.model_path":       modelPath,
 				"model_signing.allow_symlinks":   opts.AllowSymlinks,
 				"model_signing.ignore_git_paths": opts.IgnoreGitPaths,
-				"model_signing.pkcs11_uri":       opts.URI,
+				"model_signing.pkcs11_uri":       pkcs11.SanitizeURI(opts.URI),
 			}
 			return tracing.Run(cmd.Context(), "Sign", attrs, func(ctx context.Context) error {
 				signer, err := pkcs11.NewPkcs11Signer(opts)
@@ -319,7 +319,7 @@ func NewPkcs11CertificateSigner() *cobra.Command {
 				"model_signing.model_path":          modelPath,
 				"model_signing.allow_symlinks":      opts.AllowSymlinks,
 				"model_signing.ignore_git_paths":    opts.IgnoreGitPaths,
-				"model_signing.pkcs11_uri":          opts.URI,
+				"model_signing.pkcs11_uri":          pkcs11.SanitizeURI(opts.URI),
 				"model_signing.signing_certificate": opts.SigningCertificatePath,
 			}
 			return tracing.Run(cmd.Context(), "Sign", attrs, func(ctx context.Context) error {

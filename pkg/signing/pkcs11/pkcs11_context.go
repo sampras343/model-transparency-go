@@ -50,9 +50,15 @@ func LoadContext(uri *URI, modulePaths []string) (*Context, error) {
 	}
 
 	pin, err := uri.GetPIN()
-	if err != nil || pin == "" {
-		// Try to get PIN from environment variable
-		pin = os.Getenv("PKCS11_PIN")
+	if err != nil {
+		// Only fall back to env var if no pin-source/pin-value was configured.
+		// If the user specified a pin-source or pin-value and it failed
+		// (e.g. unreadable file, bad URI), that's a real error.
+		if !uri.HasPIN() {
+			pin = os.Getenv("PKCS11_PIN")
+		} else {
+			return nil, fmt.Errorf("failed to get PIN from URI: %w", err)
+		}
 	}
 
 	// Configure crypto11
