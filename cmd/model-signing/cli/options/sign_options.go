@@ -179,7 +179,7 @@ type Pkcs11SignOptions struct {
 	CertificateChain []string
 }
 
-// AddFlags adds PKCS#11 signing flags to the cobra command.
+// AddFlags adds the common PKCS#11 signing flags (key-only) to the cobra command.
 // The pkcs11-uri flag is marked as required.
 func (o *Pkcs11SignOptions) AddFlags(cmd *cobra.Command) {
 	AddAllFlags(cmd, &o.ModelPathFlags, &o.SignatureOutputFlags)
@@ -188,8 +188,12 @@ func (o *Pkcs11SignOptions) AddFlags(cmd *cobra.Command) {
 	_ = cmd.MarkFlagRequired("pkcs11-uri")
 
 	cmd.Flags().StringSliceVar(&o.ModulePaths, "module-path", nil, "Additional directories to search for PKCS#11 modules.")
+}
 
-	cmd.Flags().StringVar(&o.SigningCertificatePath, "signing-certificate", "", "Path to the signing certificate, as a PEM-encoded file. If provided, certificate-based signing will be used.")
+// AddCertificateFlags adds certificate-specific flags for PKCS#11 certificate-based signing.
+func (o *Pkcs11SignOptions) AddCertificateFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&o.SigningCertificatePath, "signing-certificate", "", "Path to the signing certificate, as a PEM-encoded file. [required]")
+	_ = cmd.MarkFlagRequired("signing-certificate")
 	cmd.Flags().StringSliceVar(&o.CertificateChain, "certificate-chain", nil, "File paths of certificate chain of trust (can be repeated or comma-separated).")
 }
 

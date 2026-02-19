@@ -244,11 +244,6 @@ func NewPkcs11KeySigner() *cobra.Command {
 			opts := o.ToStandardOptions(modelPath)
 			opts.Logger = ro.NewObservability().Logger
 
-			// Ensure no certificate is provided for key-based signing
-			if opts.SigningCertificatePath != "" {
-				return fmt.Errorf("--signing-certificate should not be used with pkcs11-key, use pkcs11-certificate instead")
-			}
-
 			attrs := map[string]interface{}{
 				"model_signing.method":           "pkcs11-key",
 				"model_signing.model_path":       modelPath,
@@ -309,11 +304,6 @@ func NewPkcs11CertificateSigner() *cobra.Command {
 			opts := o.ToStandardOptions(modelPath)
 			opts.Logger = ro.NewObservability().Logger
 
-			// Require certificate for certificate-based signing
-			if opts.SigningCertificatePath == "" {
-				return fmt.Errorf("--signing-certificate is required for pkcs11-certificate")
-			}
-
 			attrs := map[string]interface{}{
 				"model_signing.method":              "pkcs11-certificate",
 				"model_signing.model_path":          modelPath,
@@ -339,6 +329,7 @@ func NewPkcs11CertificateSigner() *cobra.Command {
 	}
 
 	o.AddFlags(cmd)
+	o.AddCertificateFlags(cmd)
 	return cmd
 }
 
