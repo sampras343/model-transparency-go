@@ -196,15 +196,44 @@ _getkeyuri_softhsm() {
 	return 0
 }
 
+_find_softhsm2_module() {
+	local paths=(
+		"/usr/lib64/pkcs11/libsofthsm2.so"
+		"/usr/lib/pkcs11/libsofthsm2.so"
+		"/usr/lib/softhsm/libsofthsm2.so"
+		"/usr/lib64/softhsm/libsofthsm2.so"
+		"/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so"
+		"/usr/local/lib/softhsm/libsofthsm2.so"
+		"/opt/homebrew/lib/softhsm/libsofthsm2.so"
+	)
+	for p in "${paths[@]}"; do
+		if [ -f "$p" ]; then
+			echo "$p"
+			return 0
+		fi
+	done
+	return 1
+}
+
 getkeyuri_softhsm() {
-	local keyuri rc
+	local keyuri rc modulepath
 
 	keyuri=$(_getkeyuri_softhsm)
 	rc=$?
 	if [ $rc -ne 0 ]; then
 		return $rc
 	fi
-	echo "keyuri: $keyuri?pin-value=${PIN}&module-name=softhsm2"
+
+	# Use module-path with the resolved .so path for cross-distro compatibility.
+	# module-name only works when the module is in a standard search directory,
+	# which differs between distros (Fedora vs Ubuntu vs macOS).
+	modulepath=$(_find_softhsm2_module)
+	if [ -n "$modulepath" ]; then
+		echo "keyuri: $keyuri?pin-value=${PIN}&module-path=${modulepath}"
+	else
+		# Fallback to module-name if .so not found in known paths
+		echo "keyuri: $keyuri?pin-value=${PIN}&module-name=softhsm2"
+	fi
 	return 0
 }
 
