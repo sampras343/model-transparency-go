@@ -1,0 +1,181 @@
+// Copyright 2025 The Sigstore Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// PKCS#11 context and module management.
+//
+// This file provides Context which manages PKCS#11 module loading and
+// key discovery using the crypto11 library. It handles module path resolution,
+// token initialization, and key finding based on PKCS#11 URIs.
+package pkcs11
+
+import (
+	"crypto"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/ThalesGroup/crypto11"
+)
+
+// Context wraps a crypto11 context for managing PKCS#11 sessions.
+type Context struct {
+	ctx *crypto11.Context
+}
+
+// LoadContext loads a PKCS#11 module and creates a context from a parsed URI.
+// It searches for the module in the provided module paths.
+func LoadContext(uri *URI, modulePaths []string) (*Context, error) {
+	// Find the PKCS#11 module library
+	modulePath, err := findPKCS11Module(uri, modulePaths)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find PKCS#11 module: %w", err)
+	}
+
+	// Get token label and PIN from URI
+	tokenLabel := uri.GetTokenLabel()
+	if tokenLabel == "" {
+		return nil, fmt.Errorf("token label not specified in PKCS#11 URI")
+	}
+
+	pin, err := uri.GetPIN()
+	if err != nil {
+		// Only fall back to env var if no pin-source/pin-value was configured.
+		// If the user specified a pin-source or pin-value and it failed
+		// (e.g. unreadable file, bad URI), that's a real error.
+		if !uri.HasPIN() {
+			pin = os.Getenv("PKCS11_PIN")
+		} else {
+			return nil, fmt.Errorf("failed to get PIN from URI: %w", err)
+		}
+	}
+
+	// Configure crypto11
+	config := &crypto11.Config{
+		Path:       modulePath,
+		TokenLabel: tokenLabel,
+		Pin:        pin,
+	}
+
+	// Open PKCS#11 context
+	ctx, err := crypto11.Configure(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure PKCS#11 context: %w", err)
+	}
+
+	return &Context{ctx: ctx}, nil
+}
+
+// FindSigner finds a crypto.Signer (private key) in the PKCS#11 token based on the URI.
+func (pc *Context) FindSigner(uri *URI) (crypto.Signer, error) {
+	// Get key identifier from URI
+	keyID, keyLabel, err := uri.GetKeyIDAndLabel()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get key ID/label from URI: %w", err)
+	}
+
+	// Try to find the key by ID first, then by label
+	var signer crypto.Signer
+
+	if len(keyID) > 0 {
+		signer, err = pc.ctx.FindKeyPair(keyID, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find key by ID: %w", err)
+		}
+		if signer != nil {
+			return signer, nil
+		}
+	}
+
+	if keyLabel != "" {
+		signer, err = pc.ctx.FindKeyPair(nil, []byte(keyLabel))
+		if err != nil {
+			return nil, fmt.Errorf("failed to find key by label %q: %w", keyLabel, err)
+		}
+		if signer != nil {
+			return signer, nil
+		}
+	}
+
+	// If the user specified an ID or label and if its not found, error out
+	// rather than silently falling back to an unrelated key.
+	if len(keyID) > 0 || keyLabel != "" {
+		return nil, fmt.Errorf("key not found in PKCS#11 token (id=%v, label=%q)", keyID, keyLabel)
+	}
+
+	// No ID or label specified — use the first available key in the token
+	signers, err := pc.ctx.FindAllKeyPairs()
+	if err != nil {
+		return nil, fmt.Errorf("failed to find key pairs: %w", err)
+	}
+
+	if len(signers) == 0 {
+		return nil, fmt.Errorf("no key pairs found in PKCS#11 token")
+	}
+
+	return signers[0], nil
+}
+
+// Close closes the PKCS#11 context and releases resources.
+func (pc *Context) Close() error {
+	if pc.ctx != nil {
+		return pc.ctx.Close()
+	}
+	return nil
+}
+
+// findPKCS11Module finds the PKCS#11 module library path.
+// It configures the URI with any caller-provided search directories and
+// delegates all resolution logic to uri.GetModule().
+func findPKCS11Module(uri *URI, modulePaths []string) (string, error) {
+	if len(modulePaths) > 0 {
+		allDirs := make([]string, 0, len(modulePaths)+len(defaultModuleDirs))
+		allDirs = append(allDirs, modulePaths...)
+		allDirs = append(allDirs, defaultModuleDirs...)
+		uri.SetModuleDirectories(allDirs)
+
+		existing := uri.allowedModulePaths
+		if len(existing) == 0 {
+			existing = defaultModuleDirs
+		}
+		allowed := make([]string, len(existing), len(existing)+len(modulePaths))
+		copy(allowed, existing)
+		for _, dir := range modulePaths {
+			if !strings.HasSuffix(dir, string(filepath.Separator)) {
+				dir += string(filepath.Separator)
+			}
+			allowed = append(allowed, dir)
+		}
+		uri.SetAllowedModulePaths(allowed)
+	}
+
+	return uri.GetModule()
+}
+
+// ParsePKCS11URI parses a PKCS#11 URI string and returns a URI object.
+func ParsePKCS11URI(uriString string) (*URI, error) {
+	uri := NewURI()
+	if err := uri.Parse(uriString); err != nil {
+		return nil, err
+	}
+
+	// Validate that URI has sufficient information to locate a key
+	tokenLabel := uri.GetTokenLabel()
+	keyID, keyLabel, _ := uri.GetKeyIDAndLabel()
+	if tokenLabel == "" && keyID == nil && keyLabel == "" {
+		return nil, fmt.Errorf("PKCS#11 URI must specify at least one of: token, id, or object (key label)")
+	}
+
+	return uri, nil
+}

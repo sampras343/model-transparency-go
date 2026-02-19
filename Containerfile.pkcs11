@@ -12,11 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# PKCS#11 / HSM variant with SoftHSM2 pre-installed.
+#
+# Build:  podman build -f Containerfile.pkcs11 -t model-signing:pkcs11 .
+#
+# For hardware HSMs, bind-mount your vendor's PKCS#11 module at runtime
+# and pass the module path via --pkcs11-uri module-path attribute.
+
 FROM golang:1.25.7@sha256:cc737435e2742bd6da3b7d575623968683609a3d2e0695f9d85bee84071c08e6 AS builder
 
 # Optional Go build tags (e.g. "otel" for OpenTelemetry support).
 # Default (empty) produces a standard build without optional features.
-# Usage: podman build --build-arg BUILD_TAGS=otel -t model-signing:otel .
+# Usage: podman build -f Containerfile.pkcs11 --build-arg BUILD_TAGS=otel -t model-signing:pkcs11-otel .
 ARG BUILD_TAGS=""
 
 USER 0
@@ -32,23 +39,29 @@ RUN go mod download
 COPY cmd/ cmd/
 COPY pkg/ pkg/
 
+# CGO required for PKCS#11 (crypto11 uses cgo bindings)
 RUN CGO_ENABLED=1 GOOS=linux go build -tags="${BUILD_TAGS}" -ldflags="-s -w" -o /usr/local/bin/model-signing ./cmd/model-signing
 
-# Minimal distroless runtime (no PKCS#11 libraries).
-# For PKCS#11 / HSM support, use Containerfile.pkcs11 instead.
-FROM gcr.io/distroless/base-debian12:nonroot AS deploy
+# Debian slim for glibc compatibility with PKCS#11 shared libraries
+FROM debian:bookworm-slim AS deploy
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates libp11-kit0 softhsm2 \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /usr/local/bin/model-signing /usr/local/bin/model-signing
 COPY LICENSE /licenses/license.txt
+
+USER 65532:65532
 
 ENTRYPOINT ["model-signing"]
 CMD ["--help"]
 
 ARG APP_VERSION="0.0.1"
 
-LABEL summary="Provides a go library for model transparency." \
-      org.opencontainers.image.title="Model Transparency Go Library" \
-      org.opencontainers.image.description="Supply chain security for ML" \
+LABEL summary="Provides a go library for model transparency with PKCS#11 support." \
+      org.opencontainers.image.title="Model Transparency Go Library (PKCS#11)" \
+      org.opencontainers.image.description="Supply chain security for ML with HSM/token support" \
       org.opencontainers.image.version="$APP_VERSION" \
       org.opencontainers.image.authors="The Sigstore Authors <sigstore-dev@googlegroups.com>" \
       org.opencontainers.image.licenses="Apache-2.0"

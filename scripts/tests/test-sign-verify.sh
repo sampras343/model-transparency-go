@@ -310,3 +310,95 @@ if ! ${DIR}/model-signing \
 fi
 
 popd 1>/dev/null || exit 1
+
+# PKCS#11 tests (attempt to install dependencies if missing)
+if ! ensure_pkcs11_deps; then
+	echo
+	echo "Skipping PKCS#11 tests (dependencies not available)"
+fi
+
+if command -v softhsm2-util &>/dev/null && command -v p11tool &>/dev/null; then
+	echo
+	echo "Testing 'sign/verify' with PKCS#11"
+	
+	# Create a fresh directory for PKCS#11 tests
+	pkcs11_tmpdir=$(mktemp -d) || exit 1
+	pkcs11_signfile1="${pkcs11_tmpdir}/signme-1"
+	pkcs11_signfile2="${pkcs11_tmpdir}/signme-2"
+	pkcs11_ignorefile="${pkcs11_tmpdir}/ignore"
+	pkcs11_sigfile="${pkcs11_tmpdir}/model.sig"
+	echo "signme-1" > "${pkcs11_signfile1}"
+	echo "signme-2" > "${pkcs11_signfile2}"
+	echo "ignore" > "${pkcs11_ignorefile}"
+	
+	# Setup SoftHSM2
+	if ! setup_output=$("${DIR}/softhsm_setup" setup 2>&1); then
+		echo "Error: Could not setup SoftHSM2"
+		echo "${setup_output}"
+		rm -rf "${pkcs11_tmpdir}"
+		exit 1
+	fi
+	
+	pkcs11uri=$(echo "${setup_output}" | sed -n 's|^keyuri: \(.*\)|\1|p')
+	pkcs11_pubkey=$(mktemp) || exit 1
+	
+	# Get public key
+	if ! "${DIR}/softhsm_setup" getpubkey > "${pkcs11_pubkey}"; then
+		echo "Error: Could not get PKCS#11 public key"
+		"${DIR}/softhsm_setup" teardown &>/dev/null || true
+		rm -rf "${pkcs11_tmpdir}"
+		rm -f "${pkcs11_pubkey}"
+		exit 1
+	fi
+	
+	# Sign with PKCS#11
+	if ! ${DIR}/model-signing \
+		sign pkcs11-key \
+		--signature "${pkcs11_sigfile}" \
+		--pkcs11-uri "${pkcs11uri}" \
+		--ignore-paths "${pkcs11_ignorefile}" \
+		"${pkcs11_tmpdir}"; then
+		echo "Error: 'sign pkcs11-key' failed"
+		"${DIR}/softhsm_setup" teardown &>/dev/null || true
+		rm -rf "${pkcs11_tmpdir}"
+		rm -f "${pkcs11_pubkey}"
+		exit 1
+	fi
+	
+	# Verify with public key
+	if ! ${DIR}/model-signing \
+		verify key \
+		--signature "${pkcs11_sigfile}" \
+		--public-key "${pkcs11_pubkey}" \
+		--ignore-paths "${pkcs11_ignorefile}" \
+		"${pkcs11_tmpdir}"; then
+		echo "Error: 'verify key' failed on PKCS#11 signature"
+		"${DIR}/softhsm_setup" teardown &>/dev/null || true
+		rm -rf "${pkcs11_tmpdir}"
+		rm -f "${pkcs11_pubkey}"
+		exit 1
+	fi
+	
+	# Check which files are part of signature
+	res=$(get_signed_files "${pkcs11_sigfile}")
+	exp='["signme-1","signme-2"]'
+	if [ "${res}" != "${exp}" ]; then
+		echo "Error: Unexpected files were signed"
+		echo "Expected: ${exp}"
+		echo "Actual  : ${res}"
+		"${DIR}/softhsm_setup" teardown &>/dev/null || true
+		rm -rf "${pkcs11_tmpdir}"
+		rm -f "${pkcs11_pubkey}"
+		exit 1
+	fi
+	
+	# Cleanup SoftHSM2 and temp directory
+	"${DIR}/softhsm_setup" teardown &>/dev/null || true
+	rm -rf "${pkcs11_tmpdir}"
+	rm -f "${pkcs11_pubkey}"
+	
+	echo "PKCS#11 tests passed"
+else
+	echo
+	echo "Skipping PKCS#11 tests (SoftHSM2 or p11tool not available)"
+fi
