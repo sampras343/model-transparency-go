@@ -83,22 +83,32 @@ func (pc *Context) FindSigner(uri *URI) (crypto.Signer, error) {
 	var signer crypto.Signer
 
 	if len(keyID) > 0 {
-		// Find by key ID
 		signer, err = pc.ctx.FindKeyPair(keyID, nil)
-		if err == nil && signer != nil {
+		if err != nil {
+			return nil, fmt.Errorf("failed to find key by ID: %w", err)
+		}
+		if signer != nil {
 			return signer, nil
 		}
 	}
 
 	if keyLabel != "" {
-		// Find by key label
 		signer, err = pc.ctx.FindKeyPair(nil, []byte(keyLabel))
-		if err == nil && signer != nil {
+		if err != nil {
+			return nil, fmt.Errorf("failed to find key by label %q: %w", keyLabel, err)
+		}
+		if signer != nil {
 			return signer, nil
 		}
 	}
 
-	// If no specific key was found, try to use the first available key
+	// If the user specified an ID or label and if its not found, error out
+	// rather than silently falling back to an unrelated key.
+	if len(keyID) > 0 || keyLabel != "" {
+		return nil, fmt.Errorf("key not found in PKCS#11 token (id=%v, label=%q)", keyID, keyLabel)
+	}
+
+	// No ID or label specified — use the first available key in the token
 	signers, err := pc.ctx.FindAllKeyPairs()
 	if err != nil {
 		return nil, fmt.Errorf("failed to find key pairs: %w", err)
@@ -108,7 +118,6 @@ func (pc *Context) FindSigner(uri *URI) (crypto.Signer, error) {
 		return nil, fmt.Errorf("no key pairs found in PKCS#11 token")
 	}
 
-	// Use the first available key
 	return signers[0], nil
 }
 
