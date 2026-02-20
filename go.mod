@@ -3,12 +3,12 @@ module github.com/sigstore/model-signing
 go 1.25.5
 
 require (
+	github.com/ThalesGroup/crypto11 v1.6.0
 	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/google/go-containerregistry v0.20.7
 	github.com/in-toto/attestation v1.1.2
 	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/moby/term v0.5.2
-	github.com/secure-systems-lab/go-securesystemslib v0.10.0
 	github.com/sigstore/protobuf-specs v0.5.0
 	github.com/sigstore/sigstore v1.10.4
 	github.com/sigstore/sigstore-go v1.1.4
@@ -22,7 +22,9 @@ require (
 )
 
 require (
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.38.0 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/secure-systems-lab/go-securesystemslib v0.10.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.40.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.9.0 // indirect
 )
 
@@ -62,12 +64,13 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/google/certificate-transparency-go v1.3.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.3 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.7 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
 	github.com/in-toto/in-toto-golang v0.10.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/jedisct1/go-minisign v0.0.0-20241212093149-d2f9f49435c7 // indirect
+	github.com/jedisct1/go-minisign v0.0.0-20211028175153-1c139d1cc84b // indirect
+	github.com/miekg/pkcs11 v1.1.2 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
@@ -77,25 +80,26 @@ require (
 	github.com/sigstore/rekor v1.5.0 // indirect
 	github.com/sigstore/rekor-tiles/v2 v2.0.1 // indirect
 	github.com/sigstore/timestamp-authority/v2 v2.0.3 // indirect
+	github.com/thales-e-security/pool v0.0.2 // indirect
 	github.com/theupdateframework/go-tuf v0.7.0 // indirect
 	github.com/theupdateframework/go-tuf/v2 v2.3.0 // indirect
 	github.com/transparency-dev/formats v0.1.0 // indirect
 	github.com/transparency-dev/merkle v0.0.2 // indirect
 	go.mongodb.org/mongo-driver v1.17.9 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/otel v1.38.0
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.38.0 // optional
-	go.opentelemetry.io/otel/metric v1.38.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.38.0 // optional
-	go.opentelemetry.io/otel/trace v1.38.0
+	go.opentelemetry.io/otel v1.40.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.40.0 // optional
+	go.opentelemetry.io/otel/metric v1.40.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.40.0 // optional
+	go.opentelemetry.io/otel/trace v1.40.0
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/mod v0.33.0 // indirect
-	golang.org/x/net v0.50.0 // indirect
+	golang.org/x/mod v0.32.0 // indirect
+	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/term v0.40.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260209200024-4cfbd4190f57 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260209200024-4cfbd4190f57 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260128011058-8636f8732409 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260128011058-8636f8732409 // indirect
 	google.golang.org/grpc v1.78.0 // indirect
 )

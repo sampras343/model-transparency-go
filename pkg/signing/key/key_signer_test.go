@@ -74,10 +74,10 @@ func TestNewKeySigner_ValidPaths(t *testing.T) {
 	opts := KeySignerOptions{
 		ModelPath:      modelDir,
 		SignaturePath:  filepath.Join(tmpDir, "sig.json"),
-		PrivateKeyPath: keyFile,
 		IgnorePaths:    []string{},
 		IgnoreGitPaths: false,
 		AllowSymlinks:  false,
+		PrivateKeyPath: keyFile,
 	}
 
 	signer, err := NewKeySigner(opts)
@@ -114,10 +114,10 @@ func TestNewKeySigner_WithIgnorePaths(t *testing.T) {
 	opts := KeySignerOptions{
 		ModelPath:      modelDir,
 		SignaturePath:  filepath.Join(tmpDir, "sig.json"),
-		PrivateKeyPath: keyFile,
 		IgnorePaths:    []string{ignoreDir},
 		IgnoreGitPaths: true,
 		AllowSymlinks:  false,
+		PrivateKeyPath: keyFile,
 	}
 
 	signer, err := NewKeySigner(opts)
@@ -148,9 +148,9 @@ func TestNewKeySigner_InvalidIgnorePath(t *testing.T) {
 	opts := KeySignerOptions{
 		ModelPath:      modelDir,
 		SignaturePath:  filepath.Join(tmpDir, "sig.json"),
-		PrivateKeyPath: keyFile,
 		IgnorePaths:    []string{"/nonexistent/path"},
 		IgnoreGitPaths: false,
+		PrivateKeyPath: keyFile,
 	}
 
 	_, err := NewKeySigner(opts)
@@ -177,8 +177,8 @@ func TestNewKeySigner_EmptyIgnorePaths(t *testing.T) {
 	opts := KeySignerOptions{
 		ModelPath:      modelDir,
 		SignaturePath:  filepath.Join(tmpDir, "sig.json"),
-		PrivateKeyPath: keyFile,
 		IgnorePaths:    []string{},
+		PrivateKeyPath: keyFile,
 	}
 
 	signer, err := NewKeySigner(opts)
@@ -209,11 +209,11 @@ func TestNewKeySigner_AllOptions(t *testing.T) {
 	opts := KeySignerOptions{
 		ModelPath:      modelDir,
 		SignaturePath:  filepath.Join(tmpDir, "sig.json"),
-		PrivateKeyPath: keyFile,
-		Password:       "test-password",
 		IgnorePaths:    []string{},
 		IgnoreGitPaths: true,
 		AllowSymlinks:  true,
+		PrivateKeyPath: keyFile,
+		Password:       "test-password",
 	}
 
 	signer, err := NewKeySigner(opts)

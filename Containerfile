@@ -12,30 +12,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.25.6@sha256:06d1251c59a75761ce4ebc8b299030576233d7437c886a68b43464bad62d4bb1 AS builder
+FROM golang:1.25.7@sha256:cc737435e2742bd6da3b7d575623968683609a3d2e0695f9d85bee84071c08e6 AS builder
+
+# Optional Go build tags (e.g. "otel" for OpenTelemetry support).
+# Default (empty) produces a standard build without optional features.
+# Usage: podman build --build-arg BUILD_TAGS=otel -t model-signing:otel .
+ARG BUILD_TAGS=""
 
 USER 0
 WORKDIR /app
 
 ENV GOTOOLCHAIN=auto
 
-RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates gcc libc6-dev && rm -rf /var/lib/apt/lists/*
 
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY cmd/ cmd/
 COPY pkg/ pkg/
-COPY internal/ internal/
 
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /usr/local/bin/model-signing ./cmd/model-signing
+RUN CGO_ENABLED=1 GOOS=linux go build -tags="${BUILD_TAGS}" -ldflags="-s -w" -o /usr/local/bin/model-signing ./cmd/model-signing
 
-FROM golang:1.25.6@sha256:06d1251c59a75761ce4ebc8b299030576233d7437c886a68b43464bad62d4bb1 AS deploy
+# Minimal distroless runtime (no PKCS#11 libraries).
+# For PKCS#11 / HSM support, use Containerfile.pkcs11 instead.
+FROM gcr.io/distroless/base-debian12:nonroot AS deploy
 
 COPY --from=builder /usr/local/bin/model-signing /usr/local/bin/model-signing
 COPY LICENSE /licenses/license.txt
-
-USER 65532:65532
 
 ENTRYPOINT ["model-signing"]
 CMD ["--help"]

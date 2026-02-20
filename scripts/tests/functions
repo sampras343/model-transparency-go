@@ -197,3 +197,84 @@ check_model_name()
 		exit 1
 	fi
 }
+
+# Install PKCS#11 dependencies if missing
+# Returns 0 if dependencies are available (either already installed or successfully installed)
+# Returns 1 if dependencies could not be installed
+install_pkcs11_deps()
+{
+	local missing_tools=()
+	
+	if ! command -v softhsm2-util &>/dev/null; then
+		missing_tools+=("softhsm2")
+	fi
+	
+	if ! command -v p11tool &>/dev/null; then
+		missing_tools+=("gnutls-utils")
+	fi
+	
+	if [ ${#missing_tools[@]} -eq 0 ]; then
+		return 0
+	fi
+	
+	echo "PKCS#11 dependencies missing: ${missing_tools[*]}"
+	echo "Attempting to install..."
+	
+	# Detect package manager and install
+	if command -v dnf &>/dev/null; then
+		echo "Using dnf to install dependencies..."
+		sudo dnf install -y "${missing_tools[@]}"
+	elif command -v yum &>/dev/null; then
+		echo "Using yum to install dependencies..."
+		sudo yum install -y "${missing_tools[@]}"
+	elif command -v apt-get &>/dev/null; then
+		echo "Using apt-get to install dependencies..."
+		# Map package names for Debian/Ubuntu
+		local apt_tools=()
+		for tool in "${missing_tools[@]}"; do
+			if [ "$tool" = "gnutls-utils" ]; then
+				apt_tools+=("gnutls-bin")
+			else
+				apt_tools+=("$tool")
+			fi
+		done
+		sudo apt-get update && sudo apt-get install -y "${apt_tools[@]}"
+	elif command -v pacman &>/dev/null; then
+		echo "Using pacman to install dependencies..."
+		# Map package names for Arch
+		local pacman_tools=()
+		for tool in "${missing_tools[@]}"; do
+			if [ "$tool" = "gnutls-utils" ]; then
+				pacman_tools+=("gnutls")
+			else
+				pacman_tools+=("$tool")
+			fi
+		done
+		sudo pacman -S --noconfirm "${pacman_tools[@]}"
+	else
+		echo "Warning: Could not detect package manager"
+		echo "Please install manually: ${missing_tools[*]}"
+		return 1
+	fi
+	
+	# Verify installation
+	if ! command -v softhsm2-util &>/dev/null || ! command -v p11tool &>/dev/null; then
+		echo "Warning: Installation completed but tools still not available"
+		return 1
+	fi
+	
+	echo "PKCS#11 dependencies installed successfully"
+	return 0
+}
+
+# Ensure PKCS#11 dependencies are available
+# Attempts to install if missing, skips gracefully if installation fails
+ensure_pkcs11_deps()
+{
+	if ! command -v softhsm2-util &>/dev/null || ! command -v p11tool &>/dev/null; then
+		if ! install_pkcs11_deps; then
+			return 1
+		fi
+	fi
+	return 0
+}

@@ -13,23 +13,58 @@
 # limitations under the License.
 
 name: Container Build
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize]
+    paths-ignore:
+      - '**/*.md'
+      - '*.md'
+  workflow_dispatch:
 
-on: [push, pull_request]
+permissions: {}
 
-permissions:
-  contents: read
+defaults:
+  run:
+    shell: bash
 
 jobs:
   container-build:
-    name: Container Build
+    name: "${{ matrix.name }}"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "Default"
+            containerfile: Containerfile
+            tag: default
+            build_tags: ""
+          - name: "Default + OTel"
+            containerfile: Containerfile
+            tag: default-otel
+            build_tags: "otel"
+          - name: "PKCS#11"
+            containerfile: Containerfile.pkcs11
+            tag: pkcs11
+            build_tags: ""
+          - name: "PKCS#11 + OTel"
+            containerfile: Containerfile.pkcs11
+            tag: pkcs11-otel
+            build_tags: "otel"
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
       - name: Build container image
-        run: docker build -t model-signing:test -f Containerfile .
+        run: |
+          docker build \
+            -f ${{ matrix.containerfile }} \
+            --build-arg BUILD_TAGS="${{ matrix.build_tags }}" \
+            -t model-signing:${{ matrix.tag }} .
 
       - name: Verify container runs
-        run: docker run --rm model-signing:test --help
+        run: docker run --rm model-signing:${{ matrix.tag }} --help

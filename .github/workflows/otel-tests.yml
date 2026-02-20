@@ -51,7 +51,7 @@ jobs:
           check-latest: true
 
       - name: Build model-signing binary with OTel
-        run: go build -tags=otel -o scripts/tests/model-signing ./cmd/model-signing
+        run: make build-test-binary-otel
 
       - name: Wait for Jaeger readiness
         run: |

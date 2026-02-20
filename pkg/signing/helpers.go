@@ -16,113 +16,69 @@ package signing
 
 import (
 	"fmt"
+	"os"
 
-	"github.com/sigstore/model-signing/pkg/config"
-	"github.com/sigstore/model-signing/pkg/interfaces"
 	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/manifest"
-	"github.com/sigstore/model-signing/pkg/oci"
+	"github.com/sigstore/model-signing/pkg/modelartifact"
+	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
+	"github.com/sigstore/sigstore-go/pkg/bundle"
 )
 
-// ManifestOptions contains options for building a manifest from a model.
-type ManifestOptions struct {
-	ModelPath      string
-	IgnorePaths    []string // Will be copied to avoid mutation
-	SignaturePath  string   // Added to ignore list automatically
-	IgnoreGitPaths bool
-	AllowSymlinks  bool
-}
-
-// BuildManifest creates a manifest from a model, handling both OCI manifests and directories.
+// WriteBundle writes a protobuf bundle to disk in sigstore JSON format.
 //
-// This function:
-// 1. Copies the ignore paths slice to avoid mutating the caller's slice
-// 2. Adds the signature path to the ignore list
-// 3. Detects whether the model is an OCI manifest or directory
-// 4. Creates the appropriate manifest
-//
-// Returns the manifest and the resolved ignore paths (for logging purposes).
-func BuildManifest(opts ManifestOptions, logger logging.Logger) (*manifest.Manifest, []string, error) {
-	// Copy ignore paths to avoid mutating caller's slice
-	ignorePaths := append([]string{}, opts.IgnorePaths...)
-	// Add signature path to ignore list
-	ignorePaths = append(ignorePaths, opts.SignaturePath)
-
-	// Check if the model path is an OCI manifest
-	if oci.IsOCIManifest(opts.ModelPath) {
-		if logger != nil {
-			logger.Debug("  Detected OCI manifest: %s", opts.ModelPath)
-		}
-
-		ociManifest, err := oci.LoadManifest(opts.ModelPath)
-		if err != nil {
-			return nil, ignorePaths, fmt.Errorf("failed to load OCI manifest: %w", err)
-		}
-
-		// Validate the OCI manifest
-		if err := ociManifest.Validate(); err != nil {
-			return nil, ignorePaths, fmt.Errorf("invalid OCI manifest: %w", err)
-		}
-
-		// Create manifest from OCI layers with ignore paths
-		modelName := oci.ModelNameFromPath(opts.ModelPath)
-		modelManifest, err := oci.CreateManifestFromOCILayersWithIgnore(ociManifest, modelName, true, ignorePaths)
-		if err != nil {
-			return nil, ignorePaths, fmt.Errorf("failed to create manifest from OCI layers: %w", err)
-		}
-
-		if logger != nil {
-			logger.Debug("  Created manifest from %d OCI layers", len(modelManifest.ResourceDescriptors()))
-		}
-
-		return modelManifest, ignorePaths, nil
-	}
-
-	// Standard model directory hashing
-	hashingConfig := config.NewHashingConfig().
-		SetIgnoredPaths(ignorePaths, opts.IgnoreGitPaths).
-		SetAllowSymlinks(opts.AllowSymlinks)
-
-	modelManifest, err := hashingConfig.Hash(opts.ModelPath, nil)
+// The bundle is first validated by converting it to a sigstore-go Bundle,
+// then serialized to JSON with world-readable permissions (0644) as
+// signature bundles are public artifacts.
+func WriteBundle(protoBundle *protobundle.Bundle, path string) error {
+	bndl, err := bundle.NewBundle(protoBundle)
 	if err != nil {
-		return nil, ignorePaths, fmt.Errorf("failed to hash model: %w", err)
+		return fmt.Errorf("failed to create bundle: %w", err)
 	}
 
-	if logger != nil {
-		logger.Debug("  Hashed %d files", len(modelManifest.ResourceDescriptors()))
-	}
-
-	return modelManifest, ignorePaths, nil
-}
-
-// CreatePayload creates a signing payload from a manifest.
-func CreatePayload(m *manifest.Manifest) (*interfaces.Payload, error) {
-	payload, err := interfaces.NewPayload(m)
+	jsonBytes, err := bndl.MarshalJSON()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create payload: %w", err)
+		return fmt.Errorf("failed to marshal bundle to JSON: %w", err)
 	}
-	return payload, nil
-}
 
-// WriteSignature writes a signature bundle to the specified path.
-func WriteSignature(bundle interfaces.SignatureBundle, path string) error {
-	if err := bundle.Write(path); err != nil {
-		return fmt.Errorf("failed to write signature bundle: %w", err)
+	// Signature files should be world-readable (0644) as they are public artifacts
+	//nolint:gosec // G306: Signature files are public, 0644 is intentional
+	if err := os.WriteFile(path, jsonBytes, 0644); err != nil {
+		return fmt.Errorf("failed to write signature file: %w", err)
 	}
+
 	return nil
 }
 
-// SignAndWrite signs a payload and writes the signature bundle to disk.
-// This is a convenience function that combines signing and writing.
-func SignAndWrite(signer interfaces.BundleSigner, payload *interfaces.Payload, signaturePath string) (interfaces.SignatureBundle, error) {
-	bundle, err := signer.Sign(payload)
+// PreparePayload canonicalizes a model and marshals the manifest into an in-toto
+// payload. This is the common first two steps of all signing flows:
+// 1. Walk the model directory/OCI manifest to produce a deterministic Manifest
+// 2. Marshal the Manifest into an in-toto JSON statement
+//
+// The signaturePath is automatically appended to the ignore list so the
+// signature file itself is never included in the manifest.
+func PreparePayload(modelPath, signaturePath string, opts modelartifact.Options, logger logging.Logger) (*manifest.Manifest, []byte, error) {
+	// Step 1: Canonicalize the model
+	logger.Debugln("\nStep 1: Canonicalizing model...")
+	ignorePaths := append(append([]string{}, opts.IgnorePaths...), signaturePath)
+	canonOpts := modelartifact.Options{
+		IgnorePaths:    ignorePaths,
+		IgnoreGitPaths: opts.IgnoreGitPaths,
+		AllowSymlinks:  opts.AllowSymlinks,
+		Logger:         logger,
+	}
+	m, err := modelartifact.Canonicalize(modelPath, canonOpts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to sign payload: %w", err)
+		return nil, nil, fmt.Errorf("failed to canonicalize model: %w", err)
+	}
+	logger.Debug("  Hashed %d files", len(m.ResourceDescriptors()))
+
+	// Step 2: Marshal payload
+	logger.Debugln("\nStep 2: Creating signing payload...")
+	payload, err := modelartifact.MarshalPayload(m)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create payload: %w", err)
 	}
 
-	if err := WriteSignature(bundle, signaturePath); err != nil {
-		return nil, err
-	}
-
-	return bundle, nil
+	return m, payload, nil
 }

@@ -31,9 +31,5 @@ jobs:
         with:
           go-version-file: './go.mod'
           check-latest: true
-      - name: Install addlicense
-        run: go install github.com/google/addlicense@v1.1.1
       - name: Check license headers
-        run: |
-          set -e
-          addlicense -check -l apache -c 'The Sigstore Authors' -ignore "third_party/**" -ignore "**/*.sh" -v *
+        run: make license-check

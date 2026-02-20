@@ -16,7 +16,7 @@
 // a no-op tracer is used; when built with the "otel" build tag and
 // OpenTelemetry is configured via environment variables, spans are exported
 // via OTLP. This keeps the default build free of OpenTelemetry dependencies
-// while allowing optional tracing similar to the Python model-signing package.
+// while allowing optional tracing.
 //
 // Tracing records spans: named, timed operations that form a trace (a tree of
 // spans). Each span has a start/end time (so duration is visible in the

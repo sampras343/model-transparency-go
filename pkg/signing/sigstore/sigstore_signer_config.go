@@ -22,159 +22,12 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/sigstore/model-signing/pkg/config"
-	"github.com/sigstore/model-signing/pkg/interfaces"
-	sign "github.com/sigstore/model-signing/pkg/signature"
 	"github.com/sigstore/model-signing/pkg/utils"
-	"github.com/sigstore/sigstore-go/pkg/bundle"
 	"github.com/sigstore/sigstore-go/pkg/root"
-	sigstoresign "github.com/sigstore/sigstore-go/pkg/sign"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/oauthflow"
 	"golang.org/x/oauth2"
 )
-
-// Ensure SigstoreBundleSigner implements interfaces.BundleSigner at compile time.
-var _ interfaces.BundleSigner = (*SigstoreBundleSigner)(nil)
-
-// SigstoreSignerConfig holds configuration for creating a Sigstore bundle signer.
-//
-//nolint:revive
-type SigstoreSignerConfig struct {
-	// TrustRootConfig provides Sigstore trust root loading functionality.
-	config.TrustRootConfig
-
-	UseAmbientCredentials bool   // UseAmbientCredentials uses OIDC tokens from environment variables.
-	IdentityToken         string // IdentityToken is a pre-obtained OIDC token.
-	OAuthForceOob         bool   // OAuthForceOob forces out-of-band OAuth flow (manual code entry).
-	ClientID              string // ClientID is the OAuth client ID.
-	ClientSecret          string // ClientSecret is the OAuth client secret.
-}
-
-// SigstoreBundleSigner signs model manifests using Sigstore/Fulcio.
-// Implements the interfaces.BundleSigner interface.
-// nolint:revive
-type SigstoreBundleSigner struct {
-	config        SigstoreSignerConfig
-	trustRoot     *root.TrustedRoot
-	signingConfig *root.SigningConfig // May be nil if using default Sigstore infrastructure
-}
-
-// NewSigstoreBundleSigner creates a new Sigstore bundle signer with the given configuration.
-// Loads the trust root and optionally signing config for Sigstore operations.
-// SigningConfig is only loaded when a custom trust-config file is provided.
-// Returns an error if trust root loading fails.
-func NewSigstoreBundleSigner(cfg SigstoreSignerConfig) (*SigstoreBundleSigner, error) {
-	var trustRoot *root.TrustedRoot
-	var signingConfig *root.SigningConfig
-	var err error
-
-	// Only load SigningConfig when a custom trust-config file is provided
-	if cfg.TrustRootPath != "" && !cfg.UseStaging {
-		trustRoot, signingConfig, err = cfg.LoadTrustMaterial()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// Default workflow: only load TrustedRoot
-		trustRoot, err = cfg.LoadTrustRoot()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &SigstoreBundleSigner{
-		config:        cfg,
-		trustRoot:     trustRoot,
-		signingConfig: signingConfig,
-	}, nil
-}
-
-// Sign signs a payload and returns a signature bundle.
-//
-// Signing flow:
-// 1. Generates an ephemeral keypair
-// 2. Obtains an OIDC token (from ambient credentials, provided token, or interactive flow)
-// 3. Gets a short-lived certificate from Fulcio
-// 4. Creates a DSSE envelope with the payload
-// 5. Signs the envelope
-// 6. Logs the signature to Rekor for transparency
-// 7. Returns a bundle containing everything needed for verification
-//
-// Returns an error if any step fails.
-func (s *SigstoreBundleSigner) Sign(payload *interfaces.Payload) (interfaces.SignatureBundle, error) {
-	ctx := context.Background()
-
-	// Convert payload to JSON for DSSE
-	payloadJSON, err := payload.ToJSON()
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize payload: %w", err)
-	}
-
-	// Create DSSE content
-	dsseContent := &sigstoresign.DSSEData{
-		Data:        payloadJSON,
-		PayloadType: utils.InTotoJSONPayloadType,
-	}
-
-	// Generate ephemeral keypair
-	keypair, err := sigstoresign.NewEphemeralKeypair(nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate ephemeral keypair: %w", err)
-	}
-
-	// Get OIDC token
-	idToken, err := s.getIDToken(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get identity token: %w", err)
-	}
-
-	// Configure Fulcio for certificate issuance
-	fulcioURL, err := s.getFulcioURL()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Fulcio URL: %w", err)
-	}
-
-	fulcio := sigstoresign.NewFulcio(&sigstoresign.FulcioOptions{
-		BaseURL: fulcioURL,
-	})
-
-	// Configure Rekor for transparency log
-	rekorURL, err := s.getRekorURL()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Rekor URL: %w", err)
-	}
-
-	rekor := sigstoresign.NewRekor(&sigstoresign.RekorOptions{
-		BaseURL: rekorURL,
-	})
-
-	// Create bundle with all signing components
-	bundleOpts := sigstoresign.BundleOptions{
-		CertificateProvider: fulcio,
-		CertificateProviderOptions: &sigstoresign.CertificateProviderOptions{
-			IDToken: idToken,
-		},
-		TransparencyLogs: []sigstoresign.Transparency{rekor},
-		Context:          ctx,
-		TrustedRoot:      s.trustRoot,
-	}
-
-	// Sign and create bundle
-	protoBundle, err := sigstoresign.Bundle(dsseContent, keypair, bundleOpts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create signature bundle: %w", err)
-	}
-
-	// Convert protobuf bundle to sigstore-go bundle
-	sigstoreBundle, err := bundle.NewBundle(protoBundle)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create sigstore bundle: %w", err)
-	}
-
-	// Wrap in our signature bundle type
-	return sign.NewSigstoreBundle(sigstoreBundle), nil
-}
 
 // oobIDTokenGetter implements the out-of-band OAuth flow.
 // Displays the auth URL and prompts the user to manually enter the verification code.
@@ -269,10 +122,10 @@ func randomString(length int) string {
 // 3. Falls back to interactive OAuth flow
 //
 // Returns the ID token string or an error if token acquisition fails.
-func (s *SigstoreBundleSigner) getIDToken(_ context.Context) (string, error) {
+func (s *SigstoreSigner) getIDToken(_ context.Context) (string, error) {
 	// If a token is explicitly provided, use it
-	if s.config.IdentityToken != "" {
-		return s.config.IdentityToken, nil
+	if s.opts.IdentityToken != "" {
+		return s.opts.IdentityToken, nil
 	}
 
 	// Determine OIDC issuer URL
@@ -282,7 +135,7 @@ func (s *SigstoreBundleSigner) getIDToken(_ context.Context) (string, error) {
 	}
 
 	// Check for ambient credentials (GitHub Actions, etc.)
-	if s.config.UseAmbientCredentials {
+	if s.opts.UseAmbientCredentials {
 		// Try common environment variables for OIDC tokens
 		token := os.Getenv("SIGSTORE_ID_TOKEN")
 		if token == "" {
@@ -295,28 +148,23 @@ func (s *SigstoreBundleSigner) getIDToken(_ context.Context) (string, error) {
 	}
 
 	// Get ID token using OAuth flow
-	clientID := s.config.ClientID
+	clientID := s.opts.ClientID
 	if clientID == "" {
 		clientID = utils.DefaultClientID
 	}
 
-	clientSecret := s.config.ClientSecret
+	clientSecret := s.opts.ClientSecret
 
 	var token *oauthflow.OIDCIDToken
 
-	if s.config.OAuthForceOob {
+	if s.opts.OAuthForceOob {
 		// Use out-of-band (OOB) OAuth flow
-		// User opens browser manually, logs in, and copies verification code
-		// This uses redirect_uri=urn:ietf:wg:oauth:2.0:oob
 		tokenGetter := &oobIDTokenGetter{}
-
 		token, err = oauthflow.OIDConnect(issuerURL, clientID, clientSecret, "", tokenGetter)
 	} else {
 		// Use interactive flow with automatic browser and local callback server
-		// Empty redirect URL tells oauthflow to start a local server on a random port
 		redirectURL := ""
 		tokenGetter := oauthflow.DefaultIDTokenGetter
-
 		token, err = oauthflow.OIDConnect(issuerURL, clientID, clientSecret, redirectURL, tokenGetter)
 	}
 
@@ -330,12 +178,11 @@ func (s *SigstoreBundleSigner) getIDToken(_ context.Context) (string, error) {
 // getFulcioURL returns the Fulcio CA URL to use for certificate issuance.
 // If a SigningConfig is available, it selects the appropriate service from it.
 // Otherwise, falls back to default Sigstore URLs.
-func (s *SigstoreBundleSigner) getFulcioURL() (string, error) {
+func (s *SigstoreSigner) getFulcioURL() (string, error) {
 	// Use SigningConfig if available (custom trust-config was provided)
 	if s.signingConfig != nil {
 		services := s.signingConfig.FulcioCertificateAuthorityURLs()
 		if len(services) > 0 {
-			// Select the appropriate service based on API version and validity
 			service, err := root.SelectService(services, []uint32{1}, time.Now())
 			if err != nil {
 				return "", fmt.Errorf("failed to select Fulcio service: %w", err)
@@ -345,7 +192,7 @@ func (s *SigstoreBundleSigner) getFulcioURL() (string, error) {
 	}
 
 	// Fall back to default URLs
-	if s.config.UseStaging {
+	if s.opts.UseStaging {
 		return utils.FulcioStagingURL, nil
 	}
 	return utils.FulcioProdURL, nil
@@ -354,12 +201,11 @@ func (s *SigstoreBundleSigner) getFulcioURL() (string, error) {
 // getRekorURL returns the Rekor transparency log URL to use.
 // If a SigningConfig is available, it selects the appropriate service from it.
 // Otherwise, falls back to default Sigstore URLs.
-func (s *SigstoreBundleSigner) getRekorURL() (string, error) {
+func (s *SigstoreSigner) getRekorURL() (string, error) {
 	// Use SigningConfig if available (custom trust-config was provided)
 	if s.signingConfig != nil {
 		services := s.signingConfig.RekorLogURLs()
 		if len(services) > 0 {
-			// Select the appropriate service based on API version and validity
 			service, err := root.SelectService(services, []uint32{1}, time.Now())
 			if err != nil {
 				return "", fmt.Errorf("failed to select Rekor service: %w", err)
@@ -369,7 +215,7 @@ func (s *SigstoreBundleSigner) getRekorURL() (string, error) {
 	}
 
 	// Fall back to default URLs
-	if s.config.UseStaging {
+	if s.opts.UseStaging {
 		return utils.RekorStagingURL, nil
 	}
 	return utils.RekorProdURL, nil
@@ -378,12 +224,11 @@ func (s *SigstoreBundleSigner) getRekorURL() (string, error) {
 // getOIDCIssuerURL returns the OIDC issuer URL to use for authentication.
 // If a SigningConfig is available, it selects the appropriate service from it.
 // Otherwise, falls back to default Sigstore URLs.
-func (s *SigstoreBundleSigner) getOIDCIssuerURL() (string, error) {
+func (s *SigstoreSigner) getOIDCIssuerURL() (string, error) {
 	// Use SigningConfig if available (custom trust-config was provided)
 	if s.signingConfig != nil {
 		services := s.signingConfig.OIDCProviderURLs()
 		if len(services) > 0 {
-			// Select the appropriate service based on API version and validity
 			service, err := root.SelectService(services, []uint32{1}, time.Now())
 			if err != nil {
 				return "", fmt.Errorf("failed to select OIDC provider: %w", err)
@@ -393,7 +238,7 @@ func (s *SigstoreBundleSigner) getOIDCIssuerURL() (string, error) {
 	}
 
 	// Fall back to default URLs
-	if s.config.UseStaging {
+	if s.opts.UseStaging {
 		return utils.IssuerStagingURL, nil
 	}
 	return utils.IssuerProdURL, nil
