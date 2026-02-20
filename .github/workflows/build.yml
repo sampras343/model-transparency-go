@@ -34,4 +34,4 @@ jobs:
           check-latest: true
 
       - name: Build
-        run: go build -v ./cmd/model-signing
+        run: make build

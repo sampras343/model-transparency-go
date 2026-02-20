@@ -64,13 +64,7 @@ jobs:
           check-latest: true
 
       - name: Check formatting
-        run: |
-          UNFORMATTED=$(find . -name '*.go' -not -path './examples/*' | xargs gofmt -l)
-          if [ -n "$UNFORMATTED" ]; then
-            echo "::error::The following files are not formatted correctly:"
-            echo "$UNFORMATTED"
-            exit 1
-          fi
+        run: make fmt-check
 
   go-mod-tidy:
     name: Go mod tidy check
@@ -88,10 +82,4 @@ jobs:
           check-latest: true
 
       - name: Check go mod tidy
-        run: |
-          go mod tidy
-          if ! git diff --quiet go.mod go.sum; then
-            echo "::error::go.mod or go.sum is not tidy. Please run 'go mod tidy'."
-            git diff go.mod go.sum
-            exit 1
-          fi
+        run: make mod-tidy-check

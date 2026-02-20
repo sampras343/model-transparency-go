@@ -156,11 +156,11 @@ func TestNewSigstoreVerifier_ValidPaths(t *testing.T) {
 	opts := SigstoreVerifierOptions{
 		ModelPath:        modelDir,
 		SignaturePath:    sigFile,
-		Identity:         "test@example.com",
-		IdentityProvider: "https://accounts.google.com",
 		IgnorePaths:      []string{},
 		IgnoreGitPaths:   false,
 		AllowSymlinks:    false,
+		Identity:         "test@example.com",
+		IdentityProvider: "https://accounts.google.com",
 	}
 
 	verifier, err := NewSigstoreVerifier(opts)
@@ -197,11 +197,11 @@ func TestNewSigstoreVerifier_WithIgnorePaths(t *testing.T) {
 	opts := SigstoreVerifierOptions{
 		ModelPath:        modelDir,
 		SignaturePath:    sigFile,
-		Identity:         "test@example.com",
-		IdentityProvider: "https://accounts.google.com",
 		IgnorePaths:      []string{ignoreDir},
 		IgnoreGitPaths:   true,
 		AllowSymlinks:    false,
+		Identity:         "test@example.com",
+		IdentityProvider: "https://accounts.google.com",
 	}
 
 	verifier, err := NewSigstoreVerifier(opts)
@@ -232,9 +232,9 @@ func TestNewSigstoreVerifier_InvalidIgnorePath(t *testing.T) {
 	opts := SigstoreVerifierOptions{
 		ModelPath:        modelDir,
 		SignaturePath:    sigFile,
+		IgnorePaths:      []string{"/nonexistent/path"},
 		Identity:         "test@example.com",
 		IdentityProvider: "https://accounts.google.com",
-		IgnorePaths:      []string{"/nonexistent/path"},
 	}
 
 	_, err := NewSigstoreVerifier(opts)
@@ -261,9 +261,9 @@ func TestNewSigstoreVerifier_EmptyIgnorePaths(t *testing.T) {
 	opts := SigstoreVerifierOptions{
 		ModelPath:        modelDir,
 		SignaturePath:    sigFile,
+		IgnorePaths:      []string{},
 		Identity:         "test@example.com",
 		IdentityProvider: "https://accounts.google.com",
-		IgnorePaths:      []string{},
 	}
 
 	verifier, err := NewSigstoreVerifier(opts)
@@ -276,7 +276,7 @@ func TestNewSigstoreVerifier_EmptyIgnorePaths(t *testing.T) {
 	}
 }
 
-func TestNewSigstoreVerifier_WithTrustConfig(t *testing.T) {
+func TestNewSigstoreVerifier_WithInvalidTrustConfigContent(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create model directory
@@ -291,7 +291,7 @@ func TestNewSigstoreVerifier_WithTrustConfig(t *testing.T) {
 		t.Fatalf("Failed to create signature file: %v", err)
 	}
 
-	// Create a dummy trust config file
+	// Create an invalid trust config file (empty JSON)
 	trustConfigPath := filepath.Join(tmpDir, "trust_root.json")
 	if err := os.WriteFile(trustConfigPath, []byte("{}"), 0644); err != nil {
 		t.Fatalf("Failed to create trust config file: %v", err)
@@ -305,13 +305,10 @@ func TestNewSigstoreVerifier_WithTrustConfig(t *testing.T) {
 		TrustConfigPath:  trustConfigPath,
 	}
 
-	verifier, err := NewSigstoreVerifier(opts)
-	if err != nil {
-		t.Fatalf("Expected no error with valid trust config, got: %v", err)
-	}
-
-	if verifier == nil {
-		t.Fatal("Expected non-nil verifier")
+	// Trust root is now loaded eagerly, so invalid content causes an error
+	_, err := NewSigstoreVerifier(opts)
+	if err == nil {
+		t.Error("Expected error for invalid trust config content, got nil")
 	}
 }
 
@@ -395,13 +392,13 @@ func TestNewSigstoreVerifier_AllOptions(t *testing.T) {
 	opts := SigstoreVerifierOptions{
 		ModelPath:           modelDir,
 		SignaturePath:       sigFile,
-		Identity:            "test@example.com",
-		IdentityProvider:    "https://accounts.google.com",
 		IgnorePaths:         []string{},
 		IgnoreGitPaths:      true,
 		AllowSymlinks:       true,
-		UseStaging:          true,
 		IgnoreUnsignedFiles: true,
+		Identity:            "test@example.com",
+		IdentityProvider:    "https://accounts.google.com",
+		UseStaging:          true,
 		TrustConfigPath:     "",
 	}
 

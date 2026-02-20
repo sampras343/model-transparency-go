@@ -71,64 +71,6 @@ func TestValidateFileExists(t *testing.T) {
 	}
 }
 
-func TestValidateFolderExists(t *testing.T) {
-	// Create temp directory
-	tmpDir, err := os.MkdirTemp("", "test-dir-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	// Create temp file for negative test
-	tmpFile, err := os.CreateTemp("", "test-*.txt")
-	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
-	}
-	defer os.Remove(tmpFile.Name())
-	tmpFile.Close()
-
-	tests := []struct {
-		name      string
-		fieldName string
-		path      string
-		wantErr   bool
-	}{
-		{
-			name:      "valid folder",
-			fieldName: "test folder",
-			path:      tmpDir,
-			wantErr:   false,
-		},
-		{
-			name:      "empty path",
-			fieldName: "test folder",
-			path:      "",
-			wantErr:   true,
-		},
-		{
-			name:      "non-existent folder",
-			fieldName: "test folder",
-			path:      "/nonexistent/folder",
-			wantErr:   true,
-		},
-		{
-			name:      "file instead of folder",
-			fieldName: "test folder",
-			path:      tmpFile.Name(),
-			wantErr:   true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateFolderExists(tt.fieldName, tt.path)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateFolderExists() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
 func TestValidateMultiple(t *testing.T) {
 	// Create temp directory with files
 	tmpDir, err := os.MkdirTemp("", "test-multi-*")

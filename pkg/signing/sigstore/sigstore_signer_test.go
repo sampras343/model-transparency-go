@@ -138,7 +138,7 @@ func TestNewSigstoreSigner_EmptyIgnorePaths(t *testing.T) {
 	}
 }
 
-func TestNewSigstoreSigner_WithTrustConfig(t *testing.T) {
+func TestNewSigstoreSigner_WithInvalidTrustConfigContent(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create model directory
@@ -147,7 +147,8 @@ func TestNewSigstoreSigner_WithTrustConfig(t *testing.T) {
 		t.Fatalf("Failed to create model directory: %v", err)
 	}
 
-	// Create a dummy trust config file
+	// Create a dummy trust config file with invalid content
+	// The constructor now eagerly loads the trust root, so invalid content should fail
 	trustConfigPath := filepath.Join(tmpDir, "trust_root.json")
 	if err := os.WriteFile(trustConfigPath, []byte("{}"), 0644); err != nil {
 		t.Fatalf("Failed to create trust config file: %v", err)
@@ -159,13 +160,9 @@ func TestNewSigstoreSigner_WithTrustConfig(t *testing.T) {
 		TrustConfigPath: trustConfigPath,
 	}
 
-	signer, err := NewSigstoreSigner(opts)
-	if err != nil {
-		t.Fatalf("Expected no error with valid trust config, got: %v", err)
-	}
-
-	if signer == nil {
-		t.Fatal("Expected non-nil signer")
+	_, err := NewSigstoreSigner(opts)
+	if err == nil {
+		t.Error("Expected error for invalid trust config content, got nil")
 	}
 }
 

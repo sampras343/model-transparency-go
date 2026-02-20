@@ -22,6 +22,7 @@ import (
 
 	hashengines "github.com/sigstore/model-signing/pkg/hashing/engines"
 	hashio "github.com/sigstore/model-signing/pkg/hashing/engines/io"
+	_ "github.com/sigstore/model-signing/pkg/hashing/engines/memory" // Register default hash engines (sha256, blake2b)
 	"github.com/sigstore/model-signing/pkg/manifest"
 	"github.com/sigstore/model-signing/pkg/utils"
 )

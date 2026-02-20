@@ -19,7 +19,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -230,73 +229,10 @@ func loadTrustMaterialFromFile(path string) (*root.TrustedRoot, *root.SigningCon
 
 // KeyConfig handles cryptographic key file configuration.
 //
-// This provides a unified way to load and manage cryptographic keys
-// for signing and verification operations.
+// This provides a unified way to load public keys for verification operations.
 type KeyConfig struct {
 	// Path is the file path to the key (PEM format).
 	Path string
-
-	// Password is the optional password for encrypted private keys.
-	// Only used when loading private keys.
-	Password string
-}
-
-// LoadPrivateKey loads a private key from the configured path.
-//
-// Supports PKCS8, PKCS1, and EC private key formats.
-// Handles both encrypted and unencrypted keys.
-//
-// Returns a crypto.PrivateKey interface containing the loaded key,
-// or an error if the key cannot be loaded or parsed.
-func (c *KeyConfig) LoadPrivateKey() (crypto.PrivateKey, error) {
-	if c.Path == "" {
-		return nil, fmt.Errorf("key path is required")
-	}
-
-	pemBytes, err := os.ReadFile(c.Path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read private key file: %w", err)
-	}
-
-	block, _ := pem.Decode(pemBytes)
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode PEM block")
-	}
-
-	var keyBytes []byte
-	if c.Password != "" {
-		// Decrypt the key if password is provided
-		//nolint:staticcheck // SA1019: x509.IsEncryptedPEMBlock is deprecated but needed for PKCS1
-		if x509.IsEncryptedPEMBlock(block) {
-			//nolint:staticcheck // SA1019: x509.DecryptPEMBlock is deprecated but needed for PKCS1
-			keyBytes, err = x509.DecryptPEMBlock(block, []byte(c.Password))
-			if err != nil {
-				return nil, fmt.Errorf("failed to decrypt private key: %w", err)
-			}
-		} else {
-			return nil, fmt.Errorf("password provided but key is not encrypted")
-		}
-	} else {
-		keyBytes = block.Bytes
-	}
-
-	// Try parsing as different key types
-	// Try PKCS8 (most common)
-	if key, err := x509.ParsePKCS8PrivateKey(keyBytes); err == nil {
-		return key, nil
-	}
-
-	// Try EC private key
-	if key, err := x509.ParseECPrivateKey(keyBytes); err == nil {
-		return key, nil
-	}
-
-	// Try RSA private key
-	if key, err := x509.ParsePKCS1PrivateKey(keyBytes); err == nil {
-		return key, nil
-	}
-
-	return nil, fmt.Errorf("failed to parse private key (unsupported format)")
 }
 
 // LoadPublicKey loads a public key from the configured path.
@@ -334,67 +270,6 @@ func (c *KeyConfig) LoadPublicKey() (crypto.PublicKey, error) {
 	return nil, fmt.Errorf("failed to parse public key (unsupported format)")
 }
 
-// ExtractPublicKey extracts the public key from a private key.
-//
-// Supports ECDSA, RSA, and Ed25519 private keys.
-//
-// Returns the corresponding public key, or an error if the
-// private key type is unsupported.
-func ExtractPublicKey(privateKey crypto.PrivateKey) (crypto.PublicKey, error) {
-	switch key := privateKey.(type) {
-	case *ecdsa.PrivateKey:
-		return &key.PublicKey, nil
-	case *rsa.PrivateKey:
-		return &key.PublicKey, nil
-	case ed25519.PrivateKey:
-		return key.Public(), nil
-	default:
-		return nil, fmt.Errorf("unsupported private key type: %T", privateKey)
-	}
-}
-
-// ComputePublicKeyHash computes the SHA256 hash of the PEM-encoded public key.
-//
-// This hash is used as a hint in the verification material to identify which
-// public key was used for signing.
-//
-// Returns the hex-encoded SHA256 hash string, or an error if the key
-// cannot be marshaled.
-func ComputePublicKeyHash(publicKey crypto.PublicKey) (string, error) {
-	// Marshal public key to PKIX format
-	pubKeyBytes, err := x509.MarshalPKIXPublicKey(publicKey)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal public key: %w", err)
-	}
-
-	// Encode to PEM
-	pemBlock := &pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: pubKeyBytes,
-	}
-	pemBytes := pem.EncodeToMemory(pemBlock)
-
-	// Compute SHA256 hash
-	hashBytes := sha256.Sum256(pemBytes)
-	return fmt.Sprintf("%x", hashBytes), nil
-}
-
-// ComputePublicKeyHashFromFile computes the SHA256 hash of a PEM-encoded public key file.
-//
-// This is useful for verification material hints when you have the key file path.
-//
-// Returns the hex-encoded SHA256 hash string, or an error if the file
-// cannot be read.
-func ComputePublicKeyHashFromFile(path string) (string, error) {
-	keyBytes, err := os.ReadFile(path)
-	if err != nil {
-		return "", fmt.Errorf("failed to read public key for hashing: %w", err)
-	}
-
-	hashBytes := sha256.Sum256(keyBytes)
-	return fmt.Sprintf("%x", hashBytes), nil
-}
-
 // validatePublicKey checks if the public key type is supported.
 //
 // Validates ECDSA curves (P-256, P-384, P-521), RSA keys, and Ed25519 keys.
@@ -411,143 +286,10 @@ func validatePublicKey(key interface{}) (crypto.PublicKey, error) {
 		}
 		return k, nil
 	case *rsa.PublicKey:
-		// RSA keys are supported
 		return k, nil
 	case ed25519.PublicKey:
-		// Ed25519 keys are supported
 		return k, nil
 	default:
 		return nil, fmt.Errorf("unsupported public key type: %T", key)
 	}
-}
-
-// LoadCertificate loads a single X509 certificate from a PEM-encoded file.
-//
-// Returns the parsed certificate, or an error if the file cannot be read
-// or the certificate cannot be parsed.
-func LoadCertificate(path string) (*x509.Certificate, error) {
-	if path == "" {
-		return nil, fmt.Errorf("certificate path is required")
-	}
-
-	pemBytes, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read certificate file: %w", err)
-	}
-
-	block, _ := pem.Decode(pemBytes)
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode PEM block from certificate file")
-	}
-
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse certificate: %w", err)
-	}
-
-	return cert, nil
-}
-
-// LoadCertificateChain loads multiple X509 certificates from PEM-encoded files.
-// Each file may contain one or more certificates.
-//
-// Returns the list of parsed certificates, or an error if any file cannot be read
-// or any certificate cannot be parsed.
-func LoadCertificateChain(paths []string) ([]*x509.Certificate, error) {
-	var certificates []*x509.Certificate
-
-	for _, path := range paths {
-		pemBytes, err := os.ReadFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read certificate chain file %s: %w", path, err)
-		}
-
-		// Parse all certificates in the file
-		certs, err := ParseCertificates(pemBytes)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse certificates from %s: %w", path, err)
-		}
-
-		certificates = append(certificates, certs...)
-	}
-
-	return certificates, nil
-}
-
-// ParseCertificates parses one or more PEM-encoded certificates from raw bytes.
-// Supports files with multiple concatenated PEM certificate blocks.
-// Falls back to DER format if no PEM blocks are found.
-//
-// Returns the list of parsed certificates, or an error if parsing fails.
-func ParseCertificates(certBytes []byte) ([]*x509.Certificate, error) {
-	var certs []*x509.Certificate
-
-	// Try parsing as PEM-encoded certificates
-	// Multiple certificates may be in the same file
-	remaining := certBytes
-	for {
-		block, rest := pem.Decode(remaining)
-		if block == nil {
-			break
-		}
-
-		if block.Type == "CERTIFICATE" {
-			cert, err := x509.ParseCertificate(block.Bytes)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse PEM certificate: %w", err)
-			}
-			certs = append(certs, cert)
-		}
-
-		remaining = rest
-	}
-
-	if len(certs) > 0 {
-		return certs, nil
-	}
-
-	// If no PEM blocks found, try parsing as raw DER
-	cert, err := x509.ParseCertificate(certBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse certificate (tried both PEM and DER formats): %w", err)
-	}
-
-	return []*x509.Certificate{cert}, nil
-}
-
-// ValidatePublicKeysMatch validates that two public keys are equal.
-// Supports ECDSA, RSA, and Ed25519 key types.
-//
-// Returns an error if the keys don't match or are of different types.
-func ValidatePublicKeysMatch(keyFromPrivate, keyFromCert crypto.PublicKey) error {
-	switch priv := keyFromPrivate.(type) {
-	case *ecdsa.PublicKey:
-		pub, ok := keyFromCert.(*ecdsa.PublicKey)
-		if !ok {
-			return fmt.Errorf("public key type mismatch: private key is ECDSA, certificate is %T", keyFromCert)
-		}
-		if !priv.Equal(pub) {
-			return fmt.Errorf("the public key from the certificate does not match the public key paired with the private key")
-		}
-	case *rsa.PublicKey:
-		pub, ok := keyFromCert.(*rsa.PublicKey)
-		if !ok {
-			return fmt.Errorf("public key type mismatch: private key is RSA, certificate is %T", keyFromCert)
-		}
-		if !priv.Equal(pub) {
-			return fmt.Errorf("the public key from the certificate does not match the public key paired with the private key")
-		}
-	case ed25519.PublicKey:
-		pub, ok := keyFromCert.(ed25519.PublicKey)
-		if !ok {
-			return fmt.Errorf("public key type mismatch: private key is Ed25519, certificate is %T", keyFromCert)
-		}
-		if !priv.Equal(pub) {
-			return fmt.Errorf("the public key from the certificate does not match the public key paired with the private key")
-		}
-	default:
-		return fmt.Errorf("unsupported public key type: %T", keyFromPrivate)
-	}
-
-	return nil
 }

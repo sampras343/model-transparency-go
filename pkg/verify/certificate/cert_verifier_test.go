@@ -18,9 +18,6 @@ import (
 	"context"
 	"testing"
 
-	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
-	protobundlecommon "github.com/sigstore/protobuf-specs/gen/pb-go/common/v1"
-
 	"github.com/sigstore/model-signing/pkg/logging"
 )
 
@@ -79,108 +76,5 @@ func TestCertificateVerifier_Verify(t *testing.T) {
 	_, err := verifier.Verify(context.Background())
 	if err != nil {
 		t.Errorf("Verify() error = %v", err)
-	}
-}
-
-// TestDetectBundleCharacteristics tests bundle version and certificate detection.
-func TestDetectBundleCharacteristics(t *testing.T) {
-	tests := []struct {
-		name            string
-		bundle          *protobundle.Bundle
-		expectedVersion string
-		expectedCerts   int
-	}{
-		{
-			name: "v0.3 bundle with single certificate",
-			bundle: &protobundle.Bundle{
-				MediaType: "application/vnd.dev.sigstore.bundle.v0.3+json",
-				VerificationMaterial: &protobundle.VerificationMaterial{
-					Content: &protobundle.VerificationMaterial_X509CertificateChain{
-						X509CertificateChain: &protobundlecommon.X509CertificateChain{
-							Certificates: []*protobundlecommon.X509Certificate{
-								{RawBytes: []byte("cert1")},
-							},
-						},
-					},
-				},
-			},
-			expectedVersion: "0.3",
-			expectedCerts:   1,
-		},
-		{
-			name: "v0.3 bundle with certificate chain",
-			bundle: &protobundle.Bundle{
-				MediaType: "application/vnd.dev.sigstore.bundle.v0.3+json",
-				VerificationMaterial: &protobundle.VerificationMaterial{
-					Content: &protobundle.VerificationMaterial_X509CertificateChain{
-						X509CertificateChain: &protobundlecommon.X509CertificateChain{
-							Certificates: []*protobundlecommon.X509Certificate{
-								{RawBytes: []byte("cert1")},
-								{RawBytes: []byte("cert2")},
-								{RawBytes: []byte("cert3")},
-							},
-						},
-					},
-				},
-			},
-			expectedVersion: "0.3",
-			expectedCerts:   3,
-		},
-		{
-			name: "v0.4 bundle (future)",
-			bundle: &protobundle.Bundle{
-				MediaType: "application/vnd.dev.sigstore.bundle.v0.4+json",
-				VerificationMaterial: &protobundle.VerificationMaterial{
-					Content: &protobundle.VerificationMaterial_X509CertificateChain{
-						X509CertificateChain: &protobundlecommon.X509CertificateChain{
-							Certificates: []*protobundlecommon.X509Certificate{
-								{RawBytes: []byte("cert1")},
-							},
-						},
-					},
-				},
-			},
-			expectedVersion: "0.4",
-			expectedCerts:   1,
-		},
-		{
-			name: "bundle with no media type (defaults to v0.3)",
-			bundle: &protobundle.Bundle{
-				VerificationMaterial: &protobundle.VerificationMaterial{
-					Content: &protobundle.VerificationMaterial_X509CertificateChain{
-						X509CertificateChain: &protobundlecommon.X509CertificateChain{
-							Certificates: []*protobundlecommon.X509Certificate{
-								{RawBytes: []byte("cert1")},
-							},
-						},
-					},
-				},
-			},
-			expectedVersion: "0.3",
-			expectedCerts:   1,
-		},
-		{
-			name: "bundle with no certificates",
-			bundle: &protobundle.Bundle{
-				MediaType:            "application/vnd.dev.sigstore.bundle.v0.3+json",
-				VerificationMaterial: &protobundle.VerificationMaterial{},
-			},
-			expectedVersion: "0.3",
-			expectedCerts:   0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			version, certCount := detectBundleCharacteristics(tt.bundle)
-
-			if version != tt.expectedVersion {
-				t.Errorf("detectBundleCharacteristics() version = %v, want %v", version, tt.expectedVersion)
-			}
-
-			if certCount != tt.expectedCerts {
-				t.Errorf("detectBundleCharacteristics() certCount = %v, want %v", certCount, tt.expectedCerts)
-			}
-		})
 	}
 }
