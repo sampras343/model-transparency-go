@@ -31,9 +31,9 @@ ARG APP_VERSION="0.0.1"
 
 LABEL description="Supply chain security for ML" \
       io.k8s.description="Supply chain security for ML" \
-      io.k8s.display-name="Model Transparency Library" \
+      io.k8s.display-name="Go based Model Transparency Library" \
       io.openshift.tags="model transparency security ml" \
-      summary="Provides a library for model transparency." \
-      com.redhat.component="model-transparency" \
-      name="rhtas/model-transparency-rhel9" \
-      cpe="cpe:/a:redhat:trusted_artifact_signer:1.3.1::el9" 
+      summary="Provides a go library for model transparency." \
+      com.redhat.component="model-transparency-go" \
+      name="rhtas/model-transparency-cli-rhel9" \
+      cpe="cpe:/a:redhat:trusted_artifact_signer:1.4.0::el9" 
