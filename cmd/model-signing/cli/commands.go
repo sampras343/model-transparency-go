@@ -19,12 +19,14 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/logs"
 	"github.com/sigstore/model-signing/cmd/model-signing/cli/options"
 	"github.com/sigstore/model-signing/cmd/model-signing/cli/templates"
 	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/spf13/cobra"
+	flag "github.com/spf13/pflag"
 	cobracompletefig "github.com/withfig/autocomplete-tools/integrations/cobra"
 	"sigs.k8s.io/release-utils/version"
 )
@@ -74,6 +76,12 @@ func New() *cobra.Command {
 			os.Stdout = stdout
 		},
 	}
+	// Normalize flags so that underscores are treated as hyphens.
+	// This ensures compatibility with the Python model_signing CLI
+	cmd.SetGlobalNormalizationFunc(func(_ *flag.FlagSet, name string) flag.NormalizedName {
+		return flag.NormalizedName(strings.ReplaceAll(name, "_", "-"))
+	})
+
 	ro.AddFlags(cmd)
 
 	templates.SetCustomUsageFunc(cmd)
