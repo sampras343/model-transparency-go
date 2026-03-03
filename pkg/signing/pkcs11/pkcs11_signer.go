@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build pkcs11
+
 // Package pkcs11 provides PKCS#11-based signing using sigstore-go with HSM support.
 //
 // This package enables signing ML models using hardware security modules (HSMs)

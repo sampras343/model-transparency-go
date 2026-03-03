@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build pkcs11
+
 // Keypair adapter for sigstore-go signing.
 //
 // This file provides the Keypair type which wraps a PKCS#11-based crypto.Signer

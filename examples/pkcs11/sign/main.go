@@ -12,22 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build pkcs11
+
 // Example: Sign a model using PKCS#11 (Hardware Security Module or software token).
 //
-// This example demonstrates how to sign a model directory using a private key
-// stored in a PKCS#11 token (such as a hardware HSM or SoftHSM2). The PKCS#11
-// URI is used to identify the key and token.
+// This example requires the pkcs11 build tag and CGO:
 //
-// Usage with key-based signing:
-//
-//	go run ./examples/pkcs11/sign/main.go \
+//	CGO_ENABLED=1 go run -tags=pkcs11 ./examples/pkcs11/sign/main.go \
 //	    --model-path=/path/to/model \
 //	    --signature-path=/path/to/model.sig \
 //	    --pkcs11-uri="pkcs11:token=mytoken;object=mykey?pin-value=1234"
 //
-// Usage with certificate-based signing:
+// With certificate-based signing:
 //
-//	go run ./examples/pkcs11/sign/main.go \
+//	CGO_ENABLED=1 go run -tags=pkcs11 ./examples/pkcs11/sign/main.go \
 //	    --model-path=/path/to/model \
 //	    --signature-path=/path/to/model.sig \
 //	    --pkcs11-uri="pkcs11:token=mytoken;object=mykey?pin-value=1234" \
@@ -41,7 +39,7 @@
 //	export PKCS11_URI="pkcs11:token=mytoken;object=mykey?pin-value=1234"
 //	export SIGNING_CERT=/path/to/signing-cert.pem  # Optional
 //	export CERT_CHAIN=/path/to/intermediate.pem,/path/to/root.pem  # Optional
-//	go run ./examples/pkcs11/sign/main.go
+//	CGO_ENABLED=1 go run -tags=pkcs11 ./examples/pkcs11/sign/main.go
 //
 // Setup SoftHSM2 for testing:
 //
@@ -50,14 +48,6 @@
 //
 //	# The setup command will output the PKCS#11 URI to use
 //	# Example: pkcs11:token=model-signing-test;object=mykey?pin-value=1234
-//
-// Demo mode (requires SoftHSM2 setup):
-//
-//	# First, setup SoftHSM2
-//	./scripts/tests/softhsm_setup setup
-//
-//	# Then run the demo (it will prompt for PKCS11_URI if not set)
-//	go run ./examples/pkcs11/sign/main.go
 //
 // PKCS#11 URI format (RFC 7512):
 //

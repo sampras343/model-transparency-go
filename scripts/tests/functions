@@ -278,3 +278,10 @@ ensure_pkcs11_deps()
 	fi
 	return 0
 }
+
+# Check if the model-signing binary was built with PKCS#11 support (-tags=pkcs11)
+has_pkcs11_support()
+{
+	local binary="${1:-${DIR}/model-signing}"
+	"${binary}" sign --help 2>&1 | grep -q "pkcs11-key"
+}

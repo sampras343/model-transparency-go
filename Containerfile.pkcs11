@@ -40,7 +40,8 @@ COPY cmd/ cmd/
 COPY pkg/ pkg/
 
 # CGO required for PKCS#11 (crypto11 uses cgo bindings)
-RUN CGO_ENABLED=1 GOOS=linux go build -tags="${BUILD_TAGS}" -ldflags="-s -w" -o /usr/local/bin/model-signing ./cmd/model-signing
+# Always include pkcs11 tag; BUILD_TAGS adds optional extras (e.g. otel).
+RUN CGO_ENABLED=1 GOOS=linux go build -tags="pkcs11${BUILD_TAGS:+,${BUILD_TAGS}}" -trimpath -ldflags="-s -w" -o /usr/local/bin/model-signing ./cmd/model-signing
 
 # Debian slim for glibc compatibility with PKCS#11 shared libraries
 FROM debian:bookworm-slim AS deploy
