@@ -21,9 +21,11 @@
 package pkcs11
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/sigstore/model-signing/pkg/logging"
+	"github.com/sigstore/model-signing/pkg/signing"
 )
 
 // Pkcs11SignerOptions configures a Pkcs11Signer instance.
@@ -52,4 +54,9 @@ type Pkcs11Signer struct{}
 // Rebuild with: CGO_ENABLED=1 go build -tags=pkcs11
 func NewPkcs11Signer(_ Pkcs11SignerOptions) (*Pkcs11Signer, error) {
 	return nil, fmt.Errorf("PKCS#11 signing is not available: rebuild with -tags=pkcs11 (requires CGO, Linux only)")
+}
+
+// Sign is a stub that returns an error when built without -tags=pkcs11.
+func (s *Pkcs11Signer) Sign(_ context.Context) (signing.Result, error) {
+	return signing.Result{}, fmt.Errorf("PKCS#11 signing is not available: rebuild with -tags=pkcs11 (requires CGO, Linux only)")
 }
