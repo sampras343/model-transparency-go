@@ -111,6 +111,60 @@ Run the container:
 [...]$ podman run --rm model-signing --help
 ```
 
+#### Cross-Platform Release Binaries
+
+The project produces release binaries for multiple platforms, packaged as
+gzip-compressed files for distribution via the Developer Portal.
+
+**Build all platform binaries locally:**
+
+```bash
+[...]$ make cross-platform
+```
+
+This produces the following artifacts in `./build/`:
+
+| Platform       | Binary                                         |
+|----------------|-------------------------------------------------|
+| Linux amd64    | `model_transparency_cli_linux_amd64`            |
+| macOS amd64    | `model_transparency_cli_darwin_amd64`           |
+| macOS arm64    | `model_transparency_cli_darwin_arm64`            |
+| Windows amd64  | `model_transparency_cli_windows_amd64.exe`      |
+
+Each binary is also compressed: `model_transparency_cli_<os>_<arch>.gz`.
+
+**Build individual platforms:**
+
+```bash
+[...]$ make build-linux          # Linux amd64
+[...]$ make build-linux-pkcs11   # Linux amd64 with PKCS#11/HSM support
+[...]$ make build-macos          # macOS amd64 + arm64
+[...]$ make build-windows        # Windows amd64
+```
+
+#### Optional: PKCS#11 / HSM support
+
+PKCS#11 signing support is an optional feature, gated behind the `pkcs11`
+build tag (similar to `otel` for OpenTelemetry). By default, binaries are
+built without PKCS#11 and the `pkcs11-key` / `pkcs11-certificate` subcommands
+return a clear error message.
+
+To build with PKCS#11 support (Linux only, requires CGO):
+
+```bash
+[...]$ CGO_ENABLED=1 go build -tags=pkcs11 -o model-signing ./cmd/model-signing
+```
+
+Or use the Makefile target:
+
+```bash
+[...]$ make build-linux-pkcs11
+```
+
+PKCS#11 requires CGO because the underlying `crypto11` / `miekg/pkcs11`
+libraries call into C PKCS#11 modules. This limits PKCS#11-enabled builds
+to Linux (native compilation).
+
 #### Optional: OpenTelemetry tracing
 
 The CLI can export distributed traces via OpenTelemetry when built with the

@@ -352,7 +352,7 @@ echo "Test 4 Summary: Signed files verification PASSED"
 # ============================================
 # Test 5: PKCS#11 signing
 # ============================================
-if ensure_pkcs11_deps; then
+if has_pkcs11_support && ensure_pkcs11_deps; then
 	echo ""
 	echo "Test 5: PKCS#11 signing"
 	echo "------------------------------------"
@@ -493,7 +493,7 @@ EOF
 	echo "Test 5 Summary: PKCS#11 tests PASSED"
 else
 	echo ""
-	echo "Skipping Test 5: PKCS#11 tests (SoftHSM2 or p11tool not available)"
+	echo "Skipping Test 5: PKCS#11 tests (binary not built with -tags=pkcs11 or SoftHSM2/p11tool not available)"
 fi
 
 # ============================================
@@ -509,6 +509,6 @@ echo "  - Single certificate (sigstore-go path): Working"
 echo "  - Certificate chain (custom path): Working with warnings"
 echo "  - Cross-verification: Correctly rejects invalid certs"
 echo "  - File content: Correctly signed"
-if ensure_pkcs11_deps &>/dev/null; then
+if has_pkcs11_support &>/dev/null && ensure_pkcs11_deps &>/dev/null; then
 	echo "  - PKCS#11 signing: Working"
 fi

@@ -36,10 +36,11 @@ pkcs11uri=$(echo "${msg}" | sed -n 's|^keyuri: \(.*\)|\1|p')
 # Determine project root (go up from scripts/tests)
 PROJECT_ROOT=$(cd "${DIR}/../.." && pwd)
 
-# Build the binary if it doesn't exist
-if [ ! -f "${PROJECT_ROOT}/build/model-signing" ]; then
-	echo "Building model-signing binary..."
-	(cd "${PROJECT_ROOT}" && make build) || exit 1
+# Build the binary with pkcs11 tag if it doesn't exist
+BINARY="${PROJECT_ROOT}/scripts/tests/model-signing"
+if [ ! -f "${BINARY}" ]; then
+	echo "Building model-signing binary with pkcs11 tag..."
+	(cd "${PROJECT_ROOT}" && make build-test-binary-pkcs11) || exit 1
 fi
 
 # ===========================================
@@ -64,7 +65,7 @@ echo "test file 1" > "${model_path}/file1.txt"
 echo "test file 2" > "${model_path}/file2.txt"
 
 echo "  Signing with PKCS#11 key..."
-if ! "${PROJECT_ROOT}/build/model-signing" sign pkcs11-key \
+if ! "${BINARY}" sign pkcs11-key \
 	--signature "${model_sig_key}" \
 	--pkcs11-uri "${pkcs11uri}" \
 	"${model_path}" >/dev/null 2>&1; then
@@ -73,7 +74,7 @@ if ! "${PROJECT_ROOT}/build/model-signing" sign pkcs11-key \
 fi
 
 echo "  Verifying with public key..."
-if ! "${PROJECT_ROOT}/build/model-signing" verify key \
+if ! "${BINARY}" verify key \
 	--signature "${model_sig_key}" \
 	--public-key "${pub_key}"  \
 	"${model_path}" >/dev/null 2>&1; then
@@ -131,7 +132,7 @@ EOF
 fi
 
 echo "  Signing with PKCS#11 certificate..."
-if ! "${PROJECT_ROOT}/build/model-signing" sign pkcs11-certificate \
+if ! "${BINARY}" sign pkcs11-certificate \
 	--signature "${model_sig_cert}" \
 	--pkcs11-uri "${pkcs11uri}" \
 	--signing-certificate "${cert_file}" \
@@ -141,7 +142,7 @@ if ! "${PROJECT_ROOT}/build/model-signing" sign pkcs11-certificate \
 fi
 
 echo "  Verifying with certificate..."
-if ! "${PROJECT_ROOT}/build/model-signing" verify certificate \
+if ! "${BINARY}" verify certificate \
 	--signature "${model_sig_cert}" \
 	--certificate-chain "${cert_file}" \
 	"${model_path}" >/dev/null 2>&1; then
@@ -204,7 +205,7 @@ EOF
 fi
 
 echo "  Signing with PKCS#11 leaf certificate and chain..."
-if ! "${PROJECT_ROOT}/build/model-signing" sign pkcs11-certificate \
+if ! "${BINARY}" sign pkcs11-certificate \
 	--signature "${model_sig_chain}" \
 	--pkcs11-uri "${pkcs11uri}" \
 	--signing-certificate "${leaf_cert}" \
@@ -215,7 +216,7 @@ if ! "${PROJECT_ROOT}/build/model-signing" sign pkcs11-certificate \
 fi
 
 echo "  Verifying with CA certificate chain..."
-if ! "${PROJECT_ROOT}/build/model-signing" verify certificate \
+if ! "${BINARY}" verify certificate \
 	--signature "${model_sig_chain}" \
 	--certificate-chain "${ca_cert}" \
 	"${model_path}" >/dev/null 2>&1; then

@@ -18,12 +18,15 @@
 // For key-based signatures, the public key must be exported from the PKCS#11 token.
 // For certificate-based signatures, use the certificate verifier.
 //
+// Note: Verification does NOT require the pkcs11 build tag or CGO.
+// Only signing requires -tags=pkcs11 (see examples/pkcs11/sign).
+//
 // Verify key-based PKCS#11 signature:
 //
 //	# First, export the public key from PKCS#11
 //	./scripts/tests/softhsm_setup getpubkey > /tmp/pubkey.pem
 //
-//	# Then verify
+//	# Then verify (no special build tags needed)
 //	go run ./examples/pkcs11/verify/main.go \
 //	    --model-path=/path/to/model \
 //	    --signature-path=/path/to/model.sig \
@@ -42,9 +45,6 @@
 //	export SIGNATURE_PATH=/path/to/model.sig
 //	export PUBLIC_KEY=/tmp/pubkey.pem
 //	go run ./examples/pkcs11/verify/main.go
-//
-// Note: PKCS#11 verification does not require access to the HSM/token.
-// The public key or certificate embedded in the signature is sufficient.
 package main
 
 import (

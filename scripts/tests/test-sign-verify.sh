@@ -311,13 +311,16 @@ fi
 
 popd 1>/dev/null || exit 1
 
-# PKCS#11 tests (attempt to install dependencies if missing)
-if ! ensure_pkcs11_deps; then
+# PKCS#11 tests (require binary built with -tags=pkcs11 and SoftHSM2/p11tool)
+if ! has_pkcs11_support; then
+	echo
+	echo "Skipping PKCS#11 tests (binary not built with -tags=pkcs11)"
+elif ! ensure_pkcs11_deps; then
 	echo
 	echo "Skipping PKCS#11 tests (dependencies not available)"
 fi
 
-if command -v softhsm2-util &>/dev/null && command -v p11tool &>/dev/null; then
+if has_pkcs11_support && command -v softhsm2-util &>/dev/null && command -v p11tool &>/dev/null; then
 	echo
 	echo "Testing 'sign/verify' with PKCS#11"
 	

@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build pkcs11
+
 // PKCS#11 context and module management.
 //
 // This file provides Context which manages PKCS#11 module loading and

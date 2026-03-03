@@ -45,7 +45,7 @@ jobs:
           check-latest: true
 
       - name: Build model-signing binary
-        run: make build-test-binary
+        run: make build-test-binary-pkcs11
 
       - name: Run CLI tests
         run: ./scripts/tests/testrunner
@@ -74,8 +74,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y softhsm2 gnutls-bin
 
-      - name: Build model-signing binary
-        run: make build-test-binary
+      - name: Build model-signing binary with PKCS#11
+        run: make build-test-binary-pkcs11
 
       - name: Run interoperability tests
         run: ./scripts/tests/test-interoperability.sh
@@ -100,8 +100,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y softhsm2 gnutls-bin
 
-      - name: Build model-signing binary
-        run: make build-test-binary
+      - name: Build model-signing binary with PKCS#11
+        run: make build-test-binary-pkcs11
 
       - name: Run hardening tests
         run: ./scripts/tests/test-hardening.sh
@@ -129,8 +129,8 @@ jobs:
           sudo apt update
           sudo apt install softhsm2 gnutls-bin
 
-      - name: Build model-signing binary
-        run: make build
+      - name: Build model-signing binary with PKCS#11
+        run: make build-test-binary-pkcs11
 
       - name: Run PKCS#11 tests
         run: ./scripts/tests/test-pkcs11.sh
