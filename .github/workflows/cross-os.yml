@@ -69,7 +69,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: model.zip
           path: model_root/
@@ -80,7 +80,7 @@ jobs:
       - name: Build model-signing CLI
         run: go build -v -o model-signing${{ matrix.os == 'windows-latest' && '.exe' || '' }} ./cmd/model-signing
       - name: store beacon token into oidc-token.txt
-        uses: sigstore-conformance/extremely-dangerous-public-oidc-beacon@72d9d63b71e66f36b3e008b8be44ffce84cd2b63 # main
+        uses: sigstore-conformance/extremely-dangerous-public-oidc-beacon@cf6b8f055acdc9f677561f9cd4074a9cf001e763 # main
       - name: Sign the model
         run: ./model-signing${{ matrix.os == 'windows-latest' && '.exe' || '' }} sign sigstore "$(pwd)/model_root" --use-staging --signature "$(pwd)/model.sig" --identity-token $(cat oidc-token.txt)
       - name: upload model signature
@@ -107,11 +107,11 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: model.zip
           path: model_root/
-      - uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ matrix.signed-with-os }}-model.sig
       - name: Debug - Show directory structure
