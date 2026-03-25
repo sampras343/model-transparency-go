@@ -79,12 +79,16 @@ provider for the signature. If these don't match what is provided in the
 signature, verification would fail.`
 
 	cmd := &cobra.Command{
-		Use:   "sigstore [OPTIONS]",
+		Use:   "sigstore [OPTIONS] [MODEL_PATH]",
 		Short: "Verify using Sigstore (DEFAULT verification method).",
 		Long:  long,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSigstoreVerify(cmd.Context(), o, args[0])
+			modelPath, err := jso.ResolveModelPath(args)
+			if err != nil {
+				return err
+			}
+			return runSigstoreVerify(cmd.Context(), o, modelPath)
 		},
 	}
 
@@ -113,12 +117,15 @@ signer, outside of pairing the keys. Also note that we don't offer key
 management protocols.`
 
 	cmd := &cobra.Command{
-		Use:   "key [OPTIONS] MODEL_PATH",
+		Use:   "key [OPTIONS] [MODEL_PATH]",
 		Short: "Verify using a public key.",
 		Long:  long,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			modelPath := args[0]
+			modelPath, err := jso.ResolveModelPath(args)
+			if err != nil {
+				return err
+			}
 			opts := o.ToStandardOptions(modelPath)
 			opts.Logger = ro.NewObservability().Logger
 			attrs := map[string]interface{}{
@@ -170,12 +177,15 @@ func NewCertificateVerifier() *cobra.Command {
     Note that we don't offer certificate and key management protocols.`
 
 	cmd := &cobra.Command{
-		Use:   "certificate [OPTIONS] MODEL_PATH",
+		Use:   "certificate [OPTIONS] [MODEL_PATH]",
 		Short: "Verify using a certificate.",
 		Long:  long,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			modelPath := args[0]
+			modelPath, err := jso.ResolveModelPath(args)
+			if err != nil {
+				return err
+			}
 			opts := o.ToStandardOptions(modelPath)
 			opts.Logger = ro.NewObservability().Logger
 			attrs := map[string]interface{}{
@@ -216,7 +226,7 @@ func Verify() *cobra.Command {
 	o := &options.SigstoreVerifyOptions{}
 
 	cmd := &cobra.Command{
-		Use:   "verify [OPTIONS] MODEL_PATH",
+		Use:   "verify [OPTIONS] [MODEL_PATH]",
 		Short: "Verify models.",
 		Long: `Verify models.
 
@@ -228,9 +238,13 @@ By default, Sigstore is used. Specify a PKI method subcommand (sigstore, key, ce
 other verification methods.
 
 Use each subcommand's --help option for details on each mode.`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSigstoreVerify(cmd.Context(), o, args[0])
+			modelPath, err := jso.ResolveModelPath(args)
+			if err != nil {
+				return err
+			}
+			return runSigstoreVerify(cmd.Context(), o, modelPath)
 		},
 	}
 

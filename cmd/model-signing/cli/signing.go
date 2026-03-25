@@ -86,12 +86,16 @@ Passing the --use-staging flag would use that instance instead of the
 production one.`
 
 	cmd := &cobra.Command{
-		Use:   "sigstore [OPTIONS] MODEL_PATH",
+		Use:   "sigstore [OPTIONS] [MODEL_PATH]",
 		Short: "Sign using Sigstore (DEFAULT signing method).",
 		Long:  long,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSigstoreSign(cmd.Context(), o, args[0])
+			modelPath, err := jso.ResolveModelPath(args)
+			if err != nil {
+				return err
+			}
+			return runSigstoreSign(cmd.Context(), o, modelPath)
 		},
 	}
 
@@ -121,12 +125,15 @@ func NewKeySigner() *cobra.Command {
     management protocols.`
 
 	cmd := &cobra.Command{
-		Use:   "key [OPTIONS] MODEL_PATH",
+		Use:   "key [OPTIONS] [MODEL_PATH]",
 		Short: "Sign using Key.",
 		Long:  long,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			modelPath := args[0]
+			modelPath, err := jso.ResolveModelPath(args)
+			if err != nil {
+				return err
+			}
 			opts := o.ToStandardOptions(modelPath)
 			opts.Logger = ro.NewObservability().Logger
 			attrs := map[string]interface{}{
@@ -180,12 +187,15 @@ func NewCertificateSigner() *cobra.Command {
     Note that we don't offer certificate and key management protocols.`
 
 	cmd := &cobra.Command{
-		Use:   "certificate [OPTIONS] MODEL_PATH",
+		Use:   "certificate [OPTIONS] [MODEL_PATH]",
 		Short: "Sign using Certificate.",
 		Long:  long,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			modelPath := args[0]
+			modelPath, err := jso.ResolveModelPath(args)
+			if err != nil {
+				return err
+			}
 			opts := o.ToStandardOptions(modelPath)
 			opts.Logger = ro.NewObservability().Logger
 			attrs := map[string]interface{}{
@@ -223,11 +233,11 @@ func Sign() *cobra.Command {
 	o := &options.SigstoreSignOptions{}
 
 	cmd := &cobra.Command{
-		Use:   "sign [OPTIONS] MODEL_PATH",
+		Use:   "sign [OPTIONS] [MODEL_PATH]",
 		Short: "Sign models.",
 		Long: `Sign models.
 
-    Signing the model at MODEL_PATH, produces the signature at SIGNATURE_PATH
+    Signing the model at MODEL_PATH (positional or "model" in --json), produces the signature at SIGNATURE_PATH
     (as per --signature option). Files in IGNORE_PATHS are not part of the
     signature.
 
@@ -255,9 +265,13 @@ func Sign() *cobra.Command {
     logs and certificate authorities. This provides a ready-to-use default
     trust model for most use cases but may not be suitable for custom or
     highly regulated environments.`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSigstoreSign(cmd.Context(), o, args[0])
+			modelPath, err := jso.ResolveModelPath(args)
+			if err != nil {
+				return err
+			}
+			return runSigstoreSign(cmd.Context(), o, modelPath)
 		},
 	}
 
