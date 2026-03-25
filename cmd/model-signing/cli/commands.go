@@ -32,7 +32,8 @@ import (
 )
 
 var (
-	ro = &options.RootOptions{}
+	ro  = &options.RootOptions{}
+	jso = options.NewJSONFlags()
 )
 
 // New creates and returns the root cobra command for the model-signing CLI.
@@ -52,6 +53,9 @@ func New() *cobra.Command {
 		SilenceUsage:      true,
 		TraverseChildren:  true,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			if err := jso.ParseAndApply(cmd); err != nil {
+				return err
+			}
 			if ro.OutputFile != "" {
 				var err error
 				out, err = os.Create(ro.OutputFile)
@@ -83,6 +87,7 @@ func New() *cobra.Command {
 	})
 
 	ro.AddFlags(cmd)
+	jso.AddPersistentFlags(cmd)
 
 	templates.SetCustomUsageFunc(cmd)
 
