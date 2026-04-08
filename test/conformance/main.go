@@ -50,7 +50,7 @@ func modelSigningBin() string {
 // stringSlice is a flag.Value that collects repeated --flag values.
 type stringSlice []string
 
-func (s *stringSlice) String() string  { return strings.Join(*s, ",") }
+func (s *stringSlice) String() string     { return strings.Join(*s, ",") }
 func (s *stringSlice) Set(v string) error { *s = append(*s, v); return nil }
 
 func run(args []string) int {
@@ -253,7 +253,12 @@ func resolveIgnorePath(p, modelPath string) (string, error) {
 }
 
 func execCmd(args []string) int {
-	c := exec.Command(args[0], args[1:]...)
+	bin, err := exec.LookPath(args[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "exec error: %v\n", err)
+		return 1
+	}
+	c := exec.Command(bin, args[1:]...) //nolint:gosec // bin is resolved via LookPath
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	if err := c.Run(); err != nil {
