@@ -47,7 +47,7 @@ jobs:
         run: python conformance-suite/action.py
         env:
           INPUT_ENTRYPOINT: ${{ github.workspace }}/test/conformance/go-conformance
-          MODEL_SIGNING_BIN: ${{ github.workspace }}/bin/model-signing
+          MODEL_SIGNING_BIN: ${{ github.workspace }}/build/model-signing
 
       - name: Upload conformance report
         uses: actions/upload-artifact@v4
