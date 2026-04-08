@@ -1,0 +1,58 @@
+name: Conformance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 8 * * 1,4'  # Mon/Thu 8 AM UTC
+  workflow_dispatch:
+
+jobs:
+  conformance:
+    name: Run OMS conformance suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build model-signing binary
+        run: make build
+
+      - name: Build Go conformance adapter
+        run: go build -o test/conformance/go-conformance ./test/conformance/
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The conformance suite requires Python and pytest; model-signing Python
+      # is installed only to verify cross-language bundles (pre-committed).
+      - name: Install conformance suite
+        run: |
+          pip install pytest pytest-json-report
+
+      - name: Checkout model-signing-conformance
+        uses: actions/checkout@v4
+        with:
+          repository: sampras343/model-signing-conformance
+          path: conformance-suite
+
+      - name: Run conformance suite
+        run: python conformance-suite/action.py
+        env:
+          INPUT_ENTRYPOINT: ${{ github.workspace }}/test/conformance/go-conformance
+          MODEL_SIGNING_BIN: ${{ github.workspace }}/bin/model-signing
+
+      - name: Upload conformance report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: conformance-report
+          path: conformance-report.json
+          if-no-files-found: warn
