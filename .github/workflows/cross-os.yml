@@ -73,14 +73,14 @@ jobs:
         with:
           name: model.zip
           path: model_root/
-      - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version-file: './go.mod'
           check-latest: true
       - name: Build model-signing CLI
         run: go build -v -o model-signing${{ matrix.os == 'windows-latest' && '.exe' || '' }} ./cmd/model-signing
       - name: store beacon token into oidc-token.txt
-        uses: sigstore-conformance/extremely-dangerous-public-oidc-beacon@cf6b8f055acdc9f677561f9cd4074a9cf001e763 # main
+        uses: sigstore-conformance/extremely-dangerous-public-oidc-beacon@977e8d08554ca9bda279c96e91be2119fb67c730 # main
       - name: Sign the model
         run: ./model-signing${{ matrix.os == 'windows-latest' && '.exe' || '' }} sign sigstore "$(pwd)/model_root" --use-staging --signature "$(pwd)/model.sig" --identity-token $(cat oidc-token.txt)
       - name: upload model signature
@@ -138,7 +138,7 @@ jobs:
           ls -la model.sig 2>/dev/null || echo "model.sig not found in current directory"
           find . -name "model.sig" 2>/dev/null
       - name: Setup go
-        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version-file: './go.mod'
           check-latest: true
