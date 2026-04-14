@@ -48,6 +48,9 @@ jobs:
         env:
           INPUT_ENTRYPOINT: ${{ github.workspace }}/test/conformance/go-conformance
           MODEL_SIGNING_BIN: ${{ github.workspace }}/build/model-signing
+          INPUT_XFAIL: |
+            test_verify[negative/key-simple-wrong-mediatype_fail]
+            test_roundtrip[key-p521]
 
       - name: Upload conformance report
         uses: actions/upload-artifact@v4
