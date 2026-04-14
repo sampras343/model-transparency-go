@@ -23,14 +23,17 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Build Go conformance adapter
-        run: go build -o test/conformance/go-conformance ./test/conformance/
+      - name: Build model-signing binary and conformance adapter
+        run: |
+          make build
+          go build -o test/conformance/go-conformance ./test/conformance/
 
       - name: Run OMS benchmark harness
-        uses: sampras343/model-signing-conformance/benchmark-action@benchmarks
+        uses: sampras343/model-signing-conformance/benchmark-action@main
         with:
-          entrypoint:  ${{ github.workspace }}/test/conformance/go-conformance
-          private-key: ${{ github.workspace }}/_conformance/test/assets/keys/p384/signing-key.pem
-          public-key:  ${{ github.workspace }}/_conformance/test/assets/keys/p384/signing-key-pub.pem
-          ci:          'true'
-          output:      benchmark-results.json
+          entrypoint:        ${{ github.workspace }}/test/conformance/go-conformance
+          model-signing-bin: ${{ github.workspace }}/build/model-signing
+          private-key:       ${{ github.workspace }}/_conformance/test/assets/keys/p384/signing-key.pem
+          public-key:        ${{ github.workspace }}/_conformance/test/assets/keys/p384/signing-key-pub.pem
+          ci:                'true'
+          output:            benchmark-results.json
