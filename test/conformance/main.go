@@ -23,21 +23,35 @@
 //	go-conformance sign-model --method key|certificate --model-path DIR \
 //	               --output-bundle FILE [--private-key PEM] [--signing-cert PEM] \
 //	               [--cert-chain PEM...] [--ignore-paths PATH...]
+//	               [--hash-algorithm sha256|blake2b] [--shard-size BYTES]
 //
 //	go-conformance verify-model --method key|certificate --model-path DIR \
 //	               --bundle FILE [--public-key PEM] [--cert-chain PEM...] \
 //	               [--ignore-paths PATH...] [--ignore-unsigned-files]
 //
-// The adapter calls the `model-signing` binary from PATH (or MODEL_SIGNING_BIN env var).
+//	go-conformance capabilities
+//	               Prints a JSON object listing which optional benchmark flags
+//	               this adapter supports. Used by the benchmark harness.
+//
+// The adapter calls the `model-signing` binary from PATH (or MODEL_SIGNING_BIN env var)
+// for standard conformance operations. For benchmark-specific flags (--hash-algorithm,
+// --shard-size), it calls the Go library directly to access options not exposed by the CLI.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/sigstore/model-signing/pkg/modelartifact"
+	"github.com/sigstore/model-signing/pkg/signing"
+	signingkey "github.com/sigstore/model-signing/pkg/signing/key"
+	"github.com/sigstore/model-signing/pkg/utils"
+	sigstoresign "github.com/sigstore/sigstore-go/pkg/sign"
 )
 
 func modelSigningBin() string {
@@ -55,7 +69,7 @@ func (s *stringSlice) Set(v string) error { *s = append(*s, v); return nil }
 
 func run(args []string) int {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "Usage: go-conformance <sign-model|verify-model> [flags]")
+		fmt.Fprintln(os.Stderr, "Usage: go-conformance <sign-model|verify-model|capabilities> [flags]")
 		return 2
 	}
 
@@ -64,10 +78,28 @@ func run(args []string) int {
 		return signModel(args[1:])
 	case "verify-model":
 		return verifyModel(args[1:])
+	case "capabilities":
+		return printCapabilities()
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", args[0])
 		return 2
 	}
+}
+
+// printCapabilities prints a JSON object listing the optional benchmark flags
+// supported by this adapter. The benchmark harness calls this at startup to
+// determine which parameter-sweep scenarios can run.
+//
+// --hash-algorithm and --shard-size are supported because the Go library
+// exposes them via modelartifact.Options. The adapter calls the library
+// directly (bypassing the CLI) when those flags are provided.
+//
+// --chunk-size and --max-workers are NOT in modelartifact.Options and cannot
+// be controlled externally — they are not declared here.
+func printCapabilities() int {
+	caps := `{"flags":["--hash-algorithm","--shard-size"],"hash_algorithms":["sha256","blake2b"]}`
+	fmt.Println(caps)
+	return 0
 }
 
 func signModel(args []string) int {
@@ -79,6 +111,11 @@ func signModel(args []string) int {
 	signingCert := fs.String("signing-cert", "", "Signing certificate PEM path")
 	identityToken := fs.String("identity-token", "", "OIDC identity token (for sigstore)")
 	useStaging := fs.Bool("use-staging", false, "Use Sigstore staging")
+	// Benchmark-only flags — not part of the base conformance protocol.
+	// Declared here so the adapter accepts them without erroring; they route
+	// to signModelLibrary() instead of the CLI when provided.
+	hashAlgorithm := fs.String("hash-algorithm", "", "Hash algorithm: sha256|blake2b (benchmark only, optional)")
+	shardSize := fs.Int64("shard-size", 0, "Shard size in bytes (benchmark only, 0 = no sharding)")
 	var certChain stringSlice
 	var ignorePaths stringSlice
 	fs.Var(&certChain, "cert-chain", "Certificate chain PEM (repeat for multiple)")
@@ -91,6 +128,20 @@ func signModel(args []string) int {
 	if *method == "" || *modelPath == "" || *outputBundle == "" {
 		fmt.Fprintln(os.Stderr, "sign-model: --method, --model-path, and --output-bundle are required")
 		return 2
+	}
+
+	// Benchmark flags are only valid with key-based signing (library direct path).
+	// If either is set, bypass the CLI and call the library directly.
+	if *hashAlgorithm != "" || *shardSize > 0 {
+		if *method != "key" {
+			fmt.Fprintln(os.Stderr, "sign-model: --hash-algorithm and --shard-size are only supported with --method key")
+			return 2
+		}
+		if *privateKey == "" {
+			fmt.Fprintln(os.Stderr, "sign-model key: --private-key is required")
+			return 2
+		}
+		return signModelLibrary(*modelPath, *outputBundle, *privateKey, *hashAlgorithm, *shardSize, ignorePaths)
 	}
 
 	bin := modelSigningBin()
@@ -148,6 +199,60 @@ func signModel(args []string) int {
 
 	cmd = append(cmd, *modelPath)
 	return execCmd(cmd)
+}
+
+// signModelLibrary calls the Go library directly instead of the CLI binary.
+// Used when benchmark flags (--hash-algorithm, --shard-size) are provided,
+// since those options are not exposed by the model-signing CLI.
+//
+// Replicates the key-signing flow from pkg/signing/key/key_signer.go but
+// passes HashAlgorithm and ShardSize through modelartifact.Options, which
+// signing.PreparePayload intentionally does not thread through.
+func signModelLibrary(modelPath, outputBundle, privateKey, hashAlgorithm string, shardSize int64, ignorePaths []string) int {
+	ctx := context.Background()
+
+	// Always exclude the output bundle from what gets hashed.
+	allIgnore := append(append([]string{}, []string(ignorePaths)...), outputBundle)
+
+	m, err := modelartifact.Canonicalize(modelPath, modelartifact.Options{
+		HashAlgorithm: hashAlgorithm,
+		ShardSize:     shardSize,
+		IgnorePaths:   allIgnore,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "canonicalize error: %v\n", err)
+		return 1
+	}
+
+	payload, err := modelartifact.MarshalPayload(m)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "marshal payload error: %v\n", err)
+		return 1
+	}
+
+	keypair, err := signingkey.NewModelKeypair(privateKey, "")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "keypair error: %v\n", err)
+		return 1
+	}
+
+	content := &sigstoresign.DSSEData{
+		Data:        payload,
+		PayloadType: utils.InTotoJSONPayloadType,
+	}
+
+	bundle, err := sigstoresign.Bundle(content, keypair, sigstoresign.BundleOptions{Context: ctx})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sign error: %v\n", err)
+		return 1
+	}
+
+	if err := signing.WriteBundle(bundle, outputBundle); err != nil {
+		fmt.Fprintf(os.Stderr, "write bundle error: %v\n", err)
+		return 1
+	}
+
+	return 0
 }
 
 func verifyModel(args []string) int {
