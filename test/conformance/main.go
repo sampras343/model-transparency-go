@@ -49,6 +49,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/modelartifact"
 	"github.com/sigstore/model-signing/pkg/signing"
 	signcert "github.com/sigstore/model-signing/pkg/signing/certificate"
@@ -58,6 +59,13 @@ import (
 	verifykey "github.com/sigstore/model-signing/pkg/verify/key"
 	sigstoresign "github.com/sigstore/sigstore-go/pkg/sign"
 )
+
+// stderrLogger writes library diagnostic output to stderr so that benchmark-model's
+// stdout remains clean JSON. Used wherever the adapter calls library functions directly.
+var stderrLogger = logging.NewLoggerWithOptions(logging.LoggerOptions{
+	Level:  logging.LevelWarn,
+	Output: os.Stderr,
+})
 
 func modelSigningBin() string {
 	if bin := os.Getenv("MODEL_SIGNING_BIN"); bin != "" {
@@ -272,6 +280,7 @@ func signModelCertLibrary(modelPath, outputBundle, privateKey, signingCert strin
 		PrivateKeyPath:         privateKey,
 		SigningCertificatePath: signingCert,
 		CertificateChain:       certChain,
+		Logger:                 stderrLogger,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "certificate signer error: %v\n", err)
@@ -293,6 +302,7 @@ func verifyModelCertLibrary(modelPath, bundlePath string, certChain []string) in
 		ModelPath:        modelPath,
 		SignaturePath:    bundlePath,
 		CertificateChain: certChain,
+		Logger:           stderrLogger,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "certificate verifier error: %v\n", err)
@@ -314,6 +324,7 @@ func verifyModelLibrary(modelPath, bundlePath, publicKeyPath string) int {
 		ModelPath:     modelPath,
 		SignaturePath: bundlePath,
 		PublicKeyPath: publicKeyPath,
+		Logger:        stderrLogger,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "verifier error: %v\n", err)
