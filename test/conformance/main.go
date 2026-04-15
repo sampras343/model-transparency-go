@@ -40,19 +40,32 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/modelartifact"
 	"github.com/sigstore/model-signing/pkg/signing"
+	signcert "github.com/sigstore/model-signing/pkg/signing/certificate"
 	signingkey "github.com/sigstore/model-signing/pkg/signing/key"
 	"github.com/sigstore/model-signing/pkg/utils"
+	verifycert "github.com/sigstore/model-signing/pkg/verify/certificate"
+	verifykey "github.com/sigstore/model-signing/pkg/verify/key"
 	sigstoresign "github.com/sigstore/sigstore-go/pkg/sign"
 )
+
+// stderrLogger writes library diagnostic output to stderr so that benchmark-model's
+// stdout remains clean JSON. Used wherever the adapter calls library functions directly.
+var stderrLogger = logging.NewLoggerWithOptions(logging.LoggerOptions{
+	Level:  logging.LevelWarn,
+	Output: os.Stderr,
+})
 
 func modelSigningBin() string {
 	if bin := os.Getenv("MODEL_SIGNING_BIN"); bin != "" {
@@ -78,6 +91,8 @@ func run(args []string) int {
 		return signModel(args[1:])
 	case "verify-model":
 		return verifyModel(args[1:])
+	case "benchmark-model":
+		return benchmarkModel(args[1:])
 	case "capabilities":
 		return printCapabilities()
 	default:
@@ -97,7 +112,7 @@ func run(args []string) int {
 // --chunk-size and --max-workers are NOT in modelartifact.Options and cannot
 // be controlled externally — they are not declared here.
 func printCapabilities() int {
-	caps := `{"flags":["--hash-algorithm","--shard-size"],"hash_algorithms":["sha256","blake2b"]}`
+	caps := `{"flags":["--hash-algorithm","--shard-size"],"hash_algorithms":["sha256","blake2b"],"benchmark_model":true}`
 	fmt.Println(caps)
 	return 0
 }
@@ -252,6 +267,203 @@ func signModelLibrary(modelPath, outputBundle, privateKey, hashAlgorithm string,
 		return 1
 	}
 
+	return 0
+}
+
+// signModelCertLibrary calls the certificate signing library directly.
+// Used by benchmarkModel to get in-process timing for certificate sign operations.
+func signModelCertLibrary(modelPath, outputBundle, privateKey, signingCert string, certChain []string) int {
+	ctx := context.Background()
+	s, err := signcert.NewCertificateSigner(signcert.CertificateSignerOptions{
+		ModelPath:              modelPath,
+		SignaturePath:          outputBundle,
+		PrivateKeyPath:         privateKey,
+		SigningCertificatePath: signingCert,
+		CertificateChain:       certChain,
+		Logger:                 stderrLogger,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "certificate signer error: %v\n", err)
+		return 1
+	}
+	result, err := s.Sign(ctx)
+	if err != nil || !result.Verified {
+		fmt.Fprintf(os.Stderr, "sign error: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+// verifyModelCertLibrary calls the certificate verify library directly.
+// Used by benchmarkModel to get in-process timing for certificate verify operations.
+func verifyModelCertLibrary(modelPath, bundlePath string, certChain []string) int {
+	ctx := context.Background()
+	v, err := verifycert.NewCertificateVerifier(verifycert.CertificateVerifierOptions{
+		ModelPath:        modelPath,
+		SignaturePath:    bundlePath,
+		CertificateChain: certChain,
+		Logger:           stderrLogger,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "certificate verifier error: %v\n", err)
+		return 1
+	}
+	result, err := v.Verify(ctx)
+	if err != nil || !result.Verified {
+		fmt.Fprintf(os.Stderr, "verify error: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+// verifyModelLibrary calls the Go verify library directly instead of the CLI.
+// Used by benchmarkModel to get in-process timing for verify operations.
+func verifyModelLibrary(modelPath, bundlePath, publicKeyPath string) int {
+	ctx := context.Background()
+	v, err := verifykey.NewKeyVerifier(verifykey.KeyVerifierOptions{
+		ModelPath:     modelPath,
+		SignaturePath: bundlePath,
+		PublicKeyPath: publicKeyPath,
+		Logger:        stderrLogger,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "verifier error: %v\n", err)
+		return 1
+	}
+	result, err := v.Verify(ctx)
+	if err != nil || !result.Verified {
+		fmt.Fprintf(os.Stderr, "verify error: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+// benchmarkModel runs hash, sign, or verify N times in-process and writes JSON
+// timing results to stdout: {"times_ms": [123.4, 121.8, ...]}.
+//
+//   - hash:    calls modelartifact.Canonicalize directly — method-independent,
+//     no key material needed.  Used by all hash/ scenarios.
+//   - sign:    hash + DSSE sign.  Supports key and certificate methods.
+//   - verify:  hash + DSSE verify.  Supports key and certificate methods.
+//
+// One warmup iteration is performed before the timed loop to populate the OS
+// page cache, keeping results comparable to the Python in-process benchmarks.
+func benchmarkModel(args []string) int {
+	fs := flag.NewFlagSet("benchmark-model", flag.ContinueOnError)
+	operation := fs.String("operation", "", "sign|verify (required)")
+	method := fs.String("method", "key", "key|certificate (ignored for operation:hash)")
+	modelPath := fs.String("model-path", "", "Model directory (required)")
+	privateKey := fs.String("private-key", "", "Private key PEM (sign, key and certificate methods)")
+	publicKey := fs.String("public-key", "", "Public key PEM (verify, key method)")
+	signingCert := fs.String("signing-cert", "", "Signing certificate PEM (sign, certificate method)")
+	outputBundle := fs.String("output-bundle", "", "Output bundle path (sign)")
+	bundle := fs.String("bundle", "", "Existing bundle path (verify)")
+	repeat := fs.Int("repeat", 5, "Number of timed iterations")
+	hashAlgorithm := fs.String("hash-algorithm", "", "Hash algorithm: sha256|blake2b (key sign and hash operations)")
+	shardSize := fs.Int64("shard-size", 0, "Shard size in bytes for shard serialization (key sign and hash operations; 0 = file serialization)")
+	var certChain stringSlice
+	fs.Var(&certChain, "cert-chain", "Certificate chain PEM (verify, certificate method; repeat for multiple)")
+
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+
+	if *operation == "" || *modelPath == "" {
+		fmt.Fprintln(os.Stderr, "benchmark-model: --operation and --model-path are required")
+		return 2
+	}
+
+	var doOnce func() int
+
+	// Hash-only operation: measure just canonicalization (hashing + serialization).
+	// Method-independent — no key material or bundle needed.
+	if *operation == "hash" {
+		doOnce = func() int {
+			_, err := modelartifact.Canonicalize(*modelPath, modelartifact.Options{
+				HashAlgorithm: *hashAlgorithm,
+				ShardSize:     *shardSize,
+			})
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "canonicalize error: %v\n", err)
+				return 1
+			}
+			return 0
+		}
+	} else {
+		// Signing/verification operations: method-specific.
+		switch *method {
+		case "key":
+			switch *operation {
+			case "sign":
+				if *privateKey == "" || *outputBundle == "" {
+					fmt.Fprintln(os.Stderr, "benchmark-model key sign: --private-key and --output-bundle are required")
+					return 2
+				}
+				doOnce = func() int {
+					os.Remove(*outputBundle) //nolint:errcheck
+					return signModelLibrary(*modelPath, *outputBundle, *privateKey, *hashAlgorithm, *shardSize, nil)
+				}
+			case "verify":
+				if *publicKey == "" || *bundle == "" {
+					fmt.Fprintln(os.Stderr, "benchmark-model key verify: --public-key and --bundle are required")
+					return 2
+				}
+				doOnce = func() int {
+					return verifyModelLibrary(*modelPath, *bundle, *publicKey)
+				}
+			default:
+				fmt.Fprintf(os.Stderr, "benchmark-model: unknown operation %q\n", *operation)
+				return 2
+			}
+
+		case "certificate":
+			switch *operation {
+			case "sign":
+				if *privateKey == "" || *signingCert == "" || *outputBundle == "" {
+					fmt.Fprintln(os.Stderr, "benchmark-model certificate sign: --private-key, --signing-cert, and --output-bundle are required")
+					return 2
+				}
+				doOnce = func() int {
+					os.Remove(*outputBundle) //nolint:errcheck
+					return signModelCertLibrary(*modelPath, *outputBundle, *privateKey, *signingCert, certChain)
+				}
+			case "verify":
+				if *bundle == "" {
+					fmt.Fprintln(os.Stderr, "benchmark-model certificate verify: --bundle is required")
+					return 2
+				}
+				doOnce = func() int {
+					return verifyModelCertLibrary(*modelPath, *bundle, certChain)
+				}
+			default:
+				fmt.Fprintf(os.Stderr, "benchmark-model: unknown operation %q\n", *operation)
+				return 2
+			}
+
+		default:
+			fmt.Fprintf(os.Stderr, "benchmark-model: unsupported method %q (supported: key, certificate)\n", *method)
+			return 2
+		}
+	}
+
+	// Warmup: populates OS page cache before the timed loop.
+	if rc := doOnce(); rc != 0 {
+		fmt.Fprintln(os.Stderr, "benchmark-model: warmup iteration failed")
+		return 1
+	}
+
+	var times []float64
+	for i := 0; i < *repeat; i++ {
+		t0 := time.Now()
+		if rc := doOnce(); rc != 0 {
+			fmt.Fprintf(os.Stderr, "benchmark-model: iteration %d failed\n", i)
+			return 1
+		}
+		times = append(times, float64(time.Since(t0).Microseconds())/1000.0)
+	}
+
+	out, _ := json.Marshal(map[string]any{"times_ms": times})
+	fmt.Println(string(out))
 	return 0
 }
 
