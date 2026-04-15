@@ -22,7 +22,7 @@ import (
 func printCapabilities() int {
 	caps := map[string]any{
 		"protocol_version": 1,
-		"flags":            []string{"--hash-algorithm", "--shard-size"},
+		"flags":            []string{"--hash-algorithm", "--shard-size", "--chunk-size", "--max-workers"},
 		"hash_algorithms":  []string{"sha256", "blake2b"},
 		"benchmark_model":  true,
 	}
