@@ -14,9 +14,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
@@ -27,7 +27,7 @@ jobs:
       - name: Build Go conformance adapter
         run: go build -o test/conformance/go-conformance ./test/conformance/
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -38,7 +38,7 @@ jobs:
           pip install pytest pytest-json-report
 
       - name: Checkout model-signing-conformance
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: sampras343/model-signing-conformance
           path: conformance-suite
@@ -53,7 +53,7 @@ jobs:
             test_roundtrip[key-p521]
 
       - name: Upload conformance report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: conformance-report
