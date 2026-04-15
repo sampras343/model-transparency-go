@@ -342,7 +342,7 @@ func verifyModelLibrary(modelPath, bundlePath, publicKeyPath string) int {
 // timing results to stdout: {"times_ms": [123.4, 121.8, ...]}.
 //
 //   - hash:    calls modelartifact.Canonicalize directly — method-independent,
-//              no key material needed.  Used by all hash/ scenarios.
+//     no key material needed.  Used by all hash/ scenarios.
 //   - sign:    hash + DSSE sign.  Supports key and certificate methods.
 //   - verify:  hash + DSSE verify.  Supports key and certificate methods.
 //
