@@ -17,11 +17,40 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"runtime/debug"
 )
+
+func clientVersion() string {
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "unknown"
+	}
+
+	var revision, modified string
+	for _, s := range bi.Settings {
+		switch s.Key {
+		case "vcs.revision":
+			revision = s.Value
+		case "vcs.modified":
+			if s.Value == "true" {
+				modified = "-dirty"
+			}
+		}
+	}
+
+	if revision == "" {
+		return bi.Main.Version
+	}
+	if len(revision) > 12 {
+		revision = revision[:12]
+	}
+	return revision + modified
+}
 
 func printCapabilities() int {
 	caps := map[string]any{
 		"protocol_version": 1,
+		"client_version":   clientVersion(),
 		"flags":            []string{"--hash-algorithm", "--shard-size", "--chunk-size", "--max-workers"},
 		"hash_algorithms":  []string{"sha256", "blake2b"},
 		"benchmark_model":  true,
