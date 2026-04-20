@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"os"
 	"time"
-
-	"github.com/sigstore/model-signing/pkg/modelartifact"
 )
 
 func benchmarkModel(args []string) int {
@@ -38,6 +36,8 @@ func benchmarkModel(args []string) int {
 	warmup := fs.Int("warmup", 1, "Number of warmup iterations before timed loop")
 	hashAlgorithm := fs.String("hash-algorithm", "", "Hash algorithm: sha256|blake2b (sign and hash operations)")
 	shardSize := fs.Int64("shard-size", 0, "Shard size in bytes for shard serialization (sign and hash operations; 0 = file serialization)")
+	chunkSize := fs.Int("chunk-size", -1, "Read chunk size in bytes (hash operation; 0 = read file whole, -1 = library default 8KB)")
+	maxWorkers := fs.Int("max-workers", 0, "Number of parallel hashing workers (hash operation; 0 = sequential)")
 	var certChain stringSlice
 	fs.Var(&certChain, "cert-chain", "Certificate chain PEM (verify, certificate method; repeat for multiple)")
 
@@ -55,15 +55,7 @@ func benchmarkModel(args []string) int {
 
 	if *operation == "hash" {
 		doOnce = func() int {
-			_, err := modelartifact.Canonicalize(*modelPath, modelartifact.Options{
-				HashAlgorithm: *hashAlgorithm,
-				ShardSize:     *shardSize,
-			})
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "canonicalize error: %v\n", err)
-				return 1
-			}
-			return 0
+			return hashModel(*modelPath, *hashAlgorithm, *shardSize, *chunkSize, *maxWorkers)
 		}
 	} else {
 		switch *method {
