@@ -525,12 +525,18 @@ The `--json` flag is **not** related to `--log-format json`. The latter controls
 
 **Precedence.** Any flag set explicitly on the command line takes precedence over a value supplied through `--json` for the same flag.
 
-**Merging, stdin, and files.** Each `--json` value must resolve to a JSON object (for example `{"signature":"/path.sig"}`). You may repeat `--json`; later values override earlier ones for the same key. Supply the object inline (argument starts with `{`), use `--json -` once per invocation to read from standard input, or pass a **filesystem path** to a file whose contents are that JSON object (the extension does not matter; `.txt` is fine). The `key=value` form is not supported.
+**Merging, stdin, and files.** Each `--json` value must resolve to a JSON object (for example `{"signature":"/path.sig"}`). You may repeat `--json`; later values override earlier ones for the same key. Supply the object inline (argument starts with `{`), use `--json -` once per invocation to read from standard input, or pass a **filesystem path** to a file whose contents are that JSON object (the extension does not matter; `.txt` is fine).
 
 **Example** (key signing, model path and flags from JSON):
 
 ```bash
 [...]$ model-signing sign key --json '{"model":"bert-base-uncased","private-key":"key.priv","signature":"model_key.sig"}'
+```
+
+**Example** (same JSON object piped on stdin; only one `--json -` per run):
+
+```bash
+[...]$ echo '{"model":"bert-base-uncased","private-key":"key.priv","signature":"model_key.sig"}' | model-signing sign key --json -
 ```
 
 **Example** (same flags loaded from a file):
