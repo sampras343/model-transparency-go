@@ -1,0 +1,576 @@
+{
+  "$id": "https://github.com/sigstore/model-signing/raw/main/docs/cli-params-schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "JSON object merged by repeated global --json (or stdin with --json \"-\"). Keys must be long flag names for the subcommand you run, plus the reserved key \"model\" for the model path when MODEL_PATH is omitted. CLI flags override --json. Values may be JSON strings, numbers, booleans, or null (see per-flag types). Pick the oneOf branch whose title matches your command invocation. Branches with identical flag sets are merged in the title. The repository schema is generated with -tags=pkcs11 (see Makefile) so PKCS#11 flags are included.",
+  "oneOf": [
+    {
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "description": "Model path when MODEL_PATH is not passed as a positional argument (positional wins if both are set).",
+          "type": "string"
+        }
+      },
+      "title": "model-signing",
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "allow-symlinks": {
+          "description": "Whether to allow following symlinks when signing or verifying files.",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "certificate-chain": {
+          "description": "File paths of certificate chain of trust (can be repeated or comma-separated). For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
+          "type": "string"
+        },
+        "ignore-git-paths": {
+          "description": "Ignore git-related files when signing or verifying. [default: true]",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "ignore-paths": {
+          "description": "File paths to ignore when signing or verifying. For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
+          "type": "string"
+        },
+        "log-format": {
+          "description": "set the log output format (text, json)",
+          "type": "string"
+        },
+        "log-level": {
+          "description": "set the minimum log level (debug, info, warn, error, silent)",
+          "type": "string"
+        },
+        "model": {
+          "description": "Model path when MODEL_PATH is not passed as a positional argument (positional wins if both are set).",
+          "type": "string"
+        },
+        "output-file": {
+          "description": "log output to a file",
+          "type": "string"
+        },
+        "private-key": {
+          "description": "Path to the private key, as a PEM-encoded file. [required]",
+          "type": "string"
+        },
+        "signature": {
+          "description": "Location of the signature file to generate. Defaults to model.sig",
+          "type": "string"
+        },
+        "signing-certificate": {
+          "description": "Path to the signing certificate, as a PEM-encoded file. [required]",
+          "type": "string"
+        },
+        "timeout": {
+          "description": "timeout for commands. Go duration string (e.g. 3m, 1h30m).",
+          "type": "string"
+        }
+      },
+      "title": "model-signing sign certificate",
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "allow-symlinks": {
+          "description": "Whether to allow following symlinks when signing or verifying files.",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "ignore-git-paths": {
+          "description": "Ignore git-related files when signing or verifying. [default: true]",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "ignore-paths": {
+          "description": "File paths to ignore when signing or verifying. For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
+          "type": "string"
+        },
+        "log-format": {
+          "description": "set the log output format (text, json)",
+          "type": "string"
+        },
+        "log-level": {
+          "description": "set the minimum log level (debug, info, warn, error, silent)",
+          "type": "string"
+        },
+        "model": {
+          "description": "Model path when MODEL_PATH is not passed as a positional argument (positional wins if both are set).",
+          "type": "string"
+        },
+        "output-file": {
+          "description": "log output to a file",
+          "type": "string"
+        },
+        "password": {
+          "description": "Password for the key encryption, if any.",
+          "type": "string"
+        },
+        "private-key": {
+          "description": "Path to the private key, as a PEM-encoded file. [required]",
+          "type": "string"
+        },
+        "signature": {
+          "description": "Location of the signature file to generate. Defaults to model.sig",
+          "type": "string"
+        },
+        "timeout": {
+          "description": "timeout for commands. Go duration string (e.g. 3m, 1h30m).",
+          "type": "string"
+        }
+      },
+      "title": "model-signing sign key",
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "description": "Warning: PKCS#11 signing subcommands require a model-signing binary built with the pkcs11 build tag (e.g. go build -tags=pkcs11 ./cmd/model-signing). They are not available in default builds without that tag.",
+      "properties": {
+        "allow-symlinks": {
+          "description": "Whether to allow following symlinks when signing or verifying files.",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "certificate-chain": {
+          "description": "File paths of certificate chain of trust (can be repeated or comma-separated). For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
+          "type": "string"
+        },
+        "ignore-git-paths": {
+          "description": "Ignore git-related files when signing or verifying. [default: true]",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "ignore-paths": {
+          "description": "File paths to ignore when signing or verifying. For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
+          "type": "string"
+        },
+        "log-format": {
+          "description": "set the log output format (text, json)",
+          "type": "string"
+        },
+        "log-level": {
+          "description": "set the minimum log level (debug, info, warn, error, silent)",
+          "type": "string"
+        },
+        "model": {
+          "description": "Model path when MODEL_PATH is not passed as a positional argument (positional wins if both are set).",
+          "type": "string"
+        },
+        "module-path": {
+          "description": "Additional directories to search for PKCS#11 modules. For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
+          "type": "string"
+        },
+        "output-file": {
+          "description": "log output to a file",
+          "type": "string"
+        },
+        "pkcs11-uri": {
+          "description": "PKCS#11 URI identifying the key. Format: pkcs11:token=TOKEN;object=KEY?module-name=MODULE\u0026pin-value=PIN [required]",
+          "type": "string"
+        },
+        "signature": {
+          "description": "Location of the signature file to generate. Defaults to model.sig",
+          "type": "string"
+        },
+        "signing-certificate": {
+          "description": "Path to the signing certificate, as a PEM-encoded file. [required]",
+          "type": "string"
+        },
+        "timeout": {
+          "description": "timeout for commands. Go duration string (e.g. 3m, 1h30m).",
+          "type": "string"
+        }
+      },
+      "title": "model-signing sign pkcs11-certificate",
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "description": "Warning: PKCS#11 signing subcommands require a model-signing binary built with the pkcs11 build tag (e.g. go build -tags=pkcs11 ./cmd/model-signing). They are not available in default builds without that tag.",
+      "properties": {
+        "allow-symlinks": {
+          "description": "Whether to allow following symlinks when signing or verifying files.",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "ignore-git-paths": {
+          "description": "Ignore git-related files when signing or verifying. [default: true]",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "ignore-paths": {
+          "description": "File paths to ignore when signing or verifying. For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
+          "type": "string"
+        },
+        "log-format": {
+          "description": "set the log output format (text, json)",
+          "type": "string"
+        },
+        "log-level": {
+          "description": "set the minimum log level (debug, info, warn, error, silent)",
+          "type": "string"
+        },
+        "model": {
+          "description": "Model path when MODEL_PATH is not passed as a positional argument (positional wins if both are set).",
+          "type": "string"
+        },
+        "module-path": {
+          "description": "Additional directories to search for PKCS#11 modules. For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
+          "type": "string"
+        },
+        "output-file": {
+          "description": "log output to a file",
+          "type": "string"
+        },
+        "pkcs11-uri": {
+          "description": "PKCS#11 URI identifying the key. Format: pkcs11:token=TOKEN;object=KEY?module-name=MODULE\u0026pin-value=PIN [required]",
+          "type": "string"
+        },
+        "signature": {
+          "description": "Location of the signature file to generate. Defaults to model.sig",
+          "type": "string"
+        },
+        "timeout": {
+          "description": "timeout for commands. Go duration string (e.g. 3m, 1h30m).",
+          "type": "string"
+        }
+      },
+      "title": "model-signing sign pkcs11-key",
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "allow-symlinks": {
+          "description": "Whether to allow following symlinks when signing or verifying files.",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "client-id": {
+          "description": "The custom OpenID Connect client ID to use during OAuth2.",
+          "type": "string"
+        },
+        "client-secret": {
+          "description": "The custom OpenID Connect client secret to use during OAuth2.",
+          "type": "string"
+        },
+        "identity-token": {
+          "description": "Fixed OIDC identity token to use instead of obtaining credentials from OIDC flow or from the environment.",
+          "type": "string"
+        },
+        "ignore-git-paths": {
+          "description": "Ignore git-related files when signing or verifying. [default: true]",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "ignore-paths": {
+          "description": "File paths to ignore when signing or verifying. For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
+          "type": "string"
+        },
+        "log-format": {
+          "description": "set the log output format (text, json)",
+          "type": "string"
+        },
+        "log-level": {
+          "description": "set the minimum log level (debug, info, warn, error, silent)",
+          "type": "string"
+        },
+        "model": {
+          "description": "Model path when MODEL_PATH is not passed as a positional argument (positional wins if both are set).",
+          "type": "string"
+        },
+        "oauth-force-oob": {
+          "description": "Force an out-of-band OAuth flow and do not automatically start the default web browser.",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "output-file": {
+          "description": "log output to a file",
+          "type": "string"
+        },
+        "signature": {
+          "description": "Location of the signature file to generate. Defaults to model.sig",
+          "type": "string"
+        },
+        "timeout": {
+          "description": "timeout for commands. Go duration string (e.g. 3m, 1h30m).",
+          "type": "string"
+        },
+        "trust-config": {
+          "description": "Path to trust configuration file.",
+          "type": "string"
+        },
+        "use-ambient-credentials": {
+          "description": "Use credentials from ambient environment.",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "use-staging": {
+          "description": "Use Sigstore's staging instance.",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        }
+      },
+      "title": "model-signing sign | model-signing sign sigstore",
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "allow-symlinks": {
+          "description": "Whether to allow following symlinks when signing or verifying files.",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "certificate-chain": {
+          "description": "File paths of certificate chain of trust (can be repeated or comma-separated). For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
+          "type": "string"
+        },
+        "ignore-git-paths": {
+          "description": "Ignore git-related files when signing or verifying. [default: true]",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "ignore-paths": {
+          "description": "File paths to ignore when signing or verifying. For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
+          "type": "string"
+        },
+        "ignore-unsigned-files": {
+          "description": "Ignore files in model that are not in signature. By default, verification fails if extra files exist.",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "log-fingerprints": {
+          "description": "Log SHA256 fingerprints of all certificates",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "log-format": {
+          "description": "set the log output format (text, json)",
+          "type": "string"
+        },
+        "log-level": {
+          "description": "set the minimum log level (debug, info, warn, error, silent)",
+          "type": "string"
+        },
+        "model": {
+          "description": "Model path when MODEL_PATH is not passed as a positional argument (positional wins if both are set).",
+          "type": "string"
+        },
+        "output-file": {
+          "description": "log output to a file",
+          "type": "string"
+        },
+        "signature": {
+          "description": "Location of the signature file to verify. [required]",
+          "type": "string"
+        },
+        "timeout": {
+          "description": "timeout for commands. Go duration string (e.g. 3m, 1h30m).",
+          "type": "string"
+        }
+      },
+      "title": "model-signing verify certificate",
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "allow-symlinks": {
+          "description": "Whether to allow following symlinks when signing or verifying files.",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "ignore-git-paths": {
+          "description": "Ignore git-related files when signing or verifying. [default: true]",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "ignore-paths": {
+          "description": "File paths to ignore when signing or verifying. For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
+          "type": "string"
+        },
+        "ignore-unsigned-files": {
+          "description": "Ignore files in model that are not in signature. By default, verification fails if extra files exist.",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "log-format": {
+          "description": "set the log output format (text, json)",
+          "type": "string"
+        },
+        "log-level": {
+          "description": "set the minimum log level (debug, info, warn, error, silent)",
+          "type": "string"
+        },
+        "model": {
+          "description": "Model path when MODEL_PATH is not passed as a positional argument (positional wins if both are set).",
+          "type": "string"
+        },
+        "output-file": {
+          "description": "log output to a file",
+          "type": "string"
+        },
+        "public-key": {
+          "description": "Location of the public key file to verify.",
+          "type": "string"
+        },
+        "signature": {
+          "description": "Location of the signature file to verify. [required]",
+          "type": "string"
+        },
+        "timeout": {
+          "description": "timeout for commands. Go duration string (e.g. 3m, 1h30m).",
+          "type": "string"
+        }
+      },
+      "title": "model-signing verify key",
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "allow-symlinks": {
+          "description": "Whether to allow following symlinks when signing or verifying files.",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "identity": {
+          "description": "The expected identity of the signer (e.g., name@example.com).",
+          "type": "string"
+        },
+        "identity-provider": {
+          "description": "The expected identity provider (e.g., https://accounts.example.com).",
+          "type": "string"
+        },
+        "ignore-git-paths": {
+          "description": "Ignore git-related files when signing or verifying. [default: true]",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "ignore-paths": {
+          "description": "File paths to ignore when signing or verifying. For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
+          "type": "string"
+        },
+        "ignore-unsigned-files": {
+          "description": "Ignore files in model that are not in signature. By default, verification fails if extra files exist.",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "log-format": {
+          "description": "set the log output format (text, json)",
+          "type": "string"
+        },
+        "log-level": {
+          "description": "set the minimum log level (debug, info, warn, error, silent)",
+          "type": "string"
+        },
+        "model": {
+          "description": "Model path when MODEL_PATH is not passed as a positional argument (positional wins if both are set).",
+          "type": "string"
+        },
+        "output-file": {
+          "description": "log output to a file",
+          "type": "string"
+        },
+        "signature": {
+          "description": "Location of the signature file to verify. [required]",
+          "type": "string"
+        },
+        "timeout": {
+          "description": "timeout for commands. Go duration string (e.g. 3m, 1h30m).",
+          "type": "string"
+        },
+        "trust-config": {
+          "description": "Path to trust configuration file.",
+          "type": "string"
+        },
+        "use-staging": {
+          "description": "Use Sigstore's staging instance.",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        }
+      },
+      "title": "model-signing verify | model-signing verify sigstore",
+      "type": "object"
+    },
+    {
+      "additionalProperties": false,
+      "properties": {
+        "log-format": {
+          "description": "set the log output format (text, json)",
+          "type": "string"
+        },
+        "log-level": {
+          "description": "set the minimum log level (debug, info, warn, error, silent)",
+          "type": "string"
+        },
+        "model": {
+          "description": "Model path when MODEL_PATH is not passed as a positional argument (positional wins if both are set).",
+          "type": "string"
+        },
+        "output-file": {
+          "description": "log output to a file",
+          "type": "string"
+        },
+        "timeout": {
+          "description": "timeout for commands. Go duration string (e.g. 3m, 1h30m).",
+          "type": "string"
+        }
+      },
+      "title": "model-signing version",
+      "type": "object"
+    }
+  ],
+  "title": "model-signing --json flag payload"
+}

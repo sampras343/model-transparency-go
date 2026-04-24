@@ -57,12 +57,15 @@ func NewPkcs11KeySigner() *cobra.Command {
     management protocols.`
 
 	cmd := &cobra.Command{
-		Use:   "pkcs11-key [OPTIONS] MODEL_PATH",
+		Use:   "pkcs11-key [OPTIONS] [MODEL_PATH]",
 		Short: "Sign using a private key using a PKCS #11 URI.",
 		Long:  long,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			modelPath := args[0]
+			modelPath, err := jso.ResolveModelPath(args)
+			if err != nil {
+				return err
+			}
 			opts := o.ToStandardOptions(modelPath)
 			opts.Logger = ro.NewObservability().Logger
 
@@ -114,12 +117,15 @@ func NewPkcs11CertificateSigner() *cobra.Command {
       pkcs11:token=TOKEN;object=KEY?module-name=MODULE&pin-value=PIN`
 
 	cmd := &cobra.Command{
-		Use:   "pkcs11-certificate [OPTIONS] MODEL_PATH",
+		Use:   "pkcs11-certificate [OPTIONS] [MODEL_PATH]",
 		Short: "Sign using a certificate.",
 		Long:  long,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			modelPath := args[0]
+			modelPath, err := jso.ResolveModelPath(args)
+			if err != nil {
+				return err
+			}
 			opts := o.ToStandardOptions(modelPath)
 			opts.Logger = ro.NewObservability().Logger
 

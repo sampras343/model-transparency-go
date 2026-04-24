@@ -39,6 +39,20 @@
 // Demo mode (uses test certificates from the repository):
 //
 //	go run ./examples/certificate/sign/main.go
+//
+// model-signing CLI (--json):
+//
+// Pass MODEL_PATH as a positional after "sign certificate", or omit it and use the reserved JSON key "model"
+// (positional wins if both are set). Flag names differ slightly from this example: use signing-certificate
+// and certificate-chain (see "model-signing sign certificate --help"). certificate_chain in JSON is a
+// comma-separated path list in one string, matching how StringSlice flags are set.
+//
+//	model-signing sign certificate /path/to/model \
+//	    --json '{"private_key":"/path/to/key.pem","signing_certificate":"/path/to/signing.pem","certificate_chain":"/intermediate.pem,/root.pem","signature":"/path/to/model.sig"}'
+//
+//	model-signing sign certificate --json '{"model":"/path/to/model","private_key":"/path/to/key.pem","signing_certificate":"/path/to/signing.pem","certificate_chain":"/intermediate.pem,/root.pem","signature":"/path/to/model.sig"}'
+//
+// Or: go run ./cmd/model-signing/ sign certificate --json '{"model":"...",...}'
 package main
 
 import (
