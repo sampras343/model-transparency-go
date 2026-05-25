@@ -5,12 +5,12 @@ go 1.25.7
 require (
 	github.com/ThalesGroup/crypto11 v1.6.0
 	github.com/coreos/go-oidc/v3 v3.18.0
-	github.com/google/go-containerregistry v0.21.5
+	github.com/google/go-containerregistry v0.21.6
 	github.com/in-toto/attestation v1.2.0
 	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/moby/term v0.5.2
 	github.com/sigstore/protobuf-specs v0.5.1
-	github.com/sigstore/sigstore v1.10.5
+	github.com/sigstore/sigstore v1.10.6
 	github.com/sigstore/sigstore-go v1.1.4
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
@@ -92,7 +92,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.43.0 // optional
 	go.opentelemetry.io/otel/trace v1.43.0
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/mod v0.35.0 // indirect
+	golang.org/x/mod v0.36.0 // indirect
 	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.44.0 // indirect
