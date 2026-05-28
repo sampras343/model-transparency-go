@@ -16,9 +16,13 @@ package sigstore
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -114,15 +118,25 @@ func randomString(length int) string {
 	return cryptoutils.GenerateRandomURLSafeString(uint(length))
 }
 
+const (
+	defaultAudience = "sigstore"
+	//nolint:gosec // G101: not a credential, this is a well-known filesystem path
+	filesystemTokenPath = "/var/run/sigstore/cosign/oidc-token"
+	//nolint:gosec // G101: not a credential, this is an environment variable name
+	ambientTokenEnvVar     = "SIGSTORE_ID_TOKEN"
+	ghActionsRequestURLVar = "ACTIONS_ID_TOKEN_REQUEST_URL"
+	ghActionsRequestTknVar = "ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+)
+
 // getIDToken obtains an OIDC identity token based on configuration.
 //
 // Priority order:
 // 1. Uses provided identity token if available
-// 2. Uses ambient credentials if configured
+// 2. Uses ambient credentials if configured (SIGSTORE_ID_TOKEN, GitHub Actions, filesystem)
 // 3. Falls back to interactive OAuth flow
 //
 // Returns the ID token string or an error if token acquisition fails.
-func (s *SigstoreSigner) getIDToken(_ context.Context) (string, error) {
+func (s *SigstoreSigner) getIDToken(ctx context.Context) (string, error) {
 	// If a token is explicitly provided, use it
 	if s.opts.IdentityToken != "" {
 		return s.opts.IdentityToken, nil
@@ -134,17 +148,12 @@ func (s *SigstoreSigner) getIDToken(_ context.Context) (string, error) {
 		return "", fmt.Errorf("failed to get OIDC issuer URL: %w", err)
 	}
 
-	// Check for ambient credentials (GitHub Actions, etc.)
 	if s.opts.UseAmbientCredentials {
-		// Try common environment variables for OIDC tokens
-		token := os.Getenv("SIGSTORE_ID_TOKEN")
-		if token == "" {
-			token = os.Getenv("ACTIONS_ID_TOKEN_REQUEST_TOKEN")
+		token, err := getAmbientToken(ctx)
+		if err != nil {
+			return "", fmt.Errorf("ambient credentials requested but no provider succeeded: %w", err)
 		}
-		if token != "" {
-			return token, nil
-		}
-		return "", fmt.Errorf("ambient credentials requested but SIGSTORE_ID_TOKEN or ACTIONS_ID_TOKEN_REQUEST_TOKEN not found")
+		return token, nil
 	}
 
 	// Get ID token using OAuth flow
@@ -158,11 +167,9 @@ func (s *SigstoreSigner) getIDToken(_ context.Context) (string, error) {
 	var token *oauthflow.OIDCIDToken
 
 	if s.opts.OAuthForceOob {
-		// Use out-of-band (OOB) OAuth flow
 		tokenGetter := &oobIDTokenGetter{}
 		token, err = oauthflow.OIDConnect(issuerURL, clientID, clientSecret, "", tokenGetter)
 	} else {
-		// Use interactive flow with automatic browser and local callback server
 		redirectURL := ""
 		tokenGetter := oauthflow.DefaultIDTokenGetter
 		token, err = oauthflow.OIDConnect(issuerURL, clientID, clientSecret, redirectURL, tokenGetter)
@@ -173,6 +180,92 @@ func (s *SigstoreSigner) getIDToken(_ context.Context) (string, error) {
 	}
 
 	return token.RawString, nil
+}
+
+// getAmbientToken tries each ambient OIDC provider in order:
+//  1. SIGSTORE_ID_TOKEN environment variable
+//  2. GitHub Actions OIDC token request
+//  3. Filesystem token at /var/run/sigstore/cosign/oidc-token
+func getAmbientToken(ctx context.Context) (string, error) {
+	var errs []string
+
+	// 1. Explicit env var
+	if token := os.Getenv(ambientTokenEnvVar); token != "" {
+		return token, nil
+	}
+
+	// 2. GitHub Actions
+	token, err := fetchGitHubActionsToken(ctx, defaultAudience)
+	if err == nil {
+		return token, nil
+	}
+	errs = append(errs, fmt.Sprintf("github-actions: %v", err))
+
+	// 3. Filesystem
+	token, err = readFilesystemToken(filesystemTokenPath)
+	if err == nil {
+		return token, nil
+	}
+	errs = append(errs, fmt.Sprintf("filesystem: %v", err))
+
+	return "", fmt.Errorf("%s not set; %s", ambientTokenEnvVar, strings.Join(errs, "; "))
+}
+
+// fetchGitHubActionsToken obtains an OIDC token from the GitHub Actions
+// runtime. ACTIONS_ID_TOKEN_REQUEST_TOKEN is a bearer credential used to
+// request the actual JWT from ACTIONS_ID_TOKEN_REQUEST_URL — it is not the
+// OIDC token itself.
+func fetchGitHubActionsToken(ctx context.Context, audience string) (string, error) {
+	requestURL := os.Getenv(ghActionsRequestURLVar)
+	requestToken := os.Getenv(ghActionsRequestTknVar)
+	if requestURL == "" || requestToken == "" {
+		return "", fmt.Errorf("%s and/or %s not set", ghActionsRequestURLVar, ghActionsRequestTknVar)
+	}
+
+	tokenURL := requestURL + "&audience=" + audience
+	//nolint:gosec // G704: URL is from ACTIONS_ID_TOKEN_REQUEST_URL set by GitHub Actions runtime
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, tokenURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("creating request: %w", err)
+	}
+	req.Header.Set("Authorization", "bearer "+requestToken)
+
+	resp, err := http.DefaultClient.Do(req) //nolint:gosec // G704: see above
+	if err != nil {
+		return "", fmt.Errorf("requesting token: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("token endpoint returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	var payload struct {
+		Value string `json:"value"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return "", fmt.Errorf("decoding token response: %w", err)
+	}
+	if payload.Value == "" {
+		return "", fmt.Errorf("token endpoint returned empty token")
+	}
+
+	return payload.Value, nil
+}
+
+// readFilesystemToken reads an OIDC token from a well-known filesystem path,
+// used by providers that inject tokens as mounted files.
+func readFilesystemToken(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	token := strings.TrimSpace(string(data))
+	if token == "" {
+		return "", fmt.Errorf("token file %s is empty", path)
+	}
+	return token, nil
 }
 
 // getFulcioURL returns the Fulcio CA URL to use for certificate issuance.
