@@ -15,6 +15,7 @@
 package modelartifact
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -177,6 +178,50 @@ func TestCanonicalizeNonexistentPath(t *testing.T) {
 	_, err := Canonicalize("/nonexistent/path", Options{})
 	if err == nil {
 		t.Error("expected error for nonexistent path")
+	}
+}
+
+func TestCanonicalizeEmptyDirectory(t *testing.T) {
+	dir := t.TempDir()
+
+	_, err := Canonicalize(dir, Options{})
+	if err == nil {
+		t.Fatal("expected error for empty model directory")
+	}
+	if !errors.Is(err, ErrEmptyModel) {
+		t.Errorf("expected ErrEmptyModel, got: %v", err)
+	}
+}
+
+func TestCanonicalizeDirectoryWithOnlySubdirs(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "subdir", "nested"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Canonicalize(dir, Options{})
+	if err == nil {
+		t.Fatal("expected error for directory with only subdirectories (no regular files)")
+	}
+	if !errors.Is(err, ErrEmptyModel) {
+		t.Errorf("expected ErrEmptyModel, got: %v", err)
+	}
+}
+
+func TestCanonicalizeAllFilesIgnored(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "only-file.txt"), []byte("data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Canonicalize(dir, Options{
+		IgnorePaths: []string{"only-file.txt"},
+	})
+	if err == nil {
+		t.Fatal("expected error when all files are excluded by ignore paths")
+	}
+	if !errors.Is(err, ErrEmptyModel) {
+		t.Errorf("expected ErrEmptyModel, got: %v", err)
 	}
 }
 
