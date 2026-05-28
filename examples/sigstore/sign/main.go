@@ -20,8 +20,9 @@
 //
 // Authentication methods (in order of precedence):
 //  1. SIGSTORE_ID_TOKEN environment variable (explicit OIDC token)
-//  2. ACTIONS_ID_TOKEN_REQUEST_TOKEN (GitHub Actions ambient credentials)
-//  3. Interactive OAuth flow (browser-based authentication)
+//  2. GitHub Actions ambient OIDC (fetched via ACTIONS_ID_TOKEN_REQUEST_URL)
+//  3. Filesystem token at /var/run/sigstore/cosign/oidc-token
+//  4. Interactive OAuth flow (browser-based authentication)
 //
 // Usage:
 //
