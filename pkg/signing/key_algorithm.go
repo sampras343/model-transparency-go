@@ -32,7 +32,7 @@ import (
 )
 
 // GetPublicKeyDetails determines the PublicKeyDetails enum for a given public key.
-// This function supports ECDSA (P-256, P-384), RSA (2048, 3072, 4096 bits), and Ed25519 keys.
+// This function supports ECDSA (P-256, P-384, P-521), RSA (2048, 3072, 4096 bits), and Ed25519 keys.
 func GetPublicKeyDetails(pubKey crypto.PublicKey) (protocommon.PublicKeyDetails, error) {
 	switch k := pubKey.(type) {
 	case *ecdsa.PublicKey:
@@ -41,6 +41,8 @@ func GetPublicKeyDetails(pubKey crypto.PublicKey) (protocommon.PublicKeyDetails,
 			return protocommon.PublicKeyDetails_PKIX_ECDSA_P256_SHA_256, nil
 		case elliptic.P384():
 			return protocommon.PublicKeyDetails_PKIX_ECDSA_P384_SHA_384, nil
+		case elliptic.P521():
+			return protocommon.PublicKeyDetails_PKIX_ECDSA_P521_SHA_512, nil
 		default:
 			return 0, fmt.Errorf("unsupported ECDSA curve: %s", k.Curve.Params().Name)
 		}

@@ -53,9 +53,9 @@ func TestGetAlgorithmDetails_ECDSAKeys(t *testing.T) {
 		{
 			name:        "P-521 key",
 			curve:       elliptic.P521(),
-			wantHashAlg: 0,
-			wantSigAlg:  0,
-			wantErr:     true, // P-521 is unsupported by sigstore protobuf specs
+			wantHashAlg: protocommon.HashAlgorithm_SHA2_512,
+			wantSigAlg:  protocommon.PublicKeyDetails_PKIX_ECDSA_P521_SHA_512,
+			wantErr:     false,
 		},
 	}
 
@@ -216,6 +216,14 @@ func TestPKCS11Keypair_GetKeyAlgorithm(t *testing.T) {
 			name: "ECDSA P-384",
 			keyGen: func() interface{} {
 				key, _ := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+				return &key.PublicKey
+			},
+			wantType: "ECDSA",
+		},
+		{
+			name: "ECDSA P-521",
+			keyGen: func() interface{} {
+				key, _ := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
 				return &key.PublicKey
 			},
 			wantType: "ECDSA",

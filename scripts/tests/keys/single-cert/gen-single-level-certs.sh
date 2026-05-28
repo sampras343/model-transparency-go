@@ -39,6 +39,19 @@ openssl req -new -x509 \
 
 echo "  Created P-384 key and certificate"
 
+# Generate ECDSA P-521 key and self-signed certificate
+openssl ecparam -name secp521r1 -genkey -noout -out signing-key-p521.pem
+
+openssl req -new -x509 \
+    -key signing-key-p521.pem \
+    -out signing-cert-p521.pem \
+    -days 3650 \
+    -subj "/CN=single-level-test-p521" \
+    -addext "keyUsage=critical,digitalSignature" \
+    -addext "extendedKeyUsage=codeSigning"
+
+echo "  Created P-521 key and certificate"
+
 # Generate RSA 2048 key and self-signed certificate
 openssl genrsa -out signing-key-rsa.pem 2048
 

@@ -20,6 +20,7 @@ generate_single_certs_if_needed() {
     # Check if certificates already exist
     if [ -f "${cert_dir}/signing-cert-p256.pem" ] && \
        [ -f "${cert_dir}/signing-cert-p384.pem" ] && \
+       [ -f "${cert_dir}/signing-cert-p521.pem" ] && \
        [ -f "${cert_dir}/signing-cert-rsa.pem" ]; then
         echo "Single-level certificates already exist, skipping generation"
         return 0
@@ -49,6 +50,17 @@ generate_single_certs_if_needed() {
         -addext "keyUsage=critical,digitalSignature" \
         -addext "extendedKeyUsage=codeSigning" 2>/dev/null
     echo "  Created P-384 key and certificate"
+
+    # Generate ECDSA P-521 key and self-signed certificate
+    openssl ecparam -name secp521r1 -genkey -noout -out "${cert_dir}/signing-key-p521.pem" 2>/dev/null
+    openssl req -new -x509 \
+        -key "${cert_dir}/signing-key-p521.pem" \
+        -out "${cert_dir}/signing-cert-p521.pem" \
+        -days 3650 \
+        -subj "/CN=single-level-test-p521" \
+        -addext "keyUsage=critical,digitalSignature" \
+        -addext "extendedKeyUsage=codeSigning" 2>/dev/null
+    echo "  Created P-521 key and certificate"
 
     # Generate RSA 2048 key and self-signed certificate
     openssl genrsa -out "${cert_dir}/signing-key-rsa.pem" 2048 2>/dev/null
@@ -157,9 +169,38 @@ if ! ${DIR}/model-signing \
 fi
 echo "  P-384 single certificate: PASSED"
 
+# Test with P-521 key
+echo ""
+echo "1c. Testing with ECDSA P-521 key..."
+
+if ! ${DIR}/model-signing \
+	sign certificate \
+	--signature "${sigfile_single}" \
+	--private-key ${DIR}/keys/single-cert/signing-key-p521.pem \
+	--signing-certificate ${DIR}/keys/single-cert/signing-cert-p521.pem \
+	"${MODEL_DIR}" 2>&1 | grep -v "^$"; then
+	echo "Error: 'sign certificate' with single P-521 cert failed"
+	exit 1
+fi
+
+if ! check_bundle_format "${sigfile_single}" "single"; then
+	echo "Error: Bundle format check failed for P-521"
+	exit 1
+fi
+
+if ! ${DIR}/model-signing \
+	verify certificate \
+	--signature "${sigfile_single}" \
+	--certificate-chain ${DIR}/keys/single-cert/signing-cert-p521.pem \
+	"${MODEL_DIR}" 2>&1 | grep -v "^$"; then
+	echo "Error: 'verify certificate' with single P-521 cert failed"
+	exit 1
+fi
+echo "  P-521 single certificate: PASSED"
+
 # Test with RSA key
 echo ""
-echo "1c. Testing with RSA-2048 key..."
+echo "1d. Testing with RSA-2048 key..."
 
 if ! ${DIR}/model-signing \
 	sign certificate \

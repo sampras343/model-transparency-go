@@ -28,7 +28,7 @@ import (
 )
 
 // CreateSignatureVerifier creates a sigstore signature.Verifier from a crypto.PublicKey.
-// Supports ECDSA (P-256, P-384), RSA (PKCS1v15 with SHA256), and Ed25519 keys.
+// Supports ECDSA (P-256, P-384, P-521), RSA (PKCS1v15 with SHA256), and Ed25519 keys.
 func CreateSignatureVerifier(pubKey crypto.PublicKey) (sigstoresig.Verifier, error) {
 	switch k := pubKey.(type) {
 	case *ecdsa.PublicKey:
@@ -38,6 +38,8 @@ func CreateSignatureVerifier(pubKey crypto.PublicKey) (sigstoresig.Verifier, err
 			hashFunc = crypto.SHA256
 		case elliptic.P384():
 			hashFunc = crypto.SHA384
+		case elliptic.P521():
+			hashFunc = crypto.SHA512
 		default:
 			return nil, fmt.Errorf("unsupported ECDSA curve: %s", k.Curve.Params().Name)
 		}

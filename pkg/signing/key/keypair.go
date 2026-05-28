@@ -37,7 +37,7 @@ type ModelKeypair struct {
 // NewModelKeypair loads a private key from a PEM file and returns a Keypair
 // that can be passed to sigstore-go's sign.Bundle().
 //
-// Supports ECDSA (P-256, P-384), RSA, and Ed25519 keys.
+// Supports ECDSA (P-256, P-384, P-521), RSA, and Ed25519 keys.
 // If password is non-empty, the key is assumed to be encrypted.
 func NewModelKeypair(keyPath string, password string) (*ModelKeypair, error) {
 	// Load private key from PEM file

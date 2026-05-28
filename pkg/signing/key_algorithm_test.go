@@ -58,7 +58,7 @@ func TestGetPublicKeyDetails(t *testing.T) {
 			wantError: false,
 		},
 		{
-			name: "ECDSA P-521 (unsupported)",
+			name: "ECDSA P-521",
 			keyFunc: func() (interface{}, error) {
 				key, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
 				if err != nil {
@@ -66,8 +66,8 @@ func TestGetPublicKeyDetails(t *testing.T) {
 				}
 				return &key.PublicKey, nil
 			},
-			wantAlg:   0,
-			wantError: true,
+			wantAlg:   protocommon.PublicKeyDetails_PKIX_ECDSA_P521_SHA_512,
+			wantError: false,
 		},
 		{
 			name: "ECDSA P-224 (unsupported)",
@@ -158,6 +158,26 @@ func TestGetPublicKeyDetails(t *testing.T) {
 				t.Errorf("Got algorithm %v, want %v", alg, tt.wantAlg)
 			}
 		})
+	}
+}
+
+func TestInitializeKeypairData_P521(t *testing.T) {
+	key, err := ecdsa.GenerateKey(elliptic.P521(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate P-521 key: %v", err)
+	}
+
+	algDetails, hint, err := InitializeKeypairData(&key.PublicKey)
+	if err != nil {
+		t.Fatalf("InitializeKeypairData failed for P-521: %v", err)
+	}
+
+	if algDetails.GetSignatureAlgorithm() != protocommon.PublicKeyDetails_PKIX_ECDSA_P521_SHA_512 {
+		t.Errorf("expected PKIX_ECDSA_P521_SHA_512, got %v", algDetails.GetSignatureAlgorithm())
+	}
+
+	if len(hint) == 0 {
+		t.Error("expected non-empty key hint")
 	}
 }
 
