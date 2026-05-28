@@ -1,13 +1,15 @@
 
-# Fetch an OIDC token from the sigstore-conformance beacon with expiry validation.
-# Re-fetches if the token has insufficient remaining lifetime. The beacon refreshes
-# tokens on a ~10 min cron cycle, so we use a timeout-based approach to span at
-# least one full refresh cycle.
-# Args: $1=clone_dir  $2=token_file  [$3=timeout_secs]  [$4=min_lifetime_secs]
+# URL of the conformance testing OIDC token (published by a Google Cloud Run
+# service, refreshed every 15 minutes, valid for > 45 minutes).
+CONFORMANCE_TOKEN_URL="https://storage.googleapis.com/sigstore-conformance-testing-token/untrusted-testing-token.txt"
+
+# Fetch an OIDC token from the sigstore-conformance GCS bucket with expiry
+# validation.  Re-fetches if the token has insufficient remaining lifetime.
+# Args: $1=token_dir  $2=token_file  [$3=timeout_secs]  [$4=min_lifetime_secs]
 fetch_oidc_token() {
 	local tokenproj="$1"
 	local token_file="$2"
-	local timeout="${3:-600}"       # 10 minutes — covers one full beacon refresh cycle
+	local timeout="${3:-120}"
 	local min_lifetime="${4:-30}"
 	local start_time attempt
 	start_time=$(date +%s)
@@ -24,19 +26,17 @@ fetch_oidc_token() {
 			return 1
 		fi
 
-		rm -rf "${tokenproj}"
 		mkdir -p "${tokenproj}"
 
-		if ! git clone --quiet --single-branch --branch current-token --depth 1 \
-			https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon \
-			"${tokenproj}" 2>/dev/null; then
-			echo "  Warning: git clone failed (attempt ${attempt}, ${elapsed}s elapsed)"
+		if ! curl --fail --silent --retry 3 --output "${token_file}" \
+			"${CONFORMANCE_TOKEN_URL}" 2>/dev/null; then
+			echo "  Warning: token download failed (attempt ${attempt}, ${elapsed}s elapsed)"
 			sleep 10
 			continue
 		fi
 
-		if [ ! -f "${token_file}" ]; then
-			echo "  Warning: token file not found (attempt ${attempt}, ${elapsed}s elapsed)"
+		if [ ! -s "${token_file}" ]; then
+			echo "  Warning: token file is empty (attempt ${attempt}, ${elapsed}s elapsed)"
 			sleep 10
 			continue
 		fi
@@ -64,7 +64,7 @@ fetch_oidc_token() {
 			return 0
 		fi
 
-		sleep 30   # wait for beacon to mint a fresh token
+		sleep 30
 	done
 }
 
