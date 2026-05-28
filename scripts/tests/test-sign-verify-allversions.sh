@@ -125,8 +125,8 @@ if ! out=$(${DIR}/model-signing \
 	verify sigstore \
 	--use-staging \
 	--signature "${sigfile_sigstore}" \
-	--identity https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon/.github/workflows/extremely-dangerous-oidc-beacon.yml@refs/heads/main \
-	--identity-provider https://token.actions.githubusercontent.com \
+	--identity untrusted-sa@sigstore-conformance.iam.gserviceaccount.com \
+	--identity-provider https://accounts.google.com \
 	--ignore-paths "${ignorefile}" \
 	"${MODELDIR}" 2>&1); then
 	echo "Error: 'verify sigstore' failed"

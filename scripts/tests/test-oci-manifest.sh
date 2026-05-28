@@ -223,8 +223,8 @@ TOKENPROJ="${TMPDIR}/tokenproj"
 mkdir -p "${TOKENPROJ}"
 token_file="${TOKENPROJ}/oidc-token.txt"
 
-SIGSTORE_IDENTITY="https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon/.github/workflows/extremely-dangerous-oidc-beacon.yml@refs/heads/main"
-SIGSTORE_ISSUER="https://token.actions.githubusercontent.com"
+SIGSTORE_IDENTITY="untrusted-sa@sigstore-conformance.iam.gserviceaccount.com"
+SIGSTORE_ISSUER="https://accounts.google.com"
 
 echo
 echo "=== SIGSTORE strategy: cross-verification tests ==="
