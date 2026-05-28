@@ -15,6 +15,7 @@
 package modelartifact
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -23,6 +24,10 @@ import (
 	"github.com/sigstore/model-signing/pkg/oci"
 	"github.com/sigstore/model-signing/pkg/utils"
 )
+
+// ErrEmptyModel is returned when a model contains no regular files after
+// applying exclusions. Per spec §6.1, an empty model MUST be rejected.
+var ErrEmptyModel = errors.New("model contains no regular files after exclusions; empty models must be rejected (spec §6.1)")
 
 // Canonicalize walks a model directory (or OCI manifest), hashes all files,
 // and returns a deterministic Manifest.
@@ -35,12 +40,23 @@ import (
 // structure), the manifest is created from the OCI layers instead of walking
 // the filesystem.
 func Canonicalize(modelPath string, opts Options) (*manifest.Manifest, error) {
-	// Handle OCI manifests
+	var m *manifest.Manifest
+	var err error
+
 	if oci.IsOCIManifest(modelPath) {
-		return canonicalizeOCI(modelPath, opts)
+		m, err = canonicalizeOCI(modelPath, opts)
+	} else {
+		m, err = canonicalizeDirectory(modelPath, opts)
+	}
+	if err != nil {
+		return nil, err
 	}
 
-	return canonicalizeDirectory(modelPath, opts)
+	if len(m.ResourceDescriptors()) == 0 {
+		return nil, ErrEmptyModel
+	}
+
+	return m, nil
 }
 
 // Compare checks whether two manifests match. Returns nil if they are equal,
