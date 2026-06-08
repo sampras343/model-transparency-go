@@ -37,6 +37,8 @@ type Pkcs11SignerOptions struct {
 	IgnorePaths            []string
 	IgnoreGitPaths         bool
 	AllowSymlinks          bool
+	HashAlgorithm          string
+	ShardSize              int64
 	URI                    string
 	ModulePaths            []string
 	SigningCertificatePath string
