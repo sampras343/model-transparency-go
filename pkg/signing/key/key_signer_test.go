@@ -15,10 +15,108 @@
 package key
 
 import (
+	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+func writeECKeyPEM(t *testing.T, dir string, curve elliptic.Curve) string {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(curve, rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate EC key: %v", err)
+	}
+	der, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		t.Fatalf("failed to marshal EC key: %v", err)
+	}
+	path := filepath.Join(dir, "key.pem")
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if err := pem.Encode(f, &pem.Block{Type: "EC PRIVATE KEY", Bytes: der}); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestNewModelKeypair_ECCurves(t *testing.T) {
+	curves := []struct {
+		name  string
+		curve elliptic.Curve
+	}{
+		{"P-256", elliptic.P256()},
+		{"P-384", elliptic.P384()},
+		{"P-521", elliptic.P521()},
+	}
+
+	for _, tc := range curves {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			keyPath := writeECKeyPEM(t, dir, tc.curve)
+
+			kp, err := NewModelKeypair(keyPath, "")
+			if err != nil {
+				t.Fatalf("NewModelKeypair failed for %s: %v", tc.name, err)
+			}
+
+			if kp.GetKeyAlgorithm() != "ECDSA" {
+				t.Errorf("expected ECDSA, got %s", kp.GetKeyAlgorithm())
+			}
+
+			if len(kp.GetHint()) == 0 {
+				t.Error("expected non-empty key hint")
+			}
+
+			pubPEM, err := kp.GetPublicKeyPem()
+			if err != nil {
+				t.Fatalf("GetPublicKeyPem failed: %v", err)
+			}
+			if pubPEM == "" {
+				t.Error("expected non-empty public key PEM")
+			}
+		})
+	}
+}
+
+func TestModelKeypair_P521_SignData(t *testing.T) {
+	dir := t.TempDir()
+	keyPath := writeECKeyPEM(t, dir, elliptic.P521())
+
+	kp, err := NewModelKeypair(keyPath, "")
+	if err != nil {
+		t.Fatalf("NewModelKeypair failed: %v", err)
+	}
+
+	data := []byte("test payload for P-521 signing")
+	sig, signed, err := kp.SignData(context.Background(), data)
+	if err != nil {
+		t.Fatalf("SignData failed: %v", err)
+	}
+
+	if len(sig) == 0 {
+		t.Error("expected non-empty signature")
+	}
+	if len(signed) == 0 {
+		t.Error("expected non-empty signed data")
+	}
+
+	pubKey, ok := kp.GetPublicKey().(*ecdsa.PublicKey)
+	if !ok {
+		t.Fatal("expected *ecdsa.PublicKey")
+	}
+	if pubKey.Curve != elliptic.P521() {
+		t.Errorf("expected P-521 curve, got %s", pubKey.Curve.Params().Name)
+	}
+}
 
 func TestNewKeySigner_MissingModelPath(t *testing.T) {
 	tmpDir := t.TempDir()

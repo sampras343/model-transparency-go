@@ -3,7 +3,7 @@
 # Hardening tests for model-signing
 #
 # This script tests:
-# 1. Key type variations (RSA, ECDSA P-256, P-384, Ed25519)
+# 1. Key type variations (RSA, ECDSA P-256, P-384, P-521, Ed25519)
 # 2. Signature tampering detection
 # 3. Model tampering detection
 # 4. Edge case models
@@ -153,19 +153,28 @@ if ! out=$(${DIR}/model-signing verify key \
 fi
 echo "  ECDSA P-384: PASSED"
 
-# --- ECDSA P-521 (unsupported by sigstore protobuf specs — should be rejected) ---
-echo "[Key Types] Testing ECDSA P-521 rejection (unsupported curve)..."
+# --- ECDSA P-521 ---
+echo "[Key Types] Testing ECDSA P-521..."
 generate_ecdsa_key "ecdsa-p521" "secp521r1"
 SIGFILE="${TMPDIR}/ecdsa-p521.sig"
 
-if ${DIR}/model-signing sign key \
+if ! ${DIR}/model-signing sign key \
 	--signature "${SIGFILE}" \
 	--private-key "${KEYSDIR}/ecdsa-p521.pem" \
 	"${MODELDIR}" >/dev/null 2>&1; then
-	echo "  Error: Sign with ECDSA P-521 should have been rejected"
+	echo "  Error: Sign with ECDSA P-521 failed"
 	exit 1
 fi
-echo "  ECDSA P-521 rejected: PASSED"
+
+if ! out=$(${DIR}/model-signing verify key \
+	--signature "${SIGFILE}" \
+	--public-key "${KEYSDIR}/ecdsa-p521-pub.pem" \
+	"${MODELDIR}" 2>&1); then
+	echo "  Error: Verify with ECDSA P-521 failed"
+	echo "  ${out}"
+	exit 1
+fi
+echo "  ECDSA P-521: PASSED"
 
 # --- Ed25519 ---
 echo "[Key Types] Testing Ed25519..."

@@ -33,7 +33,6 @@ jobs:
           skip-result-upload: 'true'
           xfail: |
             test_roundtrip[key-empty-model-rejected
-            test_roundtrip[key-p521
             test_roundtrip[key-symlink-cycle
             test_roundtrip[key-symlink-default-rejected
             test_roundtrip[key-symlink-outside-root
