@@ -61,12 +61,9 @@ func PreparePayload(modelPath, signaturePath string, opts modelartifact.Options,
 	// Step 1: Canonicalize the model
 	logger.Debugln("\nStep 1: Canonicalizing model...")
 	ignorePaths := append(append([]string{}, opts.IgnorePaths...), signaturePath)
-	canonOpts := modelartifact.Options{
-		IgnorePaths:    ignorePaths,
-		IgnoreGitPaths: opts.IgnoreGitPaths,
-		AllowSymlinks:  opts.AllowSymlinks,
-		Logger:         logger,
-	}
+	canonOpts := opts
+	canonOpts.IgnorePaths = ignorePaths
+	canonOpts.Logger = logger
 	m, err := modelartifact.Canonicalize(modelPath, canonOpts)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to canonicalize model: %w", err)
