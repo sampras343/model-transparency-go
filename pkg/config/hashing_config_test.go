@@ -16,12 +16,48 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"sync"
 	"syscall"
 	"testing"
+
+	"github.com/sigstore/model-signing/pkg/logging"
 )
+
+type capturingLogger struct {
+	mu       sync.Mutex
+	warnings []string
+}
+
+func (l *capturingLogger) Debug(string, ...interface{}) {}
+func (l *capturingLogger) Debugln(string)               {}
+func (l *capturingLogger) Info(string, ...interface{})  {}
+func (l *capturingLogger) Infoln(string)                {}
+func (l *capturingLogger) Error(string, ...interface{}) {}
+func (l *capturingLogger) Errorln(string)               {}
+func (l *capturingLogger) GetLevel() logging.LogLevel   { return logging.LevelDebug }
+func (l *capturingLogger) Silent() bool                 { return false }
+func (l *capturingLogger) Warnln(msg string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.warnings = append(l.warnings, msg)
+}
+func (l *capturingLogger) Warn(format string, args ...interface{}) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.warnings = append(l.warnings, fmt.Sprintf(format, args...))
+}
+func (l *capturingLogger) WithField(string, interface{}) logging.Logger     { return l }
+func (l *capturingLogger) WithFields(map[string]interface{}) logging.Logger { return l }
+func (l *capturingLogger) Warnings() []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return append([]string{}, l.warnings...)
+}
 
 func TestNewHashingConfig(t *testing.T) {
 	config := NewHashingConfig()
@@ -693,7 +729,6 @@ func TestWalkDirectory_OnlySymlinks_RejectsSymlink(t *testing.T) {
 	if err := os.Symlink(target, filepath.Join(dir, "only-link.txt")); err != nil {
 		t.Skip("symlinks not supported on this platform")
 	}
-	// Remove the real file so the only entry is a symlink
 	if err := os.Remove(target); err != nil {
 		t.Fatal(err)
 	}
@@ -703,5 +738,110 @@ func TestWalkDirectory_OnlySymlinks_RejectsSymlink(t *testing.T) {
 	_, err := hc.Hash(dir, nil)
 	if !errors.Is(err, ErrSymlinkNotAllowed) {
 		t.Fatalf("expected ErrSymlinkNotAllowed, got: %v", err)
+	}
+}
+
+func TestWalkDirectory_SymlinkOutsideRootWarns(t *testing.T) {
+	modelDir := t.TempDir()
+	outsideDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(modelDir, "real.txt"), []byte("data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	outsideFile := filepath.Join(outsideDir, "external.txt")
+	if err := os.WriteFile(outsideFile, []byte("external"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outsideFile, filepath.Join(modelDir, "link.txt")); err != nil {
+		t.Skip("symlinks not supported on this platform")
+	}
+
+	logger := &capturingLogger{}
+	hc := NewHashingConfig()
+	hc.SetAllowSymlinks(true)
+	hc.SetLogger(logger)
+	hc.UseFileSerialization("sha256", true, nil)
+
+	m, err := hc.Hash(modelDir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if m == nil {
+		t.Fatal("expected non-nil manifest")
+	}
+
+	warnings := logger.Warnings()
+	found := false
+	for _, w := range warnings {
+		if strings.Contains(w, "outside model root") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected warning about symlink target outside model root, got: %v", warnings)
+	}
+}
+
+func TestWalkDirectory_SymlinkCycleWarns(t *testing.T) {
+	modelDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(modelDir, "real.txt"), []byte("data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("self", filepath.Join(modelDir, "self")); err != nil {
+		t.Skip("symlinks not supported on this platform")
+	}
+
+	logger := &capturingLogger{}
+	hc := NewHashingConfig()
+	hc.SetAllowSymlinks(true)
+	hc.SetLogger(logger)
+	hc.UseFileSerialization("sha256", true, nil)
+
+	_, err := hc.Hash(modelDir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	warnings := logger.Warnings()
+	found := false
+	for _, w := range warnings {
+		if strings.Contains(w, "cycle") || strings.Contains(w, "broken link") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected warning about symlink cycle, got: %v", warnings)
+	}
+}
+
+func TestWalkDirectory_SymlinkInsideRootNoWarning(t *testing.T) {
+	modelDir := t.TempDir()
+
+	target := filepath.Join(modelDir, "real.txt")
+	if err := os.WriteFile(target, []byte("data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(modelDir, "link.txt")); err != nil {
+		t.Skip("symlinks not supported on this platform")
+	}
+
+	logger := &capturingLogger{}
+	hc := NewHashingConfig()
+	hc.SetAllowSymlinks(true)
+	hc.SetLogger(logger)
+	hc.UseFileSerialization("sha256", true, nil)
+
+	_, err := hc.Hash(modelDir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	for _, w := range logger.Warnings() {
+		if strings.Contains(w, "outside model root") {
+			t.Errorf("unexpected outside-root warning for internal symlink: %s", w)
+		}
 	}
 }
