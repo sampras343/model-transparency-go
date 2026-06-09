@@ -25,6 +25,7 @@ import (
 	hashengines "github.com/sigstore/model-signing/pkg/hashing/engines"
 	hashio "github.com/sigstore/model-signing/pkg/hashing/engines/io"
 	_ "github.com/sigstore/model-signing/pkg/hashing/engines/memory" // Register default hash engines (sha256, blake2b)
+	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/manifest"
 	"github.com/sigstore/model-signing/pkg/utils"
 )
@@ -57,6 +58,9 @@ type HashingConfig struct {
 
 	// Chunk size for file reading (0 = read all at once)
 	chunkSize int
+
+	// Logger for warnings (e.g. symlink targets outside model root)
+	logger logging.Logger
 }
 
 // PathLike is a type alias for path-like strings.
@@ -196,6 +200,13 @@ func (c *HashingConfig) SetChunkSize(size int) *HashingConfig {
 	return c
 }
 
+// SetLogger sets the logger for warnings during file enumeration
+// (e.g. symlink targets outside model root, symlink cycles).
+func (c *HashingConfig) SetLogger(logger logging.Logger) *HashingConfig {
+	c.logger = logger
+	return c
+}
+
 // Hash hashes a model directory and returns a manifest.
 //
 // If filesToHash is nil, all files in the directory are hashed (subject to ignore rules).
@@ -265,9 +276,15 @@ func (c *HashingConfig) Hash(modelPath string, filesToHash []string) (*manifest.
 // Returns a list of absolute file paths that should be hashed, respecting
 // ignore rules and symlink configuration.
 func (c *HashingConfig) walkDirectory(modelPath string) ([]string, error) {
+	absModelRoot, err := filepath.Abs(modelPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve model path: %w", err)
+	}
+	absModelRoot = filepath.Clean(absModelRoot) + string(filepath.Separator)
+
 	var files []string
 
-	err := filepath.WalkDir(modelPath, func(path string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(modelPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -296,7 +313,12 @@ func (c *HashingConfig) walkDirectory(modelPath string) ([]string, error) {
 			}
 			target, err := filepath.EvalSymlinks(path)
 			if err != nil {
-				return fmt.Errorf("failed to resolve symlink %s: %w", path, err)
+				// EvalSymlinks fails on cycles (OMS spec §6.1.1)
+				c.warnf("symlink cycle or broken link: %s: %v", path, err)
+				return nil
+			}
+			if !strings.HasPrefix(filepath.Clean(target)+string(filepath.Separator), absModelRoot) {
+				c.warnf("symlink target outside model root: %s -> %s", path, target)
 			}
 			targetInfo, err := os.Stat(target)
 			if err != nil {
@@ -529,5 +551,11 @@ func (c *HashingConfig) GetSerializationType() manifest.SerializationType {
 			c.allowSymlinks,
 			c.ignoredPaths,
 		)
+	}
+}
+
+func (c *HashingConfig) warnf(format string, args ...interface{}) {
+	if c.logger != nil {
+		c.logger.Warn(format, args...)
 	}
 }
