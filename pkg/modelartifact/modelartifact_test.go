@@ -432,11 +432,14 @@ func TestUnmarshalPayloadInvalid(t *testing.T) {
 	tests := []struct {
 		name    string
 		payload string
+		errMsg  string
 	}{
-		{"empty", ""},
-		{"invalid json", "{not json}"},
-		{"missing predicateType", `{"subject": []}`},
-		{"wrong predicateType", `{"predicateType": "wrong", "subject": []}`},
+		{"empty", "", "unmarshal"},
+		{"invalid json", "{not json}", "unmarshal"},
+		{"missing _type", `{"predicateType": "x", "subject": []}`, "_type field missing"},
+		{"wrong _type", `{"_type": "https://in-toto.io/Statement/v0", "predicateType": "x"}`, "unsupported statement type"},
+		{"missing predicateType", `{"_type": "https://in-toto.io/Statement/v1", "subject": []}`, "predicateType"},
+		{"wrong predicateType", `{"_type": "https://in-toto.io/Statement/v1", "predicateType": "wrong"}`, "predicate type mismatch"},
 	}
 
 	for _, tt := range tests {
@@ -444,6 +447,8 @@ func TestUnmarshalPayloadInvalid(t *testing.T) {
 			_, err := UnmarshalPayload([]byte(tt.payload))
 			if err == nil {
 				t.Errorf("expected error for %s", tt.name)
+			} else if !contains(err.Error(), tt.errMsg) {
+				t.Errorf("expected error containing %q, got: %v", tt.errMsg, err)
 			}
 		})
 	}
