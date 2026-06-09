@@ -44,6 +44,10 @@ func LoadBundle(path string) (*bundle.Bundle, error) {
 // CompareModelWithBundle extracts the expected manifest from a verified
 // DSSE payload, re-canonicalizes the model, and compares the two manifests.
 //
+// Per OMS spec §8.4, the verifier MUST use the serialization parameters
+// (hash_type, method, shard_size, allow_symlinks) from the signed bundle
+// when recomputing file digests — not the caller-provided defaults.
+//
 // The verifiedPayload should be the raw in-toto JSON bytes extracted from
 // the DSSE envelope after cryptographic verification by sigstore-go.
 //
@@ -57,13 +61,39 @@ func CompareModelWithBundle(verifiedPayload []byte, modelPath string, opts model
 		return fmt.Errorf("failed to extract manifest from payload: %w", err)
 	}
 
-	// Step 2: Re-canonicalize the model to get the actual manifest
-	actualManifest, err := modelartifact.Canonicalize(modelPath, opts)
+	// Step 2: Extract serialization parameters from the signed bundle
+	// and use them for re-canonicalization (spec §8.4).
+	params := expectedManifest.SerializationParameters()
+	canonOpts := modelartifact.Options{
+		IgnorePaths:    opts.IgnorePaths,
+		IgnoreGitPaths: opts.IgnoreGitPaths,
+		Logger:         opts.Logger,
+	}
+	if ht, ok := params["hash_type"].(string); ok {
+		canonOpts.HashAlgorithm = ht
+	}
+	// allow_symlinks is the verifier's local policy (CLI flag), not a
+	// structural parameter like hash_type or shard_size. The verifier
+	// decides whether to tolerate symlinks during re-canonicalization.
+	canonOpts.AllowSymlinks = opts.AllowSymlinks
+	if ss, ok := params["shard_size"]; ok {
+		switch v := ss.(type) {
+		case int64:
+			canonOpts.ShardSize = v
+		case float64:
+			canonOpts.ShardSize = int64(v)
+		case int:
+			canonOpts.ShardSize = int64(v)
+		}
+	}
+
+	// Step 3: Re-canonicalize the model to get the actual manifest
+	actualManifest, err := modelartifact.Canonicalize(modelPath, canonOpts)
 	if err != nil {
 		return fmt.Errorf("failed to canonicalize model: %w", err)
 	}
 
-	// Step 3: Compare manifests
+	// Step 4: Compare manifests
 	if ignoreUnsignedFiles {
 		return modelartifact.CompareIgnoringExtra(actualManifest, expectedManifest)
 	}
@@ -92,6 +122,11 @@ func ExtractAndCompareModel(bndl *bundle.Bundle, modelPath, signaturePath string
 		IgnoreGitPaths: opts.IgnoreGitPaths,
 		AllowSymlinks:  opts.AllowSymlinks,
 		Logger:         logger,
+		// HashAlgorithm and ShardSize are intentionally omitted:
+		// CompareModelWithBundle extracts these from the signed
+		// bundle's serialization parameters (spec §8.4).
+		// AllowSymlinks is passed through so the caller can
+		// override the bundle's value permissively.
 	}
 	return CompareModelWithBundle(payloadBytes, modelPath, compareOpts, ignoreUnsignedFiles)
 }
