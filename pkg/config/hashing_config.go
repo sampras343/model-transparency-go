@@ -458,18 +458,18 @@ func (c *HashingConfig) hashFilesWithShards(modelPath string, filePaths []string
 			return nil, fmt.Errorf("%w: %q", ErrInvalidUTF8Path, relPath)
 		}
 
-		// Get file size
 		fileInfo, err := os.Stat(filePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to stat %s: %w", filePath, err)
 		}
 		fileSize := fileInfo.Size()
 
-		// Calculate number of shards (at least 1 for empty files)
-		numShards := (fileSize + c.shardSize - 1) / c.shardSize
-		if numShards == 0 {
-			numShards = 1 // Empty files produce one shard with empty content
+		// Zero-byte files are omitted from resources (spec §6.3.2)
+		if fileSize == 0 {
+			continue
 		}
+
+		numShards := (fileSize + c.shardSize - 1) / c.shardSize
 
 		// Hash each shard
 		for i := int64(0); i < numShards; i++ {

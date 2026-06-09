@@ -901,6 +901,33 @@ func TestHashShards_InvalidUTF8PathRejected(t *testing.T) {
 	}
 }
 
+func TestHashShards_EmptyFileOmitted(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "data.bin"), []byte("content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "empty.bin"), []byte{}, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	hc := NewHashingConfig()
+	hc.UseShardSerialization("sha256", 16, false, nil)
+
+	m, err := hc.Hash(dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	for _, d := range m.ResourceDescriptors() {
+		if strings.Contains(d.Identifier, "empty") {
+			t.Errorf("zero-byte file should be omitted from shard manifest, got: %s", d.Identifier)
+		}
+	}
+	if len(m.ResourceDescriptors()) != 1 {
+		t.Fatalf("expected 1 descriptor (data.bin only), got %d", len(m.ResourceDescriptors()))
+	}
+}
+
 func TestHashFiles_ValidUTF8PathAccepted(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "日本語.txt"), []byte("unicode"), 0644); err != nil {
