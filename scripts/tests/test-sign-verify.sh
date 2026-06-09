@@ -175,8 +175,9 @@ if ${DIR}/model-signing \
 	exit 1
 fi
 
-# This should pass without having to pass --allow-symlinks since the symlink
-# will be ignored
+# Symlinks cause an error when allow_symlinks is false (OMS spec §6.1.1),
+# so we need --allow-symlinks to let the walker proceed, then
+# --ignore-unsigned-files to accept the extra unsigned files.
 echo
 echo "Pass signature verification by ignoring any unsigned files or symlinks"
 if ! ${DIR}/model-signing \
@@ -184,9 +185,10 @@ if ! ${DIR}/model-signing \
 	--signature "$(basename "${sigfile}")" \
 	--certificate-chain "${DIR}/keys/certificate/ca-cert.pem" \
 	--ignore-paths "$(basename "${ignorefile}")" \
+	--allow-symlinks \
 	--ignore-unsigned-files \
 	. ; then
-	echo "Error: 'verify certificate' failed with --ignore-unsigned-files while passing --allow-symlinks"
+	echo "Error: 'verify certificate' failed with --allow-symlinks --ignore-unsigned-files"
 	exit 1
 fi
 

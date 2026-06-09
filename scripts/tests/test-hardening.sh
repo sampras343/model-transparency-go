@@ -857,12 +857,12 @@ SIGFILE_NO_SYMLINK="${TMPDIR}/symlinks-no.sig"
 echo "target-content" > "${MODELDIR}/target.txt"
 ln -s target.txt "${MODELDIR}/link.txt"
 
-# Sign without --allow-symlinks succeeds but skips symlinks
-if ! ${DIR}/model-signing sign key \
+# Sign without --allow-symlinks MUST fail (OMS spec §6.1.1)
+if ${DIR}/model-signing sign key \
 	--signature "${SIGFILE_NO_SYMLINK}" \
 	--private-key "${KEYSDIR}/flags-key.pem" \
 	"${MODELDIR}" >/dev/null 2>&1; then
-	echo "  Error: Sign should succeed (symlinks are skipped by default)"
+	echo "  Error: Sign should fail when symlinks are present and allow_symlinks is false"
 	exit 1
 fi
 
@@ -877,12 +877,12 @@ if ! ${DIR}/model-signing sign key \
 fi
 
 # Verify signature that includes symlinks requires --allow-symlinks
-# Without the flag, verification fails because symlink is in signature but skipped
+# Without the flag, verification fails because symlink triggers an error
 if ${DIR}/model-signing verify key \
 	--signature "${SIGFILE}" \
 	--public-key "${KEYSDIR}/flags-key-pub.pem" \
 	"${MODELDIR}" >/dev/null 2>&1; then
-	echo "  Error: Verify should fail when signature includes symlink but flag not passed"
+	echo "  Error: Verify should fail when symlink present and allow_symlinks is false"
 	exit 1
 fi
 
@@ -896,12 +896,25 @@ if ! ${DIR}/model-signing verify key \
 	exit 1
 fi
 
-# Verify signature without symlinks also works (symlinks skipped during verify)
-if ! ${DIR}/model-signing verify key \
+# Remove symlinks, then sign and verify without --allow-symlinks
+rm "${MODELDIR}/link.txt"
+
+if ! ${DIR}/model-signing sign key \
+	--signature "${SIGFILE_NO_SYMLINK}" \
+	--private-key "${KEYSDIR}/flags-key.pem" \
+	"${MODELDIR}" >/dev/null 2>&1; then
+	echo "  Error: Sign should succeed when no symlinks are present"
+	exit 1
+fi
+
+# Re-create symlink to verify it causes an error on verify too
+ln -s target.txt "${MODELDIR}/link.txt"
+
+if ${DIR}/model-signing verify key \
 	--signature "${SIGFILE_NO_SYMLINK}" \
 	--public-key "${KEYSDIR}/flags-key-pub.pem" \
 	"${MODELDIR}" >/dev/null 2>&1; then
-	echo "  Error: Verify should succeed when symlinks are skipped"
+	echo "  Error: Verify should fail when symlink present and allow_symlinks is false"
 	exit 1
 fi
 echo "  --allow-symlinks: PASSED"

@@ -15,7 +15,9 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,6 +28,10 @@ import (
 	"github.com/sigstore/model-signing/pkg/manifest"
 	"github.com/sigstore/model-signing/pkg/utils"
 )
+
+// ErrSymlinkNotAllowed is returned when a symbolic link is encountered during
+// file enumeration and allow_symlinks is false (the default per OMS spec §6.1.1).
+var ErrSymlinkNotAllowed = errors.New("symbolic link encountered but allow_symlinks is false")
 
 // HashingConfig holds configuration for hashing models.
 //
@@ -261,22 +267,33 @@ func (c *HashingConfig) Hash(modelPath string, filesToHash []string) (*manifest.
 func (c *HashingConfig) walkDirectory(modelPath string) ([]string, error) {
 	var files []string
 
-	err := filepath.Walk(modelPath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(modelPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		// Skip directories
-		if info.IsDir() {
+		// Check if path should be ignored before other checks so we
+		// can skip entire directory subtrees early via SkipDir.
+		if c.shouldIgnorePath(path, modelPath) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 
-		// Check if it's a symlink
-		if info.Mode()&os.ModeSymlink != 0 {
+		if d.IsDir() {
+			return nil
+		}
+
+		// DirEntry.Type() returns the file type bits without an extra syscall.
+		if d.Type()&os.ModeSymlink != 0 {
 			if !c.allowSymlinks {
-				return nil // Skip symlinks if not allowed
+				relPath, relErr := filepath.Rel(modelPath, path)
+				if relErr != nil {
+					relPath = path
+				}
+				return fmt.Errorf("%w: %s", ErrSymlinkNotAllowed, relPath)
 			}
-			// Resolve symlink and check if target exists
 			target, err := filepath.EvalSymlinks(path)
 			if err != nil {
 				return fmt.Errorf("failed to resolve symlink %s: %w", path, err)
@@ -285,16 +302,14 @@ func (c *HashingConfig) walkDirectory(modelPath string) ([]string, error) {
 			if err != nil {
 				return fmt.Errorf("failed to stat symlink target %s: %w", target, err)
 			}
-			if targetInfo.IsDir() {
-				return nil // Skip directory symlinks
+			if !targetInfo.Mode().IsRegular() {
+				return nil
 			}
+			files = append(files, path)
+			return nil
 		}
 
-		// Check if path should be ignored
-		if c.shouldIgnorePath(path, modelPath) {
-			if info.IsDir() {
-				return filepath.SkipDir
-			}
+		if !d.Type().IsRegular() {
 			return nil
 		}
 

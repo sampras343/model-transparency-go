@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sync"
@@ -104,15 +105,24 @@ func hashModelParallel(modelPath, hashAlgorithm string, shardSize int64, chunkSi
 }
 
 // walkFiles collects all regular file paths under a directory.
+// Returns an error if symlinks are encountered (OMS spec §6.1.1)
+// and skips non-regular files per OMS spec §6.1.
 func walkFiles(root string) ([]string, error) {
 	var files []string
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() {
-			files = append(files, path)
+		if d.IsDir() {
+			return nil
 		}
+		if d.Type()&os.ModeSymlink != 0 {
+			return fmt.Errorf("symbolic link encountered: %s", path)
+		}
+		if !d.Type().IsRegular() {
+			return nil
+		}
+		files = append(files, path)
 		return nil
 	})
 	return files, err

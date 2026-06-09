@@ -181,6 +181,43 @@ func TestCanonicalizeNonexistentPath(t *testing.T) {
 	}
 }
 
+func TestCanonicalizeSymlinkRejected(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "real.txt")
+	if err := os.WriteFile(target, []byte("data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(dir, "link.txt")); err != nil {
+		t.Skip("symlinks not supported on this platform")
+	}
+
+	_, err := Canonicalize(dir, Options{AllowSymlinks: false})
+	if err == nil {
+		t.Fatal("expected error when symlink encountered with allow_symlinks=false")
+	}
+}
+
+func TestCanonicalizeSymlinkAllowed(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "real.txt")
+	if err := os.WriteFile(target, []byte("data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(dir, "link.txt")); err != nil {
+		t.Skip("symlinks not supported on this platform")
+	}
+
+	m, err := Canonicalize(dir, Options{AllowSymlinks: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	descs := m.ResourceDescriptors()
+	if len(descs) != 2 {
+		t.Fatalf("expected 2 descriptors, got %d", len(descs))
+	}
+}
+
 func TestCanonicalizeEmptyDirectory(t *testing.T) {
 	dir := t.TempDir()
 
