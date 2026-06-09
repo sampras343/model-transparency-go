@@ -15,8 +15,11 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
+	"syscall"
 	"testing"
 )
 
@@ -577,5 +580,128 @@ func TestHash_WithSpecificFilesWithoutIgnoreGitPaths(t *testing.T) {
 	// Verify that both files are in the manifest
 	if len(resourceDescriptors) != 2 {
 		t.Errorf("Expected 2 files in manifest (file1.txt, .gitignore), got %d", len(resourceDescriptors))
+	}
+}
+
+func TestWalkDirectory_SymlinkRejectedWhenNotAllowed(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "real.txt")
+	if err := os.WriteFile(target, []byte("data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "link.txt")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skip("symlinks not supported on this platform")
+	}
+
+	hc := NewHashingConfig()
+	hc.SetAllowSymlinks(false)
+	_, err := hc.Hash(dir, nil)
+	if err == nil {
+		t.Fatal("expected error when symlink encountered with allow_symlinks=false")
+	}
+	if !errors.Is(err, ErrSymlinkNotAllowed) {
+		t.Fatalf("expected ErrSymlinkNotAllowed, got: %v", err)
+	}
+}
+
+func TestWalkDirectory_SymlinkAllowedIncludesBothEntries(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "real.txt")
+	if err := os.WriteFile(target, []byte("data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "link.txt")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skip("symlinks not supported on this platform")
+	}
+
+	hc := NewHashingConfig()
+	hc.SetAllowSymlinks(true)
+	hc.UseFileSerialization("sha256", true, nil)
+	m, err := hc.Hash(dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	descs := m.ResourceDescriptors()
+	if len(descs) != 2 {
+		t.Fatalf("expected 2 descriptors (real.txt + link.txt), got %d", len(descs))
+	}
+	ids := map[string]bool{}
+	for _, d := range descs {
+		ids[d.Identifier] = true
+	}
+	if !ids["real.txt"] || !ids["link.txt"] {
+		t.Errorf("expected real.txt and link.txt, got %v", ids)
+	}
+}
+
+func TestWalkDirectory_RelativeSymlinkRejected(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("a.txt", filepath.Join(dir, "b.txt")); err != nil {
+		t.Skip("symlinks not supported on this platform")
+	}
+
+	hc := NewHashingConfig()
+	hc.SetAllowSymlinks(false)
+	_, err := hc.Hash(dir, nil)
+	if !errors.Is(err, ErrSymlinkNotAllowed) {
+		t.Fatalf("expected ErrSymlinkNotAllowed for relative symlink, got: %v", err)
+	}
+}
+
+func TestWalkDirectory_FIFOSkipped(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("FIFOs not supported on Windows")
+	}
+
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "ok.txt"), []byte("ok"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	fifo := filepath.Join(dir, "pipe.fifo")
+	if err := syscall.Mkfifo(fifo, 0600); err != nil {
+		t.Skipf("mkfifo not supported: %v", err)
+	}
+
+	hc := NewHashingConfig()
+	hc.UseFileSerialization("sha256", false, nil)
+	m, err := hc.Hash(dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	descs := m.ResourceDescriptors()
+	if len(descs) != 1 {
+		t.Fatalf("expected 1 descriptor (ok.txt only), got %d", len(descs))
+	}
+	if descs[0].Identifier != "ok.txt" {
+		t.Errorf("expected ok.txt, got %s", descs[0].Identifier)
+	}
+}
+
+func TestWalkDirectory_OnlySymlinks_RejectsSymlink(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "hidden.txt")
+	if err := os.WriteFile(target, []byte("h"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(dir, "only-link.txt")); err != nil {
+		t.Skip("symlinks not supported on this platform")
+	}
+	// Remove the real file so the only entry is a symlink
+	if err := os.Remove(target); err != nil {
+		t.Fatal(err)
+	}
+
+	hc := NewHashingConfig()
+	hc.SetAllowSymlinks(false)
+	_, err := hc.Hash(dir, nil)
+	if !errors.Is(err, ErrSymlinkNotAllowed) {
+		t.Fatalf("expected ErrSymlinkNotAllowed, got: %v", err)
 	}
 }
