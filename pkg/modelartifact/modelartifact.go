@@ -186,5 +186,9 @@ func buildHashingConfig(opts Options) *config.HashingConfig {
 		hc.SetIgnoredPaths(opts.IgnorePaths, true)
 	}
 
+	if opts.Logger != nil {
+		hc.SetLogger(opts.Logger)
+	}
+
 	return hc
 }
