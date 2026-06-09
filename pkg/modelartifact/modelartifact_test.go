@@ -440,6 +440,7 @@ func TestUnmarshalPayloadInvalid(t *testing.T) {
 		{"wrong _type", `{"_type": "https://in-toto.io/Statement/v0", "predicateType": "x"}`, "unsupported statement type"},
 		{"missing predicateType", `{"_type": "https://in-toto.io/Statement/v1", "subject": []}`, "predicateType"},
 		{"wrong predicateType", `{"_type": "https://in-toto.io/Statement/v1", "predicateType": "wrong"}`, "predicate type mismatch"},
+		{"empty subject name", `{"_type": "https://in-toto.io/Statement/v1", "predicateType": "https://model_signing/signature/v1.0", "subject": [{"name": "", "digest": {"sha256": "abc"}}], "predicate": {}}`, "subject name must not be empty"},
 		{"empty resources", `{"_type": "https://in-toto.io/Statement/v1", "predicateType": "https://model_signing/signature/v1.0", "subject": [{"name": "m", "digest": {"sha256": "abc"}}], "predicate": {"serialization": {"method": "files", "hash_type": "sha256", "allow_symlinks": false}, "resources": []}}`, "resources array must contain at least one entry"},
 	}
 
