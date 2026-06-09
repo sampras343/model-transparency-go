@@ -5,7 +5,7 @@ if ! ./model-signing \
 	verify sigstore \
 	--identity stefanb@us.ibm.com \
 	--identity-provider https://sigstore.verify.ibm.com/oauth2 \
-	--ignore-paths ./v1.1.0-sigstore/ignore-me \
+	--ignore-paths "ignore-me" \
 	--signature ./v1.1.0-sigstore/model.sig \
 	./v1.1.0-sigstore/; then
 	echo "Error: 'verify sigstore' failed on v1.1.0"

@@ -17,6 +17,7 @@ package utils
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 // PathType represents the type of path to validate.
@@ -121,4 +122,19 @@ func ValidateOptionalFile(fieldName, path string) error {
 		return nil
 	}
 	return ValidateFileExists(fieldName, path)
+}
+
+// ValidateMultipleRelativeTo validates paths that are relative to a base directory.
+// Each path is resolved against baseDir before checking existence.
+func ValidateMultipleRelativeTo(fieldName string, paths []string, baseDir string, pathType PathType) error {
+	for i, p := range paths {
+		if p == "" {
+			return fmt.Errorf("%s contains empty path at index %d", fieldName, i)
+		}
+		resolved := filepath.Join(baseDir, p)
+		if err := NewPathValidator(fmt.Sprintf("%s[%d]", fieldName, i), resolved, pathType).Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

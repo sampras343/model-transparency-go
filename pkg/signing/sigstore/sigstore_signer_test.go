@@ -77,7 +77,7 @@ func TestNewSigstoreSigner_WithIgnorePaths(t *testing.T) {
 	opts := SigstoreSignerOptions{
 		ModelPath:      modelDir,
 		SignaturePath:  filepath.Join(tmpDir, "sig.json"),
-		IgnorePaths:    []string{ignoreDir},
+		IgnorePaths:    []string{"ignored"},
 		IgnoreGitPaths: true,
 		AllowSymlinks:  false,
 	}
@@ -104,7 +104,7 @@ func TestNewSigstoreSigner_InvalidIgnorePath(t *testing.T) {
 	opts := SigstoreSignerOptions{
 		ModelPath:     modelDir,
 		SignaturePath: filepath.Join(tmpDir, "sig.json"),
-		IgnorePaths:   []string{"/nonexistent/path"},
+		IgnorePaths:   []string{"nonexistent/path"},
 	}
 
 	_, err := NewSigstoreSigner(opts)

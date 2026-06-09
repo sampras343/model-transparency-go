@@ -197,7 +197,7 @@ func TestNewSigstoreVerifier_WithIgnorePaths(t *testing.T) {
 	opts := SigstoreVerifierOptions{
 		ModelPath:        modelDir,
 		SignaturePath:    sigFile,
-		IgnorePaths:      []string{ignoreDir},
+		IgnorePaths:      []string{"ignored"},
 		IgnoreGitPaths:   true,
 		AllowSymlinks:    false,
 		Identity:         "test@example.com",
@@ -232,7 +232,7 @@ func TestNewSigstoreVerifier_InvalidIgnorePath(t *testing.T) {
 	opts := SigstoreVerifierOptions{
 		ModelPath:        modelDir,
 		SignaturePath:    sigFile,
-		IgnorePaths:      []string{"/nonexistent/path"},
+		IgnorePaths:      []string{"nonexistent/path"},
 		Identity:         "test@example.com",
 		IdentityProvider: "https://accounts.google.com",
 	}

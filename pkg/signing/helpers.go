@@ -17,6 +17,8 @@ package signing
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/manifest"
@@ -60,7 +62,10 @@ func WriteBundle(protoBundle *protobundle.Bundle, path string) error {
 func PreparePayload(modelPath, signaturePath string, opts modelartifact.Options, logger logging.Logger) (*manifest.Manifest, []byte, error) {
 	// Step 1: Canonicalize the model
 	logger.Debugln("\nStep 1: Canonicalizing model...")
-	ignorePaths := append(append([]string{}, opts.IgnorePaths...), signaturePath)
+	ignorePaths := append([]string{}, opts.IgnorePaths...)
+	if relSig, err := filepath.Rel(modelPath, signaturePath); err == nil && !strings.HasPrefix(relSig, "..") {
+		ignorePaths = append(ignorePaths, filepath.ToSlash(relSig))
+	}
 	canonOpts := opts
 	canonOpts.IgnorePaths = ignorePaths
 	canonOpts.Logger = logger

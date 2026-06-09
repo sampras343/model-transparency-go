@@ -3,7 +3,7 @@
 echo "Testing 'verify key'"
 if ! ./model-signing \
 	verify key \
-	--ignore-paths ./v1.1.0-elliptic-key/ignore-me \
+	--ignore-paths "ignore-me" \
 	--signature ./v1.1.0-elliptic-key/model.sig \
 	--public-key ./keys/certificate/signing-key-pub.pem \
 	./v1.1.0-elliptic-key ; then

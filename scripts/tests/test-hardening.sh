@@ -807,7 +807,7 @@ fi
 if ! ${DIR}/model-signing verify key \
 	--signature "${SIGFILE}" \
 	--public-key "${KEYSDIR}/flags-key-pub.pem" \
-	--ignore-paths "${MODELDIR}/should-ignore.txt" \
+	--ignore-paths "should-ignore.txt" \
 	"${MODELDIR}" >/dev/null 2>&1; then
 	echo "  Error: Verification should pass with --ignore-paths"
 	exit 1
@@ -938,7 +938,7 @@ SIGFILE="${TMPDIR}/combined1.sig"
 if ! ${DIR}/model-signing sign key \
 	--signature "${SIGFILE}" \
 	--private-key "${KEYSDIR}/flags-key.pem" \
-	--ignore-paths "${MODELDIR}/ignore-me.txt" \
+	--ignore-paths "ignore-me.txt" \
 	"${MODELDIR}" >/dev/null 2>&1; then
 	echo "  Error: Sign failed"
 	exit 1
@@ -952,7 +952,7 @@ echo "modified-ignore" > "${MODELDIR}/ignore-me.txt"
 if ! ${DIR}/model-signing verify key \
 	--signature "${SIGFILE}" \
 	--public-key "${KEYSDIR}/flags-key-pub.pem" \
-	--ignore-paths "${MODELDIR}/ignore-me.txt" \
+	--ignore-paths "ignore-me.txt" \
 	--ignore-unsigned-files \
 	"${MODELDIR}" >/dev/null 2>&1; then
 	echo "  Error: Verification should pass with combined flags"
@@ -1009,7 +1009,7 @@ ln -s target.txt "${MODELDIR}/link.txt"
 if ! ${DIR}/model-signing sign key \
 	--signature "${SIGFILE}" \
 	--private-key "${KEYSDIR}/flags-key.pem" \
-	--ignore-paths "${MODELDIR}/ignore-me.txt" \
+	--ignore-paths "ignore-me.txt" \
 	--allow-symlinks \
 	"${MODELDIR}" >/dev/null 2>&1; then
 	echo "  Error: Sign failed"
@@ -1026,7 +1026,7 @@ ln -s new-target.txt "${MODELDIR}/new-link.txt"
 if ! ${DIR}/model-signing verify key \
 	--signature "${SIGFILE}" \
 	--public-key "${KEYSDIR}/flags-key-pub.pem" \
-	--ignore-paths "${MODELDIR}/ignore-me.txt" \
+	--ignore-paths "ignore-me.txt" \
 	--allow-symlinks \
 	--ignore-unsigned-files \
 	"${MODELDIR}" >/dev/null 2>&1; then
@@ -1050,7 +1050,7 @@ if ! ${DIR}/model-signing sign certificate \
 	--signature "${SIGFILE}" \
 	--private-key "${CERTSDIR}/self-signed-key.pem" \
 	--signing-certificate "${CERTSDIR}/self-signed-cert.pem" \
-	--ignore-paths "${MODELDIR}/ignore-me.txt" \
+	--ignore-paths "ignore-me.txt" \
 	--allow-symlinks \
 	"${MODELDIR}" >/dev/null 2>&1; then
 	echo "  Error: Sign certificate with flags failed"
@@ -1064,7 +1064,7 @@ echo "new-unsigned" > "${MODELDIR}/new-unsigned.txt"
 if ! ${DIR}/model-signing verify certificate \
 	--signature "${SIGFILE}" \
 	--certificate-chain "${CERTSDIR}/self-signed-cert.pem" \
-	--ignore-paths "${MODELDIR}/ignore-me.txt" \
+	--ignore-paths "ignore-me.txt" \
 	--allow-symlinks \
 	--ignore-unsigned-files \
 	"${MODELDIR}" >/dev/null 2>&1; then

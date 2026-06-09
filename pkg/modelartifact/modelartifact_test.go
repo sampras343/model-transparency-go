@@ -454,6 +454,55 @@ func TestUnmarshalPayloadInvalid(t *testing.T) {
 	}
 }
 
+func TestCanonicalizeRejectsInvalidIgnorePaths(t *testing.T) {
+	dir := createTestModel(t)
+
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"glob star", "dir/*.bin"},
+		{"glob question", "dir/file?.txt"},
+		{"glob bracket", "dir/[abc].txt"},
+		{"leading slash", "/absolute/path"},
+		{"dot-dot slash", "../escape/path"},
+		{"dot-dot mid", "sub/../escape"},
+		{"bare dot-dot", ".."},
+		{"backslash separator", `sub\dir\file.txt`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Canonicalize(dir, Options{IgnorePaths: []string{tt.path}})
+			if err == nil {
+				t.Fatal("expected error for invalid ignore path")
+			}
+			if !errors.Is(err, ErrInvalidIgnorePath) {
+				t.Errorf("expected ErrInvalidIgnorePath, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestCanonicalizeAcceptsValidIgnorePaths(t *testing.T) {
+	dir := createTestModel(t)
+
+	validPaths := []string{
+		"tokenizer.json",
+		"weights/layer_0.bin",
+		"sub/dir/file.txt",
+	}
+
+	for _, p := range validPaths {
+		t.Run(p, func(t *testing.T) {
+			_, err := Canonicalize(dir, Options{IgnorePaths: []string{p}})
+			if errors.Is(err, ErrInvalidIgnorePath) {
+				t.Errorf("valid path %q rejected: %v", p, err)
+			}
+		})
+	}
+}
+
 func TestCanonicalizeDefaultExcludesGitPaths(t *testing.T) {
 	dir := t.TempDir()
 
