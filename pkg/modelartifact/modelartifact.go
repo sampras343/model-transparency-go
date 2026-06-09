@@ -182,9 +182,10 @@ func buildHashingConfig(opts Options) *config.HashingConfig {
 		hc.UseFileSerialization(hashAlgorithm, opts.AllowSymlinks, opts.IgnorePaths)
 	}
 
-	if opts.IgnoreGitPaths {
-		hc.SetIgnoredPaths(opts.IgnorePaths, true)
-	}
+	// Git paths (.git, .gitignore, .gitattributes, .github, .gitmodules)
+	// are always excluded per spec §6.2. The IgnoreGitPaths field is
+	// kept for backward compatibility but no longer controls this.
+	hc.SetIgnoredPaths(opts.IgnorePaths, true)
 
 	if opts.Logger != nil {
 		hc.SetLogger(opts.Logger)
