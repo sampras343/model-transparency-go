@@ -46,7 +46,7 @@ if ! ${DIR}/model-signing \
 	sign key \
 	--signature "${sigfile_key}" \
 	--private-key ${DIR}/keys/certificate/signing-key.pem \
-	--ignore-paths "${ignorefile}" \
+	--ignore-paths "$(basename "${ignorefile}")" \
 	"${MODELDIR}" || \
   test ! -f "${sigfile_key}"; then
 	echo "Error: 'sign key' failed"
@@ -62,7 +62,7 @@ if ! ${DIR}/model-signing \
 	--private-key ${DIR}/keys/certificate/signing-key.pem \
 	--signing-certificate ${DIR}/keys/certificate/signing-key-cert.pem \
 	--certificate-chain ${DIR}/keys/certificate/int-ca-cert.pem \
-	--ignore-paths "${ignorefile}" \
+	--ignore-paths "$(basename "${ignorefile}")" \
 	"${MODELDIR}" || \
   test ! -f "${sigfile_certificate}"; then
 	echo "Error: 'sign certificate' failed"
@@ -76,7 +76,7 @@ if ! sigstore_sign_with_retry "${TOKENPROJ}" "${token_file}" "--identity-token" 
 	sign sigstore \
 	--use-staging \
 	--signature "${sigfile_sigstore}" \
-	--ignore-paths "${ignorefile}" \
+	--ignore-paths "$(basename "${ignorefile}")" \
 	"${MODELDIR}"; then
 	echo "Error: 'sign sigstore' failed"
 	exit 1
@@ -91,7 +91,7 @@ if ! out=$(${DIR}/model-signing \
 	verify key \
 	--signature "${sigfile_key}" \
 	--public-key ${DIR}/keys/certificate/signing-key-pub.pem \
-	--ignore-paths "${ignorefile}" \
+	--ignore-paths "$(basename "${ignorefile}")" \
 	"${MODELDIR}" 2>&1); then
 	echo "Error: 'verify key' failed"
 	echo "${out}"
@@ -108,7 +108,7 @@ if ! out=$(${DIR}/model-signing \
 	verify certificate \
 	--signature "${sigfile_certificate}" \
 	--certificate-chain ${DIR}/keys/certificate/ca-cert.pem \
-	--ignore-paths "${ignorefile}" \
+	--ignore-paths "$(basename "${ignorefile}")" \
 	"${MODELDIR}" 2>&1); then
 	echo "Error: 'verify certificate' failed"
 	echo "${out}"
@@ -127,7 +127,7 @@ if ! out=$(${DIR}/model-signing \
 	--signature "${sigfile_sigstore}" \
 	--identity untrusted-sa@sigstore-conformance.iam.gserviceaccount.com \
 	--identity-provider https://accounts.google.com \
-	--ignore-paths "${ignorefile}" \
+	--ignore-paths "$(basename "${ignorefile}")" \
 	"${MODELDIR}" 2>&1); then
 	echo "Error: 'verify sigstore' failed"
 	echo "${out}"
@@ -153,7 +153,7 @@ for v in v1.1.0 v1.0.1 v1.0.0 v0.3.1 v0.2.0; do
 	# Build ignore args only if ignore-me exists
 	ignore_args=()
 	if [ -e "${modeldir}/ignore-me" ]; then
-		ignore_args=(--ignore-paths "${modeldir}/ignore-me")
+		ignore_args=(--ignore-paths "ignore-me")
 	fi
 
 	case "${v}" in
@@ -189,7 +189,7 @@ for v in v1.1.0 v1.0.1 v1.0.0 v0.3.1 v0.2.0; do
 	# Build ignore args only if ignore-me exists
 	ignore_args=()
 	if [ -e "${modeldir}/ignore-me" ]; then
-		ignore_args=(--ignore-paths "${modeldir}/ignore-me")
+		ignore_args=(--ignore-paths "ignore-me")
 	fi
 
 	if [ -d "${modeldir}" ]; then
@@ -217,7 +217,7 @@ for v in v1.1.0 v1.0.1 v1.0.0 v0.3.1 v0.2.0; do
 	# Build ignore args only if ignore-me exists
 	ignore_args=()
 	if [ -e "${modeldir}/ignore-me" ]; then
-		ignore_args=(--ignore-paths "${modeldir}/ignore-me")
+		ignore_args=(--ignore-paths "ignore-me")
 	fi
 
 	if [ -d "${modeldir}" ]; then

@@ -29,6 +29,10 @@ import (
 // applying exclusions. Per spec §6.1, an empty model MUST be rejected.
 var ErrEmptyModel = errors.New("model contains no regular files after exclusions; empty models must be rejected (spec §6.1)")
 
+// ErrInvalidIgnorePath is returned when an ignore path entry contains
+// prohibited patterns per spec §6.2.1.
+var ErrInvalidIgnorePath = errors.New("invalid ignore path")
+
 // Canonicalize walks a model directory (or OCI manifest), hashes all files,
 // and returns a deterministic Manifest.
 //
@@ -40,6 +44,10 @@ var ErrEmptyModel = errors.New("model contains no regular files after exclusions
 // structure), the manifest is created from the OCI layers instead of walking
 // the filesystem.
 func Canonicalize(modelPath string, opts Options) (*manifest.Manifest, error) {
+	if err := validateIgnorePaths(opts.IgnorePaths); err != nil {
+		return nil, err
+	}
+
 	var m *manifest.Manifest
 	var err error
 
@@ -192,4 +200,25 @@ func buildHashingConfig(opts Options) *config.HashingConfig {
 	}
 
 	return hc
+}
+
+// validateIgnorePaths checks that user-provided ignore paths conform to
+// spec §6.2.1: no glob characters, no leading /, no ../ components,
+// and must use / as separator.
+func validateIgnorePaths(paths []string) error {
+	for _, p := range paths {
+		if strings.ContainsAny(p, "*?[") {
+			return fmt.Errorf("%w: must not contain glob characters: %s", ErrInvalidIgnorePath, p)
+		}
+		if strings.HasPrefix(p, "/") {
+			return fmt.Errorf("%w: must not start with /: %s", ErrInvalidIgnorePath, p)
+		}
+		if strings.Contains(p, "../") || p == ".." {
+			return fmt.Errorf("%w: must not contain ../ components: %s", ErrInvalidIgnorePath, p)
+		}
+		if strings.Contains(p, "\\") {
+			return fmt.Errorf("%w: must use / as path separator: %s", ErrInvalidIgnorePath, p)
+		}
+	}
+	return nil
 }

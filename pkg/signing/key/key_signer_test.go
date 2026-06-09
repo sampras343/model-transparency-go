@@ -212,7 +212,7 @@ func TestNewKeySigner_WithIgnorePaths(t *testing.T) {
 	opts := KeySignerOptions{
 		ModelPath:      modelDir,
 		SignaturePath:  filepath.Join(tmpDir, "sig.json"),
-		IgnorePaths:    []string{ignoreDir},
+		IgnorePaths:    []string{"ignored"},
 		IgnoreGitPaths: true,
 		AllowSymlinks:  false,
 		PrivateKeyPath: keyFile,
@@ -246,7 +246,7 @@ func TestNewKeySigner_InvalidIgnorePath(t *testing.T) {
 	opts := KeySignerOptions{
 		ModelPath:      modelDir,
 		SignaturePath:  filepath.Join(tmpDir, "sig.json"),
-		IgnorePaths:    []string{"/nonexistent/path"},
+		IgnorePaths:    []string{"nonexistent/path"},
 		IgnoreGitPaths: false,
 		PrivateKeyPath: keyFile,
 	}
