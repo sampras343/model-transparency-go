@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	hashengines "github.com/sigstore/model-signing/pkg/hashing/engines"
 	hashio "github.com/sigstore/model-signing/pkg/hashing/engines/io"
@@ -33,6 +34,10 @@ import (
 // ErrSymlinkNotAllowed is returned when a symbolic link is encountered during
 // file enumeration and allow_symlinks is false (the default per OMS spec §6.1.1).
 var ErrSymlinkNotAllowed = errors.New("symbolic link encountered but allow_symlinks is false")
+
+// ErrInvalidUTF8Path is returned when a file path contains byte sequences
+// that are not valid UTF-8 (spec §6.1.2).
+var ErrInvalidUTF8Path = errors.New("file path is not valid UTF-8")
 
 // HashingConfig holds configuration for hashing models.
 //
@@ -407,10 +412,13 @@ func (c *HashingConfig) hashFiles(modelPath string, filePaths []string) ([]manif
 	items := make([]manifest.ManifestItem, 0, len(filePaths))
 
 	for _, filePath := range filePaths {
-		// Get relative path for manifest
 		relPath, err := filepath.Rel(modelPath, filePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get relative path for %s: %w", filePath, err)
+		}
+
+		if !utf8.ValidString(relPath) {
+			return nil, fmt.Errorf("%w: %q", ErrInvalidUTF8Path, relPath)
 		}
 
 		// Create file hasher
@@ -441,10 +449,13 @@ func (c *HashingConfig) hashFilesWithShards(modelPath string, filePaths []string
 	items := make([]manifest.ManifestItem, 0)
 
 	for _, filePath := range filePaths {
-		// Get relative path for manifest
 		relPath, err := filepath.Rel(modelPath, filePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get relative path for %s: %w", filePath, err)
+		}
+
+		if !utf8.ValidString(relPath) {
+			return nil, fmt.Errorf("%w: %q", ErrInvalidUTF8Path, relPath)
 		}
 
 		// Get file size

@@ -845,3 +845,76 @@ func TestWalkDirectory_SymlinkInsideRootNoWarning(t *testing.T) {
 		}
 	}
 }
+
+func TestHashFiles_InvalidUTF8PathRejected(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not allow invalid UTF-8 in filenames")
+	}
+
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "valid.txt"), []byte("ok"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a file with invalid UTF-8 bytes in the name (0xff is never valid in UTF-8)
+	invalidName := "bad\xffname.txt"
+	if err := os.WriteFile(filepath.Join(dir, invalidName), []byte("data"), 0644); err != nil {
+		t.Skipf("OS rejected invalid UTF-8 filename: %v", err)
+	}
+
+	hc := NewHashingConfig()
+	hc.UseFileSerialization("sha256", false, nil)
+
+	_, err := hc.Hash(dir, nil)
+	if err == nil {
+		t.Fatal("expected error for invalid UTF-8 path")
+	}
+	if !errors.Is(err, ErrInvalidUTF8Path) {
+		t.Fatalf("expected ErrInvalidUTF8Path, got: %v", err)
+	}
+}
+
+func TestHashShards_InvalidUTF8PathRejected(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not allow invalid UTF-8 in filenames")
+	}
+
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "valid.txt"), []byte("ok"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	invalidName := "bad\xffname.txt"
+	if err := os.WriteFile(filepath.Join(dir, invalidName), []byte("data"), 0644); err != nil {
+		t.Skipf("OS rejected invalid UTF-8 filename: %v", err)
+	}
+
+	hc := NewHashingConfig()
+	hc.UseShardSerialization("sha256", 16, false, nil)
+
+	_, err := hc.Hash(dir, nil)
+	if err == nil {
+		t.Fatal("expected error for invalid UTF-8 path")
+	}
+	if !errors.Is(err, ErrInvalidUTF8Path) {
+		t.Fatalf("expected ErrInvalidUTF8Path, got: %v", err)
+	}
+}
+
+func TestHashFiles_ValidUTF8PathAccepted(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "日本語.txt"), []byte("unicode"), 0644); err != nil {
+		t.Skipf("OS rejected unicode filename: %v", err)
+	}
+
+	hc := NewHashingConfig()
+	hc.UseFileSerialization("sha256", false, nil)
+
+	m, err := hc.Hash(dir, nil)
+	if err != nil {
+		t.Fatalf("valid UTF-8 path should be accepted: %v", err)
+	}
+	if len(m.ResourceDescriptors()) != 1 {
+		t.Fatalf("expected 1 descriptor, got %d", len(m.ResourceDescriptors()))
+	}
+}
