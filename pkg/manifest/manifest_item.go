@@ -111,26 +111,31 @@ func (item *ShardedFileManifestItem) Digest() digests.Digest {
 
 // parseShardName parses a shard identifier of the form "path:start:end".
 //
-// Returns the path, start offset, end offset, and an error if the format is
-// invalid or the numeric values cannot be parsed.
+// Per spec §6.3.2, filenames may contain colons, so the parser matches
+// the last two colon-separated decimal integer components as the byte range.
 func parseShardName(name string) (path string, start, end int64, err error) {
-	parts := strings.Split(name, ":")
-	if len(parts) != 3 {
-		err = fmt.Errorf("invalid resource name: expected 3 components separated by `:`, got %q", name)
+	lastColon := strings.LastIndex(name, ":")
+	if lastColon <= 0 {
+		err = fmt.Errorf("invalid shard name: missing byte range suffix in %q", name)
+		return
+	}
+	secondLastColon := strings.LastIndex(name[:lastColon], ":")
+	if secondLastColon <= 0 {
+		err = fmt.Errorf("invalid shard name: missing byte range suffix in %q", name)
 		return
 	}
 
-	path = parts[0]
+	path = name[:secondLastColon]
 
-	start, err = strconv.ParseInt(parts[1], 10, 64)
+	start, err = strconv.ParseInt(name[secondLastColon+1:lastColon], 10, 64)
 	if err != nil {
-		err = fmt.Errorf("invalid shard start %q: %w", parts[1], err)
+		err = fmt.Errorf("invalid shard start %q: %w", name[secondLastColon+1:lastColon], err)
 		return
 	}
 
-	end, err = strconv.ParseInt(parts[2], 10, 64)
+	end, err = strconv.ParseInt(name[lastColon+1:], 10, 64)
 	if err != nil {
-		err = fmt.Errorf("invalid shard end %q: %w", parts[2], err)
+		err = fmt.Errorf("invalid shard end %q: %w", name[lastColon+1:], err)
 		return
 	}
 

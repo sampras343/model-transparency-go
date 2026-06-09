@@ -101,6 +101,56 @@ func TestParseShardNameInvalid(t *testing.T) {
 	}
 }
 
+func TestParseShardNameWithColonsInPath(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantPath  string
+		wantStart int64
+		wantEnd   int64
+	}{
+		{
+			name:      "single colon in path",
+			input:     "file:with:colon:0:1024",
+			wantPath:  "file:with:colon",
+			wantStart: 0,
+			wantEnd:   1024,
+		},
+		{
+			name:      "multiple colons in path",
+			input:     "a:b:c:d:100:200",
+			wantPath:  "a:b:c:d",
+			wantStart: 100,
+			wantEnd:   200,
+		},
+		{
+			name:      "colon at start of path",
+			input:     ":leading:50:75",
+			wantPath:  ":leading",
+			wantStart: 50,
+			wantEnd:   75,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path, start, end, err := parseShardName(tt.input)
+			if err != nil {
+				t.Fatalf("parseShardName(%q) unexpected error: %v", tt.input, err)
+			}
+			if path != tt.wantPath {
+				t.Errorf("path = %q, want %q", path, tt.wantPath)
+			}
+			if start != tt.wantStart {
+				t.Errorf("start = %d, want %d", start, tt.wantStart)
+			}
+			if end != tt.wantEnd {
+				t.Errorf("end = %d, want %d", end, tt.wantEnd)
+			}
+		})
+	}
+}
+
 func TestShardedFileManifestItemRoundTripName(t *testing.T) {
 	d := digests.NewDigest("sha256", []byte{0xAB})
 	item := NewShardedFileManifestItem("foo/bar.bin", 0, 4096, d)
