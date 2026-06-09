@@ -209,6 +209,10 @@ func unmarshalPayloadV1(dssePayload map[string]interface{}) (*manifest.Manifest,
 		return nil, fmt.Errorf("resources is not an array")
 	}
 
+	if len(resources) == 0 {
+		return nil, fmt.Errorf("resources array must contain at least one entry (spec §5.2.1)")
+	}
+
 	// Reconstruct manifest items and collect digests
 	items := make([]manifest.ManifestItem, 0, len(resources))
 	digestList := make([]digests.Digest, 0, len(resources))
