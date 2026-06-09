@@ -19,6 +19,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/modelartifact"
@@ -133,7 +135,10 @@ func signModel(args []string) int {
 func signModelLibrary(modelPath, outputBundle, privateKey, hashAlgorithm string, shardSize int64, ignorePaths []string, logger logging.Logger) int {
 	ctx := context.Background()
 
-	allIgnore := append(append([]string{}, ignorePaths...), outputBundle)
+	allIgnore := append([]string{}, ignorePaths...)
+	if relBundle, err := filepath.Rel(modelPath, outputBundle); err == nil && !strings.HasPrefix(relBundle, "..") {
+		allIgnore = append(allIgnore, filepath.ToSlash(relBundle))
+	}
 
 	m, err := modelartifact.Canonicalize(modelPath, modelartifact.Options{
 		HashAlgorithm: hashAlgorithm,

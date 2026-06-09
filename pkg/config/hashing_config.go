@@ -378,26 +378,30 @@ func (c *HashingConfig) shouldIgnorePath(path, modelPath string) bool {
 }
 
 // pathMatches checks if a file path matches an ignored path pattern.
-// It handles multiple path formats to support CLI usage patterns.
+// Per spec §6.2.1, all paths use "/" as separator. We normalize
+// OS-native paths (which may use "\" on Windows) to "/" before comparing.
 func (c *HashingConfig) pathMatches(absPath, relPath, ignoredPath string) bool {
-	// Case 1: ignoredPath is absolute - compare with absolute path
-	if filepath.IsAbs(ignoredPath) {
-		if absPath == ignoredPath || strings.HasPrefix(absPath, ignoredPath+string(filepath.Separator)) {
+	relSlash := filepath.ToSlash(relPath)
+	absSlash := filepath.ToSlash(absPath)
+	ignSlash := filepath.ToSlash(ignoredPath)
+
+	// Case 1: ignoredPath is absolute — compare with absolute path
+	if ignSlash != "" && ignSlash[0] == '/' {
+		if absSlash == ignSlash || strings.HasPrefix(absSlash, ignSlash+"/") {
 			return true
 		}
 	}
 
-	// Case 2: ignoredPath is relative to modelPath - compare with relPath
-	// This handles patterns like "subdir/file.txt" or "file.txt"
-	if relPath == ignoredPath || strings.HasPrefix(relPath, ignoredPath+string(filepath.Separator)) {
+	// Case 2: ignoredPath is relative to modelPath — compare with relPath
+	if relSlash == ignSlash || strings.HasPrefix(relSlash, ignSlash+"/") {
 		return true
 	}
 
-	// Case 3: ignoredPath might be relative to CWD (e.g., "./model/file.txt" from CLI)
-	// Convert to absolute and compare with absPath
+	// Case 3: ignoredPath might be relative to CWD
 	absIgnored, err := filepath.Abs(ignoredPath)
-	if err == nil && absIgnored != ignoredPath { // Only if conversion changed something
-		if absPath == absIgnored || strings.HasPrefix(absPath, absIgnored+string(filepath.Separator)) {
+	if err == nil && absIgnored != ignoredPath {
+		absIgnSlash := filepath.ToSlash(absIgnored)
+		if absSlash == absIgnSlash || strings.HasPrefix(absSlash, absIgnSlash+"/") {
 			return true
 		}
 	}

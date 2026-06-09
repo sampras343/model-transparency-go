@@ -163,7 +163,7 @@ func TestNewKeyVerifier_WithIgnorePaths(t *testing.T) {
 	opts := KeyVerifierOptions{
 		ModelPath:      modelDir,
 		SignaturePath:  sigFile,
-		IgnorePaths:    []string{ignoreDir},
+		IgnorePaths:    []string{"ignored"},
 		IgnoreGitPaths: true,
 		AllowSymlinks:  false,
 		PublicKeyPath:  keyFile,
@@ -203,7 +203,7 @@ func TestNewKeyVerifier_InvalidIgnorePath(t *testing.T) {
 	opts := KeyVerifierOptions{
 		ModelPath:     modelDir,
 		SignaturePath: sigFile,
-		IgnorePaths:   []string{"/nonexistent/path"},
+		IgnorePaths:   []string{"nonexistent/path"},
 		PublicKeyPath: keyFile,
 	}
 

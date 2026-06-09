@@ -146,9 +146,9 @@ func TestCompareModelWithBundle_IgnorePathsFromCaller(t *testing.T) {
 		t.Fatal("expected error for extra unsigned file")
 	}
 
-	// With ignore of the signature file
+	// With ignore of the signature file (relative to model root per spec §6.2.1)
 	err = CompareModelWithBundle(payload, modelPath, modelartifact.Options{
-		IgnorePaths: []string{filepath.Join(modelPath, "signature.sig")},
+		IgnorePaths: []string{"signature.sig"},
 	}, false)
 	if err != nil {
 		t.Fatalf("should pass when ignoring the extra file: %v", err)

@@ -37,8 +37,9 @@ func ValidateSignerPaths(modelPath string, ignorePaths []string) error {
 	}
 	// Validate ignore paths only for non-OCI manifests.
 	// For OCI manifests, ignore paths refer to layer entries, not local files.
+	// Ignore paths are relative to the model root (spec §6.2.1).
 	if !oci.IsOCIManifest(modelPath) {
-		if err := utils.ValidateMultiple("ignore paths", ignorePaths, utils.PathTypeAny); err != nil {
+		if err := utils.ValidateMultipleRelativeTo("ignore paths", ignorePaths, modelPath, utils.PathTypeAny); err != nil {
 			return err
 		}
 	}

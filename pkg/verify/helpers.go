@@ -20,6 +20,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/modelartifact"
@@ -116,7 +118,10 @@ func ExtractAndCompareModel(bndl *bundle.Bundle, modelPath, signaturePath string
 	}
 	payloadBytes := dsseEnvelope.Payload
 
-	ignorePaths := append(append([]string{}, opts.IgnorePaths...), signaturePath)
+	ignorePaths := append([]string{}, opts.IgnorePaths...)
+	if relSig, err := filepath.Rel(modelPath, signaturePath); err == nil && !strings.HasPrefix(relSig, "..") {
+		ignorePaths = append(ignorePaths, filepath.ToSlash(relSig))
+	}
 	compareOpts := modelartifact.Options{
 		IgnorePaths:    ignorePaths,
 		IgnoreGitPaths: opts.IgnoreGitPaths,

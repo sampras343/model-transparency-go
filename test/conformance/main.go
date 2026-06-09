@@ -68,22 +68,30 @@ func newStderrLogger() logging.Logger {
 	})
 }
 
-// resolveIgnorePath converts an ignore path to an absolute path.
-// The Go CLI requires absolute paths that exist on the filesystem.
+// resolveIgnorePath converts an ignore path to a model-root-relative path.
+// Per spec §6.2.1, ignore paths must be relative to the model root and
+// must not contain leading /, ../, or glob characters.
 func resolveIgnorePath(p, modelPath string) (string, error) {
 	if filepath.IsAbs(p) {
-		return p, nil
+		rel, err := filepath.Rel(modelPath, p)
+		if err != nil || strings.HasPrefix(rel, "..") {
+			return "", fmt.Errorf("path %s is outside model root %s", p, modelPath)
+		}
+		return filepath.ToSlash(rel), nil
 	}
 	abs := filepath.Join(modelPath, p)
 	if _, err := os.Stat(abs); err != nil {
 		if cwdAbs, err2 := filepath.Abs(p); err2 == nil {
 			if _, err3 := os.Stat(cwdAbs); err3 == nil {
-				return cwdAbs, nil
+				rel, err4 := filepath.Rel(modelPath, cwdAbs)
+				if err4 == nil && !strings.HasPrefix(rel, "..") {
+					return filepath.ToSlash(rel), nil
+				}
 			}
 		}
 		return "", fmt.Errorf("path does not exist: %s", abs)
 	}
-	return abs, nil
+	return filepath.ToSlash(p), nil
 }
 
 func execCmd(args []string) int {
