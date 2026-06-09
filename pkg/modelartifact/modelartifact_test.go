@@ -454,6 +454,40 @@ func TestUnmarshalPayloadInvalid(t *testing.T) {
 	}
 }
 
+func TestCanonicalizeDefaultExcludesGitPaths(t *testing.T) {
+	dir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(dir, "model.bin"), []byte("weights"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("*.log"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".gitattributes"), []byte("* text=auto"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".git", "HEAD"), []byte("ref: refs/heads/main"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Use default Options{} — git paths must still be excluded (spec §6.2)
+	m, err := Canonicalize(dir, Options{})
+	if err != nil {
+		t.Fatalf("Canonicalize failed: %v", err)
+	}
+
+	descs := m.ResourceDescriptors()
+	if len(descs) != 1 {
+		t.Fatalf("expected 1 descriptor (model.bin only), got %d", len(descs))
+	}
+	if descs[0].Identifier != "model.bin" {
+		t.Errorf("expected model.bin, got %s", descs[0].Identifier)
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && searchString(s, substr)
 }
