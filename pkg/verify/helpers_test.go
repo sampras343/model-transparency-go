@@ -340,3 +340,49 @@ func TestGetTimestampFromBundle_NilVerificationMaterial(t *testing.T) {
 		t.Fatal("expected ok=false for nil verification material")
 	}
 }
+
+func TestGetTimestampFromBundle_EmptyTimestampList(t *testing.T) {
+	pb := &protobundle.Bundle{
+		MediaType: "application/vnd.dev.sigstore.bundle.v0.3+json",
+		VerificationMaterial: &protobundle.VerificationMaterial{
+			TimestampVerificationData: &protobundle.TimestampVerificationData{
+				Rfc3161Timestamps: []*protocommon.RFC3161SignedTimestamp{},
+			},
+		},
+	}
+	bndl := &sigbundle.Bundle{Bundle: pb}
+
+	_, ok := GetTimestampFromBundle(bndl)
+	if ok {
+		t.Fatal("expected ok=false for empty timestamp list")
+	}
+}
+
+func TestGetTimestampFromBundle_MultipleTimestamps(t *testing.T) {
+	firstTime := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
+	secondTime := time.Date(2025, 7, 20, 8, 30, 0, 0, time.UTC)
+
+	firstResp := buildTestTimestampResponse(t, firstTime)
+	secondResp := buildTestTimestampResponse(t, secondTime)
+
+	pb := &protobundle.Bundle{
+		MediaType: "application/vnd.dev.sigstore.bundle.v0.3+json",
+		VerificationMaterial: &protobundle.VerificationMaterial{
+			TimestampVerificationData: &protobundle.TimestampVerificationData{
+				Rfc3161Timestamps: []*protocommon.RFC3161SignedTimestamp{
+					{SignedTimestamp: firstResp},
+					{SignedTimestamp: secondResp},
+				},
+			},
+		},
+	}
+	bndl := &sigbundle.Bundle{Bundle: pb}
+
+	got, ok := GetTimestampFromBundle(bndl)
+	if !ok {
+		t.Fatal("expected ok=true for bundle with multiple timestamps")
+	}
+	if !got.Equal(firstTime) {
+		t.Errorf("expected first timestamp %v, got %v", firstTime, got)
+	}
+}

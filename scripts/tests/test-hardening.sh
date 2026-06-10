@@ -1076,6 +1076,95 @@ echo "  Certificate method with flags: PASSED"
 echo
 
 echo "=========================================="
+echo "PART 7: TSA Flag Validation"
+echo "=========================================="
+echo
+
+MODELDIR="${TMPDIR}/model-tsa"
+create_test_model "${MODELDIR}"
+
+generate_ecdsa_key "tsa-key" "prime256v1"
+
+# --- Verify --tsa-url flag is recognized by sign key ---
+echo "[TSA] Testing --tsa-url flag is recognized by 'sign key'..."
+SIGFILE="${TMPDIR}/tsa-flag-key.sig"
+
+# Use an unreachable URL; the command should fail at TSA contact, not at flag parsing
+tsa_output=$(${DIR}/model-signing sign key \
+	--signature "${SIGFILE}" \
+	--private-key "${KEYSDIR}/tsa-key.pem" \
+	--tsa-url "https://127.0.0.1:1/nonexistent-tsa" \
+	"${MODELDIR}" 2>&1) || true
+
+if echo "${tsa_output}" | grep -qi "unknown flag"; then
+	echo "  Error: --tsa-url flag not recognized by 'sign key'"
+	exit 1
+fi
+echo "  --tsa-url flag recognized by 'sign key': PASSED"
+
+# --- Verify --tsa-url flag is recognized by sign certificate ---
+echo "[TSA] Testing --tsa-url flag is recognized by 'sign certificate'..."
+SIGFILE="${TMPDIR}/tsa-flag-cert.sig"
+
+# Generate a self-signed cert for this test
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+	-keyout "${KEYSDIR}/tsa-cert-key.pem" \
+	-out "${KEYSDIR}/tsa-cert.pem" \
+	-days 1 -nodes \
+	-subj "/CN=TSA Test" \
+	-addext "keyUsage=digitalSignature" \
+	-addext "extendedKeyUsage=codeSigning" 2>/dev/null
+
+tsa_output=$(${DIR}/model-signing sign certificate \
+	--signature "${SIGFILE}" \
+	--private-key "${KEYSDIR}/tsa-cert-key.pem" \
+	--signing-certificate "${KEYSDIR}/tsa-cert.pem" \
+	--tsa-url "https://127.0.0.1:1/nonexistent-tsa" \
+	"${MODELDIR}" 2>&1) || true
+
+if echo "${tsa_output}" | grep -qi "unknown flag"; then
+	echo "  Error: --tsa-url flag not recognized by 'sign certificate'"
+	exit 1
+fi
+echo "  --tsa-url flag recognized by 'sign certificate': PASSED"
+
+# --- Verify signing without --tsa-url produces no TSA timestamps ---
+echo "[TSA] Testing signing without --tsa-url produces no TSA timestamps..."
+SIGFILE="${TMPDIR}/no-tsa.sig"
+
+if ! ${DIR}/model-signing sign key \
+	--signature "${SIGFILE}" \
+	--private-key "${KEYSDIR}/tsa-key.pem" \
+	"${MODELDIR}" >/dev/null 2>&1; then
+	echo "  Error: Sign without --tsa-url failed"
+	exit 1
+fi
+
+if has_tsa_timestamp "${SIGFILE}"; then
+	echo "  Error: Bundle should not contain TSA timestamps when --tsa-url is not used"
+	exit 1
+fi
+
+tsa_count=$(get_tsa_timestamp_count "${SIGFILE}")
+if [ "${tsa_count}" != "0" ]; then
+	echo "  Error: Expected 0 TSA timestamps, got ${tsa_count}"
+	exit 1
+fi
+echo "  No TSA timestamps without --tsa-url: PASSED"
+
+# --- Verify the bundle is still valid without TSA ---
+if ! ${DIR}/model-signing verify key \
+	--signature "${SIGFILE}" \
+	--public-key "${KEYSDIR}/tsa-key-pub.pem" \
+	"${MODELDIR}" >/dev/null 2>&1; then
+	echo "  Error: Verify without TSA failed"
+	exit 1
+fi
+echo "  Verify without TSA: PASSED"
+
+echo
+
+echo "=========================================="
 echo "All hardening tests PASSED!"
 echo "=========================================="
 
