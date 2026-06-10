@@ -184,11 +184,12 @@ func buildHashingConfig(opts Options) *config.HashingConfig {
 
 	hc := config.NewHashingConfig()
 
-	if opts.ShardSize > 0 {
+	switch {
+	case opts.ShardSize > 0:
 		hc.UseShardSerialization(hashAlgorithm, opts.ShardSize, opts.AllowSymlinks, opts.IgnorePaths)
-	} else if opts.ShardSize < 0 {
+	case opts.ShardSize < 0:
 		hc.UseShardSerialization(hashAlgorithm, DefaultShardSize, opts.AllowSymlinks, opts.IgnorePaths)
-	} else {
+	default:
 		hc.UseFileSerialization(hashAlgorithm, opts.AllowSymlinks, opts.IgnorePaths)
 	}
 
