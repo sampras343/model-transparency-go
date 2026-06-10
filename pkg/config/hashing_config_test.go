@@ -945,3 +945,56 @@ func TestHashFiles_ValidUTF8PathAccepted(t *testing.T) {
 		t.Fatalf("expected 1 descriptor, got %d", len(m.ResourceDescriptors()))
 	}
 }
+
+func TestHashFiles_SingleFileUsesBasename(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "model.bin")
+	if err := os.WriteFile(filePath, []byte("weights"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	hc := NewHashingConfig()
+	hc.UseFileSerialization("sha256", false, nil)
+
+	m, err := hc.Hash(filePath, nil)
+	if err != nil {
+		t.Fatalf("Hash single file failed: %v", err)
+	}
+
+	descs := m.ResourceDescriptors()
+	if len(descs) != 1 {
+		t.Fatalf("expected 1 descriptor, got %d", len(descs))
+	}
+	if descs[0].Identifier != "model.bin" {
+		t.Errorf("expected resource name 'model.bin', got %q", descs[0].Identifier)
+	}
+}
+
+func TestHashShards_SingleFileUsesBasename(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "model.bin")
+	if err := os.WriteFile(filePath, []byte("weights-data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	hc := NewHashingConfig()
+	hc.UseShardSerialization("sha256", 4, false, nil)
+
+	m, err := hc.Hash(filePath, nil)
+	if err != nil {
+		t.Fatalf("Hash single file with shards failed: %v", err)
+	}
+
+	descs := m.ResourceDescriptors()
+	if len(descs) == 0 {
+		t.Fatal("expected at least 1 descriptor")
+	}
+	for _, d := range descs {
+		if strings.HasPrefix(d.Identifier, ".") {
+			t.Errorf("resource name should not start with '.', got %q", d.Identifier)
+		}
+		if !strings.HasPrefix(d.Identifier, "model.bin") {
+			t.Errorf("expected resource name starting with 'model.bin', got %q", d.Identifier)
+		}
+	}
+}

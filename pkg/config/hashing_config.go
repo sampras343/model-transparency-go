@@ -417,6 +417,10 @@ func (c *HashingConfig) hashFiles(modelPath string, filePaths []string) ([]manif
 			return nil, fmt.Errorf("failed to get relative path for %s: %w", filePath, err)
 		}
 
+		if relPath == "." {
+			relPath = filepath.Base(filePath)
+		}
+
 		if !utf8.ValidString(relPath) {
 			return nil, fmt.Errorf("%w: %q", ErrInvalidUTF8Path, relPath)
 		}
@@ -452,6 +456,10 @@ func (c *HashingConfig) hashFilesWithShards(modelPath string, filePaths []string
 		relPath, err := filepath.Rel(modelPath, filePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get relative path for %s: %w", filePath, err)
+		}
+
+		if relPath == "." {
+			relPath = filepath.Base(filePath)
 		}
 
 		if !utf8.ValidString(relPath) {
