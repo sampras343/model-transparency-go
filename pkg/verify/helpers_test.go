@@ -262,7 +262,7 @@ func buildTestTimestampResponse(t *testing.T, genTime time.Time) []byte {
 
 	ts := &timestamp.Timestamp{
 		HashAlgorithm:     crypto.SHA256,
-		HashedMessage:     make([]byte, 32),
+		HashedMessage:     make([]byte, 32), // zero: only testing timestamp parsing, not hash binding
 		Time:              genTime,
 		Policy:            asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 2},
 		Nonce:             big.NewInt(42),

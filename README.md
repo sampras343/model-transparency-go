@@ -497,13 +497,20 @@ The same flag works with `certificate` and `pkcs11-*` subcommands:
        --tsa-url https://freetsa.org/tsr
 ```
 
-**Verifying:** No extra flags are needed — the verifier automatically extracts
-the timestamp from the bundle when present:
+**Verifying:** For certificate-based verification, no extra flags are needed —
+the certificate verifier extracts the TSA timestamp from the bundle and uses it
+as the verification time for chain validation, allowing signatures made with
+since-expired certificates to verify:
 
 ```bash
-[...]$ model-signing verify key bert-base-uncased \
-       --signature model.sig --public-key key.pub
+[...]$ model-signing verify certificate bert-base-uncased \
+       --signature model_cert.sig \
+       --certificate-chain scripts/tests/keys/certificate/ca-cert.pem
 ```
+
+> **Note:** Key-based verification (`verify key`) does not use TSA timestamps,
+> since there are no certificates whose validity period needs anchoring. The
+> timestamp is still recorded in the bundle for non-repudiation purposes.
 
 ### Sign-Verify OCI Images
 

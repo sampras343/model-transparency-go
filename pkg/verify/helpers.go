@@ -278,6 +278,16 @@ func applyBundleCompat(raw map[string]interface{}) {
 // are present, the earliest is used to maximize the certificate validity
 // window. Returns the timestamp and true if a valid timestamp was found,
 // or zero time and false otherwise.
+//
+// NOTE: This parses timestamps directly via digitorus/timestamp rather than
+// using sigstore-go's WithSignedTimestamps() + TrustedMaterial pipeline.
+// This is because the certificate verifier already uses a custom x509.Verify()
+// path (to support x509CertificateChain bundle format), so we extract the
+// timestamp manually to set the verification time. The TSA response itself
+// is not verified against a trust root here. Migrating to sigstore-go's
+// native TSA verification would require reworking the certificate
+// verification path and would remove this direct dependency on
+// digitorus/timestamp.
 func GetTimestampFromBundle(bndl *bundle.Bundle) (time.Time, bool) {
 	timestamps, err := bndl.Timestamps()
 	if err != nil || len(timestamps) == 0 {
