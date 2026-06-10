@@ -183,3 +183,17 @@ func TestSerializationParametersDefensiveCopy(t *testing.T) {
 		}
 	}
 }
+
+func TestFileSerializationRejectsSpuriousShardSize(t *testing.T) {
+	args := map[string]any{
+		"method":         fileMethod,
+		"hash_type":      "sha256",
+		"allow_symlinks": false,
+		"shard_size":     1024,
+	}
+
+	_, err := SerializationTypeFromArgs(args)
+	if err == nil {
+		t.Fatal("expected error for shard_size present with method 'files', got nil")
+	}
+}

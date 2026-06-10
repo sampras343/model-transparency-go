@@ -134,6 +134,10 @@ func (s *FileSerialization) NewItem(name string, digest digests.Digest) (Manifes
 //
 // Returns an error if required fields are missing or have incorrect types.
 func fileSerializationFromArgs(args map[string]any) (*FileSerialization, error) {
+	if _, ok := args["shard_size"]; ok {
+		return nil, fmt.Errorf("shard_size must not be present when method is %q (spec §5.2.2)", fileMethod)
+	}
+
 	rawHashType, ok := args["hash_type"]
 	if !ok {
 		return nil, fmt.Errorf("file serialization args missing `hash_type`")
