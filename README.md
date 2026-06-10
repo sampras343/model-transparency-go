@@ -472,8 +472,13 @@ pkcs11:token=mytoken;object=mykey?module-path=/usr/lib64/pkcs11/libsofthsm2.so&p
 
 When signing with `key`, `certificate`, or `pkcs11-*` methods, you can request
 a trusted timestamp from an [RFC 3161](https://datatracker.ietf.org/doc/html/rfc3161)
-Timestamp Authority (TSA). The timestamp is embedded in the sigstore bundle and
-allows verification of signatures made with certificates that have since expired.
+Timestamp Authority (TSA). The timestamp is embedded in the sigstore bundle.
+
+For **certificate-based signing**, the timestamp is used during verification to
+validate the certificate chain at signing time, allowing signatures made with
+since-expired certificates to verify. For **key-based signing**, the timestamp
+is embedded for future use (e.g., key revocation auditing) but is not currently
+consumed during key verification.
 
 > **Note:** The `--tsa-url` flag is not available for `sigstore` signing, which
 > uses Sigstore's own transparency log for timestamp evidence.
@@ -507,10 +512,6 @@ since-expired certificates to verify:
        --signature model_cert.sig \
        --certificate-chain scripts/tests/keys/certificate/ca-cert.pem
 ```
-
-> **Note:** Key-based verification (`verify key`) does not use TSA timestamps,
-> since there are no certificates whose validity period needs anchoring. The
-> timestamp is still recorded in the bundle for non-repudiation purposes.
 
 ### Sign-Verify OCI Images
 
