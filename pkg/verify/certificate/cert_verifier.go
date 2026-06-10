@@ -24,11 +24,14 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/modelartifact"
@@ -202,9 +205,17 @@ func (cv *CertificateVerifier) extractAndVerifyCertificate(bndl *bundle.Bundle, 
 		intermediatePool.AddCert(cert)
 	}
 
-	// Verify the certificate chain
-	// Use the signing certificate's notBefore time as the verification time
+	// Verify the certificate chain.
+	// If the bundle contains an RFC 3161 TSA timestamp, use it as the
+	// verification time (proves signing happened while cert was valid).
+	// Otherwise fall back to NotBefore, matching the Python reference
+	// implementation. Full current-time enforcement requires TSA support
+	// (see sigstore/model-transparency#603).
 	verifyTime := signingCert.NotBefore
+	if tsTime, ok := cv.extractTSATimestamp(bndl); ok {
+		cv.logger.Debug("  Using TSA timestamp for chain verification: %v", tsTime)
+		verifyTime = tsTime
+	}
 
 	verifyOpts := x509.VerifyOptions{
 		Roots:         rootPool,
@@ -501,4 +512,75 @@ func parseCertificates(certBytes []byte) ([]*x509.Certificate, error) {
 func logCertificateFingerprint(location string, cert *x509.Certificate, logger logging.Logger) {
 	fingerprint := sha256.Sum256(cert.Raw)
 	logger.Info("[%8s] SHA256 Fingerprint: %X", location, fingerprint)
+}
+
+// extractTSATimestamp extracts the genTime from the first RFC 3161 timestamp
+// in the bundle's verification material, if present.
+func (cv *CertificateVerifier) extractTSATimestamp(bndl *bundle.Bundle) (time.Time, bool) {
+	vm := bndl.GetVerificationMaterial()
+	if vm == nil {
+		return time.Time{}, false
+	}
+
+	tsData := vm.GetTimestampVerificationData()
+	if tsData == nil {
+		return time.Time{}, false
+	}
+
+	timestamps := tsData.GetRfc3161Timestamps()
+	if len(timestamps) == 0 {
+		return time.Time{}, false
+	}
+
+	return parseTSAGenTime(timestamps[0].GetSignedTimestamp())
+}
+
+// parseTSAGenTime extracts genTime from a DER-encoded RFC 3161 TimeStampResponse.
+// The ASN.1 path is: TimeStampResponse -> TimeStampToken -> TSTInfo -> GenTime.
+func parseTSAGenTime(der []byte) (time.Time, bool) {
+	// TimeStampResponse ::= SEQUENCE { status PKIStatusInfo, timeStampToken ContentInfo OPTIONAL }
+	var resp struct {
+		Status asn1.RawValue
+		Token  asn1.RawValue `asn1:"optional"`
+	}
+	if _, err := asn1.Unmarshal(der, &resp); err != nil || len(resp.Token.Bytes) == 0 {
+		return time.Time{}, false
+	}
+
+	// ContentInfo ::= SEQUENCE { contentType OID, content [0] EXPLICIT ANY }
+	var contentInfo struct {
+		ContentType asn1.ObjectIdentifier
+		Content     asn1.RawValue `asn1:"tag:0,explicit"`
+	}
+	if _, err := asn1.Unmarshal(resp.Token.FullBytes, &contentInfo); err != nil {
+		return time.Time{}, false
+	}
+
+	// SignedData ::= SEQUENCE { version, ..., encapContentInfo EncapsulatedContentInfo, ... }
+	var signedData struct {
+		Version          int
+		DigestAlgorithms asn1.RawValue
+		EncapContentInfo struct {
+			ContentType asn1.ObjectIdentifier
+			Content     asn1.RawValue `asn1:"tag:0,explicit"`
+		}
+		Rest asn1.RawValue `asn1:"optional"`
+	}
+	if _, err := asn1.Unmarshal(contentInfo.Content.Bytes, &signedData); err != nil {
+		return time.Time{}, false
+	}
+
+	// TSTInfo ::= SEQUENCE { version, policy, messageImprint, serialNumber, genTime GeneralizedTime, ... }
+	var tstInfo struct {
+		Version        int
+		Policy         asn1.ObjectIdentifier
+		MessageImprint asn1.RawValue
+		SerialNumber   *big.Int
+		GenTime        time.Time `asn1:"generalized"`
+	}
+	if _, err := asn1.Unmarshal(signedData.EncapContentInfo.Content.Bytes, &tstInfo); err != nil {
+		return time.Time{}, false
+	}
+
+	return tstInfo.GenTime, true
 }
