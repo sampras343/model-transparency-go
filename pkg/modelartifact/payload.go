@@ -161,6 +161,10 @@ func unmarshalPayloadV1(dssePayload map[string]interface{}) (*manifest.Manifest,
 		return nil, fmt.Errorf("subject name missing or not a string")
 	}
 
+	if modelName == "" {
+		return nil, fmt.Errorf("subject name must not be empty")
+	}
+
 	digestMap, ok := subject["digest"].(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("subject digest missing or not an object")
