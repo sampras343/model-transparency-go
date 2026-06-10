@@ -38,11 +38,11 @@ func TestKeySignOptions_ToStandardOptions(t *testing.T) {
 	opts := &KeySignOptions{}
 	opts.PrivateKeyPath = "/path/to/key.pem"
 	opts.Password = "secret"
-	opts.SignatureOutputFlags.SignaturePath = "model.sig"
-	opts.ModelPathFlags.IgnoreGitPaths = true
-	opts.ModelPathFlags.AllowSymlinks = false
-	opts.ModelPathFlags.IgnorePaths = []string{"ignored"}
-	opts.TSAFlags.TSAUrl = "https://tsa.example.com"
+	opts.SignaturePath = "model.sig"
+	opts.IgnoreGitPaths = true
+	opts.AllowSymlinks = false
+	opts.IgnorePaths = []string{"ignored"}
+	opts.TSAUrl = "https://tsa.example.com"
 
 	std := opts.ToStandardOptions("/path/to/model")
 
@@ -94,8 +94,8 @@ func TestCertificateSignOptions_ToStandardOptions(t *testing.T) {
 	opts.PrivateKeyPath = "/path/to/key.pem"
 	opts.SigningCertificatePath = "/path/to/cert.pem"
 	opts.CertificateChain = []string{"/path/to/chain.pem"}
-	opts.SignatureOutputFlags.SignaturePath = "model.sig"
-	opts.TSAFlags.TSAUrl = "https://tsa.example.com"
+	opts.SignaturePath = "model.sig"
+	opts.TSAUrl = "https://tsa.example.com"
 
 	std := opts.ToStandardOptions("/path/to/model")
 
@@ -156,8 +156,8 @@ func TestPkcs11SignOptions_ToStandardOptions(t *testing.T) {
 	opts.ModulePaths = []string{"/usr/lib/softhsm"}
 	opts.SigningCertificatePath = "/path/to/cert.pem"
 	opts.CertificateChain = []string{"/path/to/chain.pem"}
-	opts.SignatureOutputFlags.SignaturePath = "model.sig"
-	opts.TSAFlags.TSAUrl = "https://tsa.example.com"
+	opts.SignaturePath = "model.sig"
+	opts.TSAUrl = "https://tsa.example.com"
 
 	std := opts.ToStandardOptions("/path/to/model")
 
@@ -212,9 +212,9 @@ func TestSigstoreSignOptions_ToStandardOptions(t *testing.T) {
 	opts.IdentityToken = "test-token"
 	opts.ClientID = "test-client"
 	opts.ClientSecret = "test-secret"
-	opts.SigstoreFlags.UseStaging = true
-	opts.SigstoreFlags.TrustConfigPath = "/path/to/trust.json"
-	opts.SignatureOutputFlags.SignaturePath = "model.sig"
+	opts.UseStaging = true
+	opts.TrustConfigPath = "/path/to/trust.json"
+	opts.SignaturePath = "model.sig"
 
 	std := opts.ToStandardOptions("/path/to/model")
 

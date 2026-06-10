@@ -16,6 +16,8 @@ DIR=${PWD}/$(dirname "$0")
 TMPDIR=$(mktemp -d) || exit 1
 KEYSDIR="${TMPDIR}/keys"
 
+source "${DIR}/functions"
+
 cleanup() {
 	rm -rf "${TMPDIR}"
 }
