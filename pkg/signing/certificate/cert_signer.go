@@ -152,12 +152,7 @@ func (s *CertificateSigner) Sign(ctx context.Context) (signing.Result, error) {
 		CertificateProvider: certProvider,
 		Context:             ctx,
 	}
-	if s.opts.TSAUrl != "" {
-		s.logger.Debug("  Using RFC 3161 Timestamp Authority: %s", s.opts.TSAUrl)
-		bundleOpts.TimestampAuthorities = []*sigstoresign.TimestampAuthority{
-			sigstoresign.NewTimestampAuthority(&sigstoresign.TimestampAuthorityOptions{URL: s.opts.TSAUrl}),
-		}
-	}
+	signing.ApplyTSA(&bundleOpts, s.opts.TSAUrl, s.logger)
 
 	bundle, err := sigstoresign.Bundle(content, keypair, bundleOpts)
 	if err != nil {

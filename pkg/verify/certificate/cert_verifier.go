@@ -209,6 +209,7 @@ func (cv *CertificateVerifier) extractAndVerifyCertificate(bndl *bundle.Bundle, 
 	// TODO(#130): revisit once the spec clarifies validity-period semantics.
 	verifyTime := signingCert.NotBefore
 	if tsTime, ok := verify.GetTimestampFromBundle(bndl); ok {
+		cv.logger.Debug("  Using TSA timestamp for chain verification: %s", tsTime)
 		verifyTime = tsTime
 	}
 

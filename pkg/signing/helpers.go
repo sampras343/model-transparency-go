@@ -25,6 +25,7 @@ import (
 	"github.com/sigstore/model-signing/pkg/modelartifact"
 	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
 	"github.com/sigstore/sigstore-go/pkg/bundle"
+	sigstoresign "github.com/sigstore/sigstore-go/pkg/sign"
 )
 
 // WriteBundle writes a protobuf bundle to disk in sigstore JSON format.
@@ -50,6 +51,16 @@ func WriteBundle(protoBundle *protobundle.Bundle, path string) error {
 	}
 
 	return nil
+}
+
+// ApplyTSA configures timestamp authority options on the bundle if a TSA URL is provided.
+func ApplyTSA(bundleOpts *sigstoresign.BundleOptions, tsaURL string, logger logging.Logger) {
+	if tsaURL != "" {
+		logger.Debug("  Using RFC 3161 Timestamp Authority: %s", tsaURL)
+		bundleOpts.TimestampAuthorities = []*sigstoresign.TimestampAuthority{
+			sigstoresign.NewTimestampAuthority(&sigstoresign.TimestampAuthorityOptions{URL: tsaURL}),
+		}
+	}
 }
 
 // PreparePayload canonicalizes a model and marshals the manifest into an in-toto

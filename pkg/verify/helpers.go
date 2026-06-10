@@ -273,21 +273,31 @@ func applyBundleCompat(raw map[string]interface{}) {
 	}
 }
 
-// GetTimestampFromBundle extracts the genTime from the first RFC 3161
-// timestamp in the bundle's verification material. Returns the timestamp
-// and true if a valid timestamp was found, or zero time and false otherwise.
+// GetTimestampFromBundle extracts the earliest genTime from the RFC 3161
+// timestamps in the bundle's verification material. When multiple timestamps
+// are present, the earliest is used to maximize the certificate validity
+// window. Returns the timestamp and true if a valid timestamp was found,
+// or zero time and false otherwise.
 func GetTimestampFromBundle(bndl *bundle.Bundle) (time.Time, bool) {
 	timestamps, err := bndl.Timestamps()
 	if err != nil || len(timestamps) == 0 {
 		return time.Time{}, false
 	}
 
-	ts, err := timestamp.ParseResponse(timestamps[0])
-	if err != nil {
-		return time.Time{}, false
+	var earliest time.Time
+	found := false
+	for _, raw := range timestamps {
+		ts, err := timestamp.ParseResponse(raw)
+		if err != nil {
+			continue
+		}
+		if !found || ts.Time.Before(earliest) {
+			earliest = ts.Time
+			found = true
+		}
 	}
 
-	return ts.Time, true
+	return earliest, found
 }
 
 // normalizeLegacyDotResource handles backward compatibility with pre-v1.1
