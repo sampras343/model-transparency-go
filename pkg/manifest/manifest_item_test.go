@@ -168,3 +168,41 @@ func TestShardedFileManifestItemRoundTripName(t *testing.T) {
 		t.Fatalf("Digest mismatch after round-trip")
 	}
 }
+
+func TestFileManifestItemPathNormalization(t *testing.T) {
+	d := digests.NewDigest("sha256", []byte{0x01})
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"./config.json", "config.json"},
+		{"subdir/./weights.bin", "subdir/weights.bin"},
+		{"subdir//file", "subdir/file"},
+		{"./a/./b//c", "a/b/c"},
+		{"normal/path.txt", "normal/path.txt"},
+	}
+	for _, tt := range tests {
+		item := NewFileManifestItem(tt.input, d)
+		if got := item.Name(); got != tt.want {
+			t.Errorf("NewFileManifestItem(%q).Name() = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestShardedFileManifestItemPathNormalization(t *testing.T) {
+	d := digests.NewDigest("sha256", []byte{0x01})
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"./file.bin", "file.bin:0:10"},
+		{"dir/./file.bin", "dir/file.bin:0:10"},
+		{"dir//file.bin", "dir/file.bin:0:10"},
+	}
+	for _, tt := range tests {
+		item := NewShardedFileManifestItem(tt.input, 0, 10, d)
+		if got := item.Name(); got != tt.want {
+			t.Errorf("NewShardedFileManifestItem(%q, 0, 10).Name() = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}

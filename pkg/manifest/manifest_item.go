@@ -16,6 +16,7 @@ package manifest
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -49,10 +50,11 @@ type FileManifestItem struct {
 
 // NewFileManifestItem creates a new file manifest item.
 //
-// The path parameter is automatically converted to POSIX form (forward slashes).
-// Returns a FileManifestItem pairing the canonical path with its digest.
-func NewFileManifestItem(path string, digest digests.Digest) *FileManifestItem {
-	key := filepath.ToSlash((path))
+// The path parameter is normalized to POSIX form per OMS spec §6.1.2:
+// forward slashes, collapsed ./ prefixes, interior . components, and
+// redundant separators.
+func NewFileManifestItem(p string, digest digests.Digest) *FileManifestItem {
+	key := path.Clean(filepath.ToSlash(p))
 	return &FileManifestItem{
 		path:   key,
 		digest: digest,
@@ -84,11 +86,10 @@ type ShardedFileManifestItem struct {
 
 // NewShardedFileManifestItem builds a manifest item for a file shard.
 //
-// The path parameter is automatically converted to POSIX form. The start and
-// end parameters define the byte range [start, end) within the file.
-// Returns a ShardedFileManifestItem pairing the shard with its digest.
-func NewShardedFileManifestItem(path string, start, end int64, digest digests.Digest) *ShardedFileManifestItem {
-	canonical := filepath.ToSlash(path)
+// The path parameter is normalized to POSIX form per OMS spec §6.1.2.
+// The start and end parameters define the byte range [start, end) within the file.
+func NewShardedFileManifestItem(p string, start, end int64, digest digests.Digest) *ShardedFileManifestItem {
+	canonical := path.Clean(filepath.ToSlash(p))
 	return &ShardedFileManifestItem{
 		path:   canonical,
 		start:  start,
