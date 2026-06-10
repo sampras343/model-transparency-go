@@ -204,8 +204,9 @@ func (cv *CertificateVerifier) extractAndVerifyCertificate(bndl *bundle.Bundle, 
 
 	// Verify the certificate chain.
 	// Use TSA timestamp if present, otherwise fall back to the signing
-	// certificate's notBefore time. This allows verification of signatures
-	// made with certificates that have since expired.
+	// certificate's NotBefore time so that verification succeeds for
+	// offline or long-lived certificates that may have expired by now.
+	// TODO(#130): revisit once the spec clarifies validity-period semantics.
 	verifyTime := signingCert.NotBefore
 	if tsTime, ok := verify.GetTimestampFromBundle(bndl); ok {
 		verifyTime = tsTime
