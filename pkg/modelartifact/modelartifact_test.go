@@ -174,6 +174,28 @@ func TestCanonicalizeWithShards(t *testing.T) {
 	}
 }
 
+func TestCanonicalizeWithDefaultShardSize(t *testing.T) {
+	modelDir := createTestModel(t)
+
+	m, err := Canonicalize(modelDir, Options{
+		ShardSize: -1,
+	})
+	if err != nil {
+		t.Fatalf("Canonicalize with default shard size failed: %v", err)
+	}
+
+	// Test files are small (<1 GB), so each file is one shard
+	descriptors := m.ResourceDescriptors()
+	if len(descriptors) != 3 {
+		t.Errorf("expected 3 descriptors (one shard per small file), got %d", len(descriptors))
+	}
+
+	params := m.SerializationParameters()
+	if params["shard_size"] != DefaultShardSize {
+		t.Errorf("expected shard_size=%d, got %v", DefaultShardSize, params["shard_size"])
+	}
+}
+
 func TestCanonicalizeNonexistentPath(t *testing.T) {
 	_, err := Canonicalize("/nonexistent/path", Options{})
 	if err == nil {

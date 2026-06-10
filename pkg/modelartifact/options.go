@@ -38,6 +38,9 @@ import (
 	"github.com/sigstore/model-signing/pkg/logging"
 )
 
+// DefaultShardSize is the recommended shard size per OMS spec §6.3.2 (1 GB).
+const DefaultShardSize int64 = 1_000_000_000
+
 // Options configures how a model is canonicalized.
 type Options struct {
 	// HashAlgorithm is the hash algorithm to use (default: "sha256").
@@ -58,7 +61,8 @@ type Options struct {
 
 	// ShardSize enables shard-based serialization if > 0.
 	// When 0 (default), file-based serialization is used where each file
-	// is hashed as a single unit. When > 0, large files are split into
+	// is hashed as a single unit. When set to -1, DefaultShardSize (1 GB)
+	// is used per OMS spec §6.3.2. When > 0, files are split into
 	// fixed-size shards and each shard is hashed separately.
 	ShardSize int64
 
