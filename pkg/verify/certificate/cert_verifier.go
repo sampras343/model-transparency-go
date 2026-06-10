@@ -202,9 +202,14 @@ func (cv *CertificateVerifier) extractAndVerifyCertificate(bndl *bundle.Bundle, 
 		intermediatePool.AddCert(cert)
 	}
 
-	// Verify the certificate chain
-	// Use the signing certificate's notBefore time as the verification time
+	// Verify the certificate chain.
+	// Use TSA timestamp if present, otherwise fall back to the signing
+	// certificate's notBefore time. This allows verification of signatures
+	// made with certificates that have since expired.
 	verifyTime := signingCert.NotBefore
+	if tsTime, ok := verify.GetTimestampFromBundle(bndl); ok {
+		verifyTime = tsTime
+	}
 
 	verifyOpts := x509.VerifyOptions{
 		Roots:         rootPool,

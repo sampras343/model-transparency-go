@@ -15,12 +15,25 @@
 package verify
 
 import (
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/digitorus/timestamp"
 	"github.com/sigstore/model-signing/pkg/modelartifact"
+	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
+	protocommon "github.com/sigstore/protobuf-specs/gen/pb-go/common/v1"
+	sigbundle "github.com/sigstore/sigstore-go/pkg/bundle"
 )
 
 func createTestModel(t *testing.T) string {
@@ -216,5 +229,114 @@ func TestCompareModelWithBundle_VerifierPolicyOverridesBundle(t *testing.T) {
 	}, false)
 	if err != nil {
 		t.Fatalf("should pass with AllowSymlinks: %v", err)
+	}
+}
+
+// buildTestTimestampResponse creates a valid RFC 3161 timestamp response for testing.
+func buildTestTimestampResponse(t *testing.T, genTime time.Time) []byte {
+	t.Helper()
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "Test TSA"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping},
+	}
+
+	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatalf("create cert: %v", err)
+	}
+
+	cert, err := x509.ParseCertificate(certDER)
+	if err != nil {
+		t.Fatalf("parse cert: %v", err)
+	}
+
+	ts := &timestamp.Timestamp{
+		HashAlgorithm:     crypto.SHA256,
+		HashedMessage:     make([]byte, 32),
+		Time:              genTime,
+		Policy:            asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 2},
+		Nonce:             big.NewInt(42),
+		AddTSACertificate: true,
+	}
+
+	respBytes, err := ts.CreateResponseWithOpts(cert, key, crypto.SHA256)
+	if err != nil {
+		t.Fatalf("create timestamp response: %v", err)
+	}
+
+	return respBytes
+}
+
+func bundleWithTimestamp(t *testing.T, tsBytes []byte) *sigbundle.Bundle {
+	t.Helper()
+	pb := &protobundle.Bundle{
+		MediaType: "application/vnd.dev.sigstore.bundle.v0.3+json",
+		VerificationMaterial: &protobundle.VerificationMaterial{
+			TimestampVerificationData: &protobundle.TimestampVerificationData{
+				Rfc3161Timestamps: []*protocommon.RFC3161SignedTimestamp{
+					{SignedTimestamp: tsBytes},
+				},
+			},
+		},
+	}
+	bndl := &sigbundle.Bundle{Bundle: pb}
+	return bndl
+}
+
+func TestGetTimestampFromBundle_Valid(t *testing.T) {
+	expectedTime := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
+	tsResp := buildTestTimestampResponse(t, expectedTime)
+	bndl := bundleWithTimestamp(t, tsResp)
+
+	got, ok := GetTimestampFromBundle(bndl)
+	if !ok {
+		t.Fatal("expected ok=true for valid timestamp")
+	}
+	if !got.Equal(expectedTime) {
+		t.Errorf("timestamp: got %v, want %v", got, expectedTime)
+	}
+}
+
+func TestGetTimestampFromBundle_NoTimestamp(t *testing.T) {
+	pb := &protobundle.Bundle{
+		MediaType:            "application/vnd.dev.sigstore.bundle.v0.3+json",
+		VerificationMaterial: &protobundle.VerificationMaterial{},
+	}
+	bndl := &sigbundle.Bundle{Bundle: pb}
+
+	_, ok := GetTimestampFromBundle(bndl)
+	if ok {
+		t.Fatal("expected ok=false when no timestamp present")
+	}
+}
+
+func TestGetTimestampFromBundle_InvalidBytes(t *testing.T) {
+	bndl := bundleWithTimestamp(t, []byte{0xff, 0xfe, 0xfd})
+
+	_, ok := GetTimestampFromBundle(bndl)
+	if ok {
+		t.Fatal("expected ok=false for invalid timestamp bytes")
+	}
+}
+
+func TestGetTimestampFromBundle_NilVerificationMaterial(t *testing.T) {
+	pb := &protobundle.Bundle{
+		MediaType: "application/vnd.dev.sigstore.bundle.v0.3+json",
+	}
+	bndl := &sigbundle.Bundle{Bundle: pb}
+
+	_, ok := GetTimestampFromBundle(bndl)
+	if ok {
+		t.Fatal("expected ok=false for nil verification material")
 	}
 }

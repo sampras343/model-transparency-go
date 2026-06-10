@@ -22,7 +22,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/digitorus/timestamp"
 	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/manifest"
 	"github.com/sigstore/model-signing/pkg/modelartifact"
@@ -269,6 +271,23 @@ func applyBundleCompat(raw map[string]interface{}) {
 		}
 		delete(vm, "x509CertificateChain")
 	}
+}
+
+// GetTimestampFromBundle extracts the genTime from the first RFC 3161
+// timestamp in the bundle's verification material. Returns the timestamp
+// and true if a valid timestamp was found, or zero time and false otherwise.
+func GetTimestampFromBundle(bndl *bundle.Bundle) (time.Time, bool) {
+	timestamps, err := bndl.Timestamps()
+	if err != nil || len(timestamps) == 0 {
+		return time.Time{}, false
+	}
+
+	ts, err := timestamp.ParseResponse(timestamps[0])
+	if err != nil {
+		return time.Time{}, false
+	}
+
+	return ts.Time, true
 }
 
 // normalizeLegacyDotResource handles backward compatibility with pre-v1.1

@@ -60,6 +60,7 @@ type Pkcs11SignerOptions struct {
 	SigningCertificatePath string         // SigningCertificatePath is the path to the signing certificate (optional).
 	CertificateChain       []string       // CertificateChain are paths to certificate chain files (optional).
 	Logger                 logging.Logger // Logger is used for debug and info output.
+	TSAUrl                 string         // TSAUrl is the optional URL of an RFC 3161 Timestamp Authority.
 }
 
 // Pkcs11Signer implements ModelSigner using PKCS#11-based signing.
@@ -157,6 +158,14 @@ func (s *Pkcs11Signer) Sign(ctx context.Context) (signing.Result, error) {
 		PayloadType: utils.InTotoJSONPayloadType,
 	}
 
+	bundleOpts := sigstoresign.BundleOptions{Context: ctx}
+	if s.opts.TSAUrl != "" {
+		s.logger.Debug("  Using RFC 3161 Timestamp Authority: %s", s.opts.TSAUrl)
+		bundleOpts.TimestampAuthorities = []*sigstoresign.TimestampAuthority{
+			sigstoresign.NewTimestampAuthority(&sigstoresign.TimestampAuthorityOptions{URL: s.opts.TSAUrl}),
+		}
+	}
+
 	var bundle *protobundle.Bundle
 	if s.opts.SigningCertificatePath != "" {
 		certProvider, err := cert.NewModelCertificateProvider(s.opts.SigningCertificatePath, keypair)
@@ -167,10 +176,8 @@ func (s *Pkcs11Signer) Sign(ctx context.Context) (signing.Result, error) {
 			}, fmt.Errorf("failed to load certificate: %w", err)
 		}
 
-		bundle, err = sigstoresign.Bundle(content, keypair, sigstoresign.BundleOptions{
-			CertificateProvider: certProvider,
-			Context:             ctx,
-		})
+		bundleOpts.CertificateProvider = certProvider
+		bundle, err = sigstoresign.Bundle(content, keypair, bundleOpts)
 		if err != nil {
 			return signing.Result{
 				Verified: false,
@@ -178,9 +185,7 @@ func (s *Pkcs11Signer) Sign(ctx context.Context) (signing.Result, error) {
 			}, fmt.Errorf("failed to create signature bundle: %w", err)
 		}
 	} else {
-		bundle, err = sigstoresign.Bundle(content, keypair, sigstoresign.BundleOptions{
-			Context: ctx,
-		})
+		bundle, err = sigstoresign.Bundle(content, keypair, bundleOpts)
 		if err != nil {
 			return signing.Result{
 				Verified: false,

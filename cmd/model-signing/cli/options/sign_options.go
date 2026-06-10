@@ -80,6 +80,7 @@ func (o *SigstoreSignOptions) ToStandardOptions(modelPath string) sigstore.Sigst
 type KeySignOptions struct {
 	ModelPathFlags
 	SignatureOutputFlags
+	TSAFlags
 	// Password specifies the password for encrypted private keys.
 	Password string
 	// PrivateKeyPath provides the path to the PEM-encoded private key file.
@@ -90,7 +91,7 @@ type KeySignOptions struct {
 // This includes model path flags, signature output flags, and key-specific options.
 // The private-key flag is marked as required.
 func (o *KeySignOptions) AddFlags(cmd *cobra.Command) {
-	AddAllFlags(cmd, &o.ModelPathFlags, &o.SignatureOutputFlags)
+	AddAllFlags(cmd, &o.ModelPathFlags, &o.SignatureOutputFlags, &o.TSAFlags)
 
 	cmd.Flags().StringVar(&o.PrivateKeyPath, "private-key", "", "Path to the private key, as a PEM-encoded file. [required]")
 	_ = cmd.MarkFlagRequired("private-key")
@@ -113,6 +114,7 @@ func (o *KeySignOptions) ToStandardOptions(modelPath string) key.KeySignerOption
 		AllowSymlinks:  o.ModelPathFlags.AllowSymlinks,
 		PrivateKeyPath: o.PrivateKeyPath,
 		Password:       o.Password,
+		TSAUrl:         o.TSAFlags.TSAUrl,
 	}
 }
 
@@ -121,6 +123,7 @@ func (o *KeySignOptions) ToStandardOptions(modelPath string) key.KeySignerOption
 type CertificateSignOptions struct {
 	ModelPathFlags
 	SignatureOutputFlags
+	TSAFlags
 	// PrivateKeyPath provides the path to the PEM-encoded private key file.
 	PrivateKeyPath string
 	// SigningCertificatePath provides the path to the PEM-encoded signing certificate file.
@@ -132,7 +135,7 @@ type CertificateSignOptions struct {
 // AddFlags adds cert-based signing flags to the cobra command.
 // The private-key flag is marked as required.
 func (o *CertificateSignOptions) AddFlags(cmd *cobra.Command) {
-	AddAllFlags(cmd, &o.ModelPathFlags, &o.SignatureOutputFlags)
+	AddAllFlags(cmd, &o.ModelPathFlags, &o.SignatureOutputFlags, &o.TSAFlags)
 
 	cmd.Flags().StringVar(&o.PrivateKeyPath, "private-key", "", "Path to the private key, as a PEM-encoded file. [required]")
 	_ = cmd.MarkFlagRequired("private-key")
@@ -160,6 +163,7 @@ func (o *CertificateSignOptions) ToStandardOptions(modelPath string) cert.Certif
 		PrivateKeyPath:         o.PrivateKeyPath,
 		CertificateChain:       o.CertificateChain,
 		SigningCertificatePath: o.SigningCertificatePath,
+		TSAUrl:                 o.TSAFlags.TSAUrl,
 	}
 }
 
@@ -168,6 +172,7 @@ func (o *CertificateSignOptions) ToStandardOptions(modelPath string) cert.Certif
 type Pkcs11SignOptions struct {
 	ModelPathFlags
 	SignatureOutputFlags
+	TSAFlags
 	// URI provides the PKCS#11 URI identifying the key and module.
 	URI string
 	// ModulePaths provides additional directories to search for PKCS#11 modules.
@@ -182,7 +187,7 @@ type Pkcs11SignOptions struct {
 // AddFlags adds the common PKCS#11 signing flags (key-only) to the cobra command.
 // The pkcs11-uri flag is marked as required.
 func (o *Pkcs11SignOptions) AddFlags(cmd *cobra.Command) {
-	AddAllFlags(cmd, &o.ModelPathFlags, &o.SignatureOutputFlags)
+	AddAllFlags(cmd, &o.ModelPathFlags, &o.SignatureOutputFlags, &o.TSAFlags)
 
 	cmd.Flags().StringVar(&o.URI, "pkcs11-uri", "", "PKCS#11 URI identifying the key. Format: pkcs11:token=TOKEN;object=KEY?module-name=MODULE&pin-value=PIN [required]")
 	_ = cmd.MarkFlagRequired("pkcs11-uri")
@@ -215,5 +220,6 @@ func (o *Pkcs11SignOptions) ToStandardOptions(modelPath string) pkcs11.Pkcs11Sig
 		ModulePaths:            o.ModulePaths,
 		SigningCertificatePath: o.SigningCertificatePath,
 		CertificateChain:       o.CertificateChain,
+		TSAUrl:                 o.TSAFlags.TSAUrl,
 	}
 }
