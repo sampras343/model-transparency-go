@@ -79,6 +79,11 @@ func (manifest *Manifest) ModelName() string {
 	return manifest.name
 }
 
+// GetSerializationType returns the serialization type used to create this manifest.
+func (manifest *Manifest) GetSerializationType() SerializationType {
+	return manifest.serializationType
+}
+
 // SerializationParameters returns the serialization method and arguments used
 // to build the manifest.
 //
