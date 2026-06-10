@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/sigstore/model-signing/pkg/logging"
+	"github.com/sigstore/model-signing/pkg/manifest"
 	"github.com/sigstore/model-signing/pkg/modelartifact"
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 )
@@ -94,6 +95,10 @@ func CompareModelWithBundle(verifiedPayload []byte, modelPath string, opts model
 	if err != nil {
 		return fmt.Errorf("failed to canonicalize model: %w", err)
 	}
+
+	// Backward compat: legacy bundles (pre-v1.1) stored "." as the resource
+	// name for single-file models. Normalize to basename for comparison.
+	expectedManifest = normalizeLegacyDotResource(expectedManifest, modelPath)
 
 	// Step 4: Compare manifests
 	if ignoreUnsignedFiles {
@@ -264,4 +269,19 @@ func applyBundleCompat(raw map[string]interface{}) {
 		}
 		delete(vm, "x509CertificateChain")
 	}
+}
+
+// normalizeLegacyDotResource handles backward compatibility with pre-v1.1
+// bundles that stored "." as the resource name for single-file models.
+// If the expected manifest has exactly one resource named ".", rebuild it
+// with the model file's basename so comparison succeeds.
+func normalizeLegacyDotResource(expected *manifest.Manifest, modelPath string) *manifest.Manifest {
+	descs := expected.ResourceDescriptors()
+	if len(descs) != 1 || descs[0].Identifier != "." {
+		return expected
+	}
+
+	basename := filepath.Base(modelPath)
+	item := manifest.NewFileManifestItem(basename, descs[0].Digest)
+	return manifest.NewManifest(expected.ModelName(), []manifest.ManifestItem{item}, expected.GetSerializationType())
 }
