@@ -457,9 +457,9 @@ if ! jq -n \
 	exit 1
 fi
 
-# OIDC beacon + staging (same identity/issuer pattern as test-otel.sh / test-sign-verify-allversions.sh).
-SIGSTORE_IDENTITY="https://github.com/sigstore-conformance/extremely-dangerous-public-oidc-beacon/.github/workflows/extremely-dangerous-oidc-beacon.yml@refs/heads/main"
-SIGSTORE_ISSUER="https://token.actions.githubusercontent.com"
+# OIDC beacon + staging (same identity/issuer pattern as test-sign-verify-allversions.sh).
+SIGSTORE_IDENTITY="untrusted-sa@sigstore-conformance.iam.gserviceaccount.com"
+SIGSTORE_ISSUER="https://accounts.google.com"
 TOKENPROJ="${WORKDIR}/tokenproj-sigstore"
 TOKEN_FILE="${TOKENPROJ}/oidc-token.txt"
 sigstore_sig_file="${WORKDIR}/model.sig-sigstore-file"
