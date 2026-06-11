@@ -15,6 +15,7 @@ WORKDIR=$(mktemp -d) || exit 1
 signfile1="${MODELDIR}/signme-1"
 signfile2="${MODELDIR}/signme-2"
 ignorefile="${MODELDIR}/ignore"
+ignorepath="ignore"
 sigfile="${WORKDIR}/model.sig"
 sig_key_inline="${WORKDIR}/model.sig-key-inline"
 sig_key_stdin="${WORKDIR}/model.sig-key-stdin"
@@ -49,7 +50,7 @@ jq -n \
 	--arg model "${MODELDIR}" \
 	--arg sig "${sigfile}" \
 	--arg pk "${KEYDIR}/signing-key.pem" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "private-key": $pk, "ignore-paths": $ign}' >"${params_json}"
 
 if ! "${BINARY}" sign key --json "${params_json}"; then
@@ -61,7 +62,7 @@ jq -n \
 	--arg model "${MODELDIR}" \
 	--arg sig "${sigfile}" \
 	--arg pub "${KEYDIR}/signing-key-pub.pem" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "public-key": $pub, "ignore-paths": $ign}' >"${verify_json}"
 
 if ! "${BINARY}" verify key --json "${verify_json}"; then
@@ -75,7 +76,7 @@ if ! "${BINARY}" verify key \
 		--arg model "${MODELDIR}" \
 		--arg sig "${sigfile}" \
 		--arg pub "${KEYDIR}/signing-key-pub.pem" \
-		--arg ign "${ignorefile}" \
+		--arg ign "${ignorepath}" \
 		'{model: $model, signature: $sig, "public-key": $pub, "ignore-paths": $ign}')"; then
 	echo "Error: verify key with inline --json failed"
 	exit 1
@@ -86,7 +87,7 @@ if ! jq -n \
 	--arg model "${MODELDIR}" \
 	--arg sig "${sigfile}" \
 	--arg pub "${KEYDIR}/signing-key-pub.pem" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "public-key": $pub, "ignore-paths": $ign}' |
 	"${BINARY}" verify key --json -; then
 	echo "Error: verify key with --json stdin failed"
@@ -99,7 +100,7 @@ if ! "${BINARY}" sign key \
 		--arg model "${MODELDIR}" \
 		--arg sig "${sig_key_inline}" \
 		--arg pk "${KEYDIR}/signing-key.pem" \
-		--arg ign "${ignorefile}" \
+		--arg ign "${ignorepath}" \
 		'{model: $model, signature: $sig, "private-key": $pk, "ignore-paths": $ign}')"; then
 	echo "Error: sign key with inline --json failed"
 	exit 1
@@ -110,7 +111,7 @@ jq -n \
 	--arg model "${MODELDIR}" \
 	--arg sig "${sig_key_inline}" \
 	--arg pub "${KEYDIR}/signing-key-pub.pem" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "public-key": $pub, "ignore-paths": $ign}' >"${verify_json}"
 if ! "${BINARY}" verify key --json "${verify_json}"; then
 	echo "Error: verify key (file) after inline sign failed"
@@ -122,7 +123,7 @@ if ! jq -n \
 	--arg model "${MODELDIR}" \
 	--arg sig "${sig_key_stdin}" \
 	--arg pk "${KEYDIR}/signing-key.pem" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "private-key": $pk, "ignore-paths": $ign}' |
 	"${BINARY}" sign key --json -; then
 	echo "Error: sign key with --json stdin failed"
@@ -135,7 +136,7 @@ if ! "${BINARY}" verify key \
 		--arg model "${MODELDIR}" \
 		--arg sig "${sig_key_stdin}" \
 		--arg pub "${KEYDIR}/signing-key-pub.pem" \
-		--arg ign "${ignorefile}" \
+		--arg ign "${ignorepath}" \
 		'{model: $model, signature: $sig, "public-key": $pub, "ignore-paths": $ign}')"; then
 	echo "Error: verify key (inline) after stdin sign failed"
 	exit 1
@@ -146,7 +147,7 @@ if ! jq -n \
 	--arg model "${MODELDIR}" \
 	--arg sig "${sig_key_stdin}" \
 	--arg pub "${KEYDIR}/signing-key-pub.pem" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "public-key": $pub, "ignore-paths": $ign}' |
 	"${BINARY}" verify key --json -; then
 	echo "Error: verify key (stdin) after stdin sign failed"
@@ -166,7 +167,7 @@ jq -n \
 	--arg model "${MODELDIR}" \
 	--arg sig "${sigfile}" \
 	--arg pk "${KEYDIR}/signing-key.pem" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "private-key": $pk, "ignore-paths": $ign}' >"${params_json}"
 if ! "${BINARY}" sign key --json "${params_json}" --json "$(jq -n --arg s "${sig_override}" '{"signature": $s}')"; then
 	echo "Error: merged --json (file + inline) failed"
@@ -183,7 +184,7 @@ jq -n \
 	--arg model "${MODELDIR}" \
 	--arg sig "${bogus_sig}" \
 	--arg pk "${KEYDIR}/signing-key.pem" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "private-key": $pk, "ignore-paths": $ign}' >"${params_json}"
 if ! "${BINARY}" sign key --json "${params_json}" --signature "${sigfile}"; then
 	echo "Error: sign key with CLI override of signature failed"
@@ -260,7 +261,7 @@ jq -n \
 	--arg pk "${KEYDIR}/signing-key.pem" \
 	--arg sc "${KEYDIR}/signing-key-cert.pem" \
 	--arg cc "${KEYDIR}/int-ca-cert.pem" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "private-key": $pk, "signing-certificate": $sc, "certificate-chain": $cc, "ignore-paths": $ign}' >"${sign_cert_json}"
 
 if ! "${BINARY}" sign certificate --json "${sign_cert_json}"; then
@@ -273,7 +274,7 @@ jq -n \
 	--arg model "${MODELDIR}" \
 	--arg sig "${cert_sig_file}" \
 	--arg cc "${KEYDIR}/ca-cert.pem" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "certificate-chain": $cc, "ignore-paths": $ign}' >"${verify_cert_json}"
 
 if ! "${BINARY}" verify certificate --json "${verify_cert_json}"; then
@@ -289,7 +290,7 @@ if ! "${BINARY}" sign certificate \
 		--arg pk "${KEYDIR}/signing-key.pem" \
 		--arg sc "${KEYDIR}/signing-key-cert.pem" \
 		--arg cc "${KEYDIR}/int-ca-cert.pem" \
-		--arg ign "${ignorefile}" \
+		--arg ign "${ignorepath}" \
 		'{model: $model, signature: $sig, "private-key": $pk, "signing-certificate": $sc, "certificate-chain": $cc, "ignore-paths": $ign}')"; then
 	echo "Error: sign certificate with inline --json failed"
 	exit 1
@@ -301,7 +302,7 @@ if ! "${BINARY}" verify certificate \
 		--arg model "${MODELDIR}" \
 		--arg sig "${cert_sig_inline}" \
 		--arg cc "${KEYDIR}/ca-cert.pem" \
-		--arg ign "${ignorefile}" \
+		--arg ign "${ignorepath}" \
 		'{model: $model, signature: $sig, "certificate-chain": $cc, "ignore-paths": $ign}')"; then
 	echo "Error: verify certificate with inline --json failed"
 	exit 1
@@ -314,7 +315,7 @@ if ! jq -n \
 	--arg pk "${KEYDIR}/signing-key.pem" \
 	--arg sc "${KEYDIR}/signing-key-cert.pem" \
 	--arg cc "${KEYDIR}/int-ca-cert.pem" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "private-key": $pk, "signing-certificate": $sc, "certificate-chain": $cc, "ignore-paths": $ign}' |
 	"${BINARY}" sign certificate --json -; then
 	echo "Error: sign certificate with --json - (stdin) failed"
@@ -326,7 +327,7 @@ if ! jq -n \
 	--arg model "${MODELDIR}" \
 	--arg sig "${cert_sig_stdin}" \
 	--arg cc "${KEYDIR}/ca-cert.pem" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "certificate-chain": $cc, "ignore-paths": $ign}' |
 	"${BINARY}" verify certificate --json -; then
 	echo "Error: verify certificate with --json - (stdin) failed"
@@ -342,7 +343,7 @@ jq -n \
 	--arg model "${MODELDIR}" \
 	--arg sig "${cert_sig_file}" \
 	--arg cc "${cert_chain_pems}" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "certificate-chain": $cc, "ignore-paths": $ign}' >"${verify_chain_json}"
 if ! "${BINARY}" verify certificate --json "${verify_chain_json}"; then
 	echo "Error: verify certificate (comma-separated chain, JSON file) failed"
@@ -355,7 +356,7 @@ if ! "${BINARY}" verify certificate \
 		--arg model "${MODELDIR}" \
 		--arg sig "${cert_sig_file}" \
 		--arg cc "${cert_chain_pems}" \
-		--arg ign "${ignorefile}" \
+		--arg ign "${ignorepath}" \
 		'{model: $model, signature: $sig, "certificate-chain": $cc, "ignore-paths": $ign}')"; then
 	echo "Error: verify certificate (comma-separated chain, inline JSON) failed"
 	exit 1
@@ -366,7 +367,7 @@ if ! jq -n \
 	--arg model "${MODELDIR}" \
 	--arg sig "${cert_sig_file}" \
 	--arg cc "${cert_chain_pems}" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "certificate-chain": $cc, "ignore-paths": $ign}' |
 	"${BINARY}" verify certificate --json -; then
 	echo "Error: verify certificate (comma-separated chain, JSON stdin) failed"
@@ -385,7 +386,7 @@ jq -n \
 	--arg pk "${KEYDIR}/signing-key.pem" \
 	--arg sc "${KEYDIR}/signing-key-cert.pem" \
 	--arg cc "${KEYDIR}/int-ca-cert.pem" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "private-key": $pk, "signing-certificate": $sc, "certificate-chain": $cc, "ignore-paths": $ign}' >"${sign_chain_json}"
 if ! "${BINARY}" sign certificate --json "${sign_chain_json}"; then
 	echo "Error: sign certificate (chain bundle, JSON file) failed"
@@ -397,7 +398,7 @@ jq -n \
 	--arg model "${MODELDIR}" \
 	--arg sig "${cert_chain_sig_f}" \
 	--arg cc "${KEYDIR}/ca-cert.pem" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "certificate-chain": $cc, "ignore-paths": $ign}' >"${verify_chain_json}"
 if ! "${BINARY}" verify certificate --json "${verify_chain_json}"; then
 	echo "Error: verify certificate (chain bundle from file sign, JSON file) failed"
@@ -412,7 +413,7 @@ if ! "${BINARY}" sign certificate \
 		--arg pk "${KEYDIR}/signing-key.pem" \
 		--arg sc "${KEYDIR}/signing-key-cert.pem" \
 		--arg cc "${KEYDIR}/int-ca-cert.pem" \
-		--arg ign "${ignorefile}" \
+		--arg ign "${ignorepath}" \
 		'{model: $model, signature: $sig, "private-key": $pk, "signing-certificate": $sc, "certificate-chain": $cc, "ignore-paths": $ign}')"; then
 	echo "Error: sign certificate (chain bundle, inline JSON) failed"
 	exit 1
@@ -424,7 +425,7 @@ if ! "${BINARY}" verify certificate \
 		--arg model "${MODELDIR}" \
 		--arg sig "${cert_chain_sig_i}" \
 		--arg cc "${KEYDIR}/ca-cert.pem" \
-		--arg ign "${ignorefile}" \
+		--arg ign "${ignorepath}" \
 		'{model: $model, signature: $sig, "certificate-chain": $cc, "ignore-paths": $ign}')"; then
 	echo "Error: verify certificate (chain bundle from inline sign, inline JSON) failed"
 	exit 1
@@ -437,7 +438,7 @@ if ! jq -n \
 	--arg pk "${KEYDIR}/signing-key.pem" \
 	--arg sc "${KEYDIR}/signing-key-cert.pem" \
 	--arg cc "${KEYDIR}/int-ca-cert.pem" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "private-key": $pk, "signing-certificate": $sc, "certificate-chain": $cc, "ignore-paths": $ign}' |
 	"${BINARY}" sign certificate --json -; then
 	echo "Error: sign certificate (chain bundle, JSON stdin) failed"
@@ -449,7 +450,7 @@ if ! jq -n \
 	--arg model "${MODELDIR}" \
 	--arg sig "${cert_chain_sig_s}" \
 	--arg cc "${KEYDIR}/ca-cert.pem" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "certificate-chain": $cc, "ignore-paths": $ign}' |
 	"${BINARY}" verify certificate --json -; then
 	echo "Error: verify certificate (chain bundle from stdin sign, JSON stdin) failed"
@@ -472,7 +473,7 @@ _sign_sigstore_json_on_stdin() {
 	jq -n \
 		--arg model "${MODELDIR}" \
 		--arg sig "${sigstore_sig_stdin}" \
-		--arg ign "${ignorefile}" \
+		--arg ign "${ignorepath}" \
 		'{model: $model, signature: $sig, "ignore-paths": $ign, "use-staging": true}' |
 		"${BINARY}" sign sigstore --json - "$@"
 }
@@ -481,7 +482,7 @@ echo ">>> sigstore: sign (JSON file)"
 jq -n \
 	--arg model "${MODELDIR}" \
 	--arg sig "${sigstore_sig_file}" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, "ignore-paths": $ign, "use-staging": true}' >"${sign_sigstore_json}"
 if ! sigstore_sign_with_retry "${TOKENPROJ}" "${TOKEN_FILE}" "--identity-token" \
 	"${BINARY}" sign sigstore --json "${sign_sigstore_json}"; then
@@ -495,7 +496,7 @@ jq -n \
 	--arg sig "${sigstore_sig_file}" \
 	--arg id "${SIGSTORE_IDENTITY}" \
 	--arg prov "${SIGSTORE_ISSUER}" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, identity: $id, "identity-provider": $prov, "ignore-paths": $ign, "use-staging": true}' >"${verify_sigstore_json}"
 if ! "${BINARY}" verify sigstore --json "${verify_sigstore_json}"; then
 	echo "Error: verify sigstore (file-sign, JSON file) failed"
@@ -509,7 +510,7 @@ if ! "${BINARY}" verify sigstore \
 		--arg sig "${sigstore_sig_file}" \
 		--arg id "${SIGSTORE_IDENTITY}" \
 		--arg prov "${SIGSTORE_ISSUER}" \
-		--arg ign "${ignorefile}" \
+		--arg ign "${ignorepath}" \
 		'{model: $model, signature: $sig, identity: $id, "identity-provider": $prov, "ignore-paths": $ign, "use-staging": true}')"; then
 	echo "Error: verify sigstore (file-sign, JSON inline) failed"
 	exit 1
@@ -521,7 +522,7 @@ if ! jq -n \
 	--arg sig "${sigstore_sig_file}" \
 	--arg id "${SIGSTORE_IDENTITY}" \
 	--arg prov "${SIGSTORE_ISSUER}" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, identity: $id, "identity-provider": $prov, "ignore-paths": $ign, "use-staging": true}' |
 	"${BINARY}" verify sigstore --json -; then
 	echo "Error: verify sigstore (file-sign, JSON stdin) failed"
@@ -534,7 +535,7 @@ if ! sigstore_sign_with_retry "${TOKENPROJ}" "${TOKEN_FILE}" "--identity-token" 
 	--json "$(jq -n \
 		--arg model "${MODELDIR}" \
 		--arg sig "${sigstore_sig_inline}" \
-		--arg ign "${ignorefile}" \
+		--arg ign "${ignorepath}" \
 		'{model: $model, signature: $sig, "ignore-paths": $ign, "use-staging": true}')"; then
 	echo "Error: sign sigstore with inline --json failed"
 	exit 1
@@ -546,7 +547,7 @@ jq -n \
 	--arg sig "${sigstore_sig_inline}" \
 	--arg id "${SIGSTORE_IDENTITY}" \
 	--arg prov "${SIGSTORE_ISSUER}" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, identity: $id, "identity-provider": $prov, "ignore-paths": $ign, "use-staging": true}' >"${verify_sigstore_json}"
 if ! "${BINARY}" verify sigstore --json "${verify_sigstore_json}"; then
 	echo "Error: verify sigstore (inline-sign, JSON file) failed"
@@ -560,7 +561,7 @@ if ! "${BINARY}" verify sigstore \
 		--arg sig "${sigstore_sig_inline}" \
 		--arg id "${SIGSTORE_IDENTITY}" \
 		--arg prov "${SIGSTORE_ISSUER}" \
-		--arg ign "${ignorefile}" \
+		--arg ign "${ignorepath}" \
 		'{model: $model, signature: $sig, identity: $id, "identity-provider": $prov, "ignore-paths": $ign, "use-staging": true}')"; then
 	echo "Error: verify sigstore (inline-sign, JSON inline) failed"
 	exit 1
@@ -572,7 +573,7 @@ if ! jq -n \
 	--arg sig "${sigstore_sig_inline}" \
 	--arg id "${SIGSTORE_IDENTITY}" \
 	--arg prov "${SIGSTORE_ISSUER}" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, identity: $id, "identity-provider": $prov, "ignore-paths": $ign, "use-staging": true}' |
 	"${BINARY}" verify sigstore --json -; then
 	echo "Error: verify sigstore (inline-sign, JSON stdin) failed"
@@ -592,7 +593,7 @@ jq -n \
 	--arg sig "${sigstore_sig_stdin}" \
 	--arg id "${SIGSTORE_IDENTITY}" \
 	--arg prov "${SIGSTORE_ISSUER}" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, identity: $id, "identity-provider": $prov, "ignore-paths": $ign, "use-staging": true}' >"${verify_sigstore_json}"
 if ! "${BINARY}" verify sigstore --json "${verify_sigstore_json}"; then
 	echo "Error: verify sigstore (stdin-sign, JSON file) failed"
@@ -606,7 +607,7 @@ if ! "${BINARY}" verify sigstore \
 		--arg sig "${sigstore_sig_stdin}" \
 		--arg id "${SIGSTORE_IDENTITY}" \
 		--arg prov "${SIGSTORE_ISSUER}" \
-		--arg ign "${ignorefile}" \
+		--arg ign "${ignorepath}" \
 		'{model: $model, signature: $sig, identity: $id, "identity-provider": $prov, "ignore-paths": $ign, "use-staging": true}')"; then
 	echo "Error: verify sigstore (stdin-sign, JSON inline) failed"
 	exit 1
@@ -618,7 +619,7 @@ if ! jq -n \
 	--arg sig "${sigstore_sig_stdin}" \
 	--arg id "${SIGSTORE_IDENTITY}" \
 	--arg prov "${SIGSTORE_ISSUER}" \
-	--arg ign "${ignorefile}" \
+	--arg ign "${ignorepath}" \
 	'{model: $model, signature: $sig, identity: $id, "identity-provider": $prov, "ignore-paths": $ign, "use-staging": true}' |
 	"${BINARY}" verify sigstore --json -; then
 	echo "Error: verify sigstore (stdin-sign, JSON stdin) failed"
