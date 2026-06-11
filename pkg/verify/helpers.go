@@ -22,7 +22,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/digitorus/timestamp"
 	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/manifest"
 	"github.com/sigstore/model-signing/pkg/modelartifact"
@@ -269,6 +271,43 @@ func applyBundleCompat(raw map[string]interface{}) {
 		}
 		delete(vm, "x509CertificateChain")
 	}
+}
+
+// GetTimestampFromBundle extracts the earliest genTime from the RFC 3161
+// timestamps in the bundle's verification material. When multiple timestamps
+// are present, the earliest is used to maximize the certificate validity
+// window. Returns the timestamp and true if a valid timestamp was found,
+// or zero time and false otherwise.
+//
+// NOTE: This parses timestamps directly via digitorus/timestamp rather than
+// using sigstore-go's WithSignedTimestamps() + TrustedMaterial pipeline.
+// This is because the certificate verifier already uses a custom x509.Verify()
+// path (to support x509CertificateChain bundle format), so we extract the
+// timestamp manually to set the verification time. The TSA response itself
+// is not verified against a trust root here. Migrating to sigstore-go's
+// native TSA verification would require reworking the certificate
+// verification path and would remove this direct dependency on
+// digitorus/timestamp.
+func GetTimestampFromBundle(bndl *bundle.Bundle) (time.Time, bool) {
+	timestamps, err := bndl.Timestamps()
+	if err != nil || len(timestamps) == 0 {
+		return time.Time{}, false
+	}
+
+	var earliest time.Time
+	found := false
+	for _, raw := range timestamps {
+		ts, err := timestamp.ParseResponse(raw)
+		if err != nil {
+			continue
+		}
+		if !found || ts.Time.Before(earliest) {
+			earliest = ts.Time
+			found = true
+		}
+	}
+
+	return earliest, found
 }
 
 // normalizeLegacyDotResource handles backward compatibility with pre-v1.1

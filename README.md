@@ -15,6 +15,7 @@
     - [Sign-Verify with private-public key](#sign-verify-with-private-public-key)
     - [Sign-Verify with certificate](#sign-verify-with-certificate)
     - [Sign-Verify with PKCS#11 / HSM](#sign-verify-with-pkcs11--hsm)
+    - [Trusted Timestamps (RFC 3161)](#trusted-timestamps-rfc-3161)
     - [Sign-Verify OCI Images](#sign-verify-oci-images)
   - [Model Signing API](#model-signing-api)
   - [Model Signing Format](#model-signing-format)
@@ -465,6 +466,51 @@ pkcs11:token=mytoken;object=mykey?module-path=/usr/lib64/pkcs11/libsofthsm2.so&p
 [...]$ model-signing sign pkcs11-key bert-base-uncased \
   --pkcs11-uri "pkcs11:token=cavium;object=model-signing-key?module-path=/opt/cloudhsm/lib/libcloudhsm_pkcs11.so&pin-source=file:///secure/hsm-pin" \
   --signature model.sig
+```
+
+### Trusted Timestamps (RFC 3161)
+
+When signing with `key`, `certificate`, or `pkcs11-*` methods, you can request
+a trusted timestamp from an [RFC 3161](https://datatracker.ietf.org/doc/html/rfc3161)
+Timestamp Authority (TSA). The timestamp is embedded in the sigstore bundle.
+
+For **certificate-based signing**, the timestamp is used during verification to
+validate the certificate chain at signing time, allowing signatures made with
+since-expired certificates to verify. For **key-based signing**, the timestamp
+is embedded for future use (e.g., key revocation auditing) but is not currently
+consumed during key verification.
+
+> **Note:** The `--tsa-url` flag is not available for `sigstore` signing, which
+> uses Sigstore's own transparency log for timestamp evidence.
+
+**Signing with a TSA:**
+
+```bash
+[...]$ model-signing sign key bert-base-uncased \
+       --private-key key.priv --signature model.sig \
+       --tsa-url https://freetsa.org/tsr
+```
+
+The same flag works with `certificate` and `pkcs11-*` subcommands:
+
+```bash
+[...]$ model-signing sign certificate bert-base-uncased \
+       --private-key scripts/tests/keys/certificate/signing-key.pem \
+       --signing-certificate scripts/tests/keys/certificate/signing-key-cert.pem \
+       --certificate-chain scripts/tests/keys/certificate/int-ca-cert.pem \
+       --signature model_cert.sig \
+       --tsa-url https://freetsa.org/tsr
+```
+
+**Verifying:** For certificate-based verification, no extra flags are needed —
+the certificate verifier extracts the TSA timestamp from the bundle and uses it
+as the verification time for chain validation, allowing signatures made with
+since-expired certificates to verify:
+
+```bash
+[...]$ model-signing verify certificate bert-base-uncased \
+       --signature model_cert.sig \
+       --certificate-chain scripts/tests/keys/certificate/ca-cert.pem
 ```
 
 ### Sign-Verify OCI Images

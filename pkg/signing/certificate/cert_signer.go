@@ -50,6 +50,7 @@ type CertificateSignerOptions struct {
 	PrivateKeyPath         string         // PrivateKeyPath is the path to the private key file.
 	SigningCertificatePath string         // SigningCertificatePath is the path to the signing certificate PEM file.
 	CertificateChain       []string       // CertificateChain is the list of certificate paths (kept for CLI compatibility).
+	TSAUrl                 string         // TSAUrl is the optional URL of an RFC 3161 Timestamp Authority.
 }
 
 // CertificateSigner implements ModelSigner using local cert-based signing.
@@ -147,10 +148,13 @@ func (s *CertificateSigner) Sign(ctx context.Context) (signing.Result, error) {
 		PayloadType: utils.InTotoJSONPayloadType,
 	}
 
-	bundle, err := sigstoresign.Bundle(content, keypair, sigstoresign.BundleOptions{
+	bundleOpts := sigstoresign.BundleOptions{
 		CertificateProvider: certProvider,
 		Context:             ctx,
-	})
+	}
+	signing.ApplyTSA(&bundleOpts, s.opts.TSAUrl, s.logger)
+
+	bundle, err := sigstoresign.Bundle(content, keypair, bundleOpts)
 	if err != nil {
 		return signing.Result{
 			Verified: false,

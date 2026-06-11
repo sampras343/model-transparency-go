@@ -44,6 +44,7 @@ type Pkcs11SignerOptions struct {
 	SigningCertificatePath string
 	CertificateChain       []string
 	Logger                 logging.Logger
+	TSAUrl                 string
 }
 
 // Pkcs11Signer implements ModelSigner using PKCS#11-based signing.

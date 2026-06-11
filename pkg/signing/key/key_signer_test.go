@@ -312,6 +312,7 @@ func TestNewKeySigner_AllOptions(t *testing.T) {
 		AllowSymlinks:  true,
 		PrivateKeyPath: keyFile,
 		Password:       "test-password",
+		TSAUrl:         "https://tsa.example.com",
 	}
 
 	signer, err := NewKeySigner(opts)
@@ -332,5 +333,67 @@ func TestNewKeySigner_AllOptions(t *testing.T) {
 	}
 	if !signer.opts.AllowSymlinks {
 		t.Error("AllowSymlinks not set correctly")
+	}
+	if signer.opts.TSAUrl != "https://tsa.example.com" {
+		t.Errorf("TSAUrl not stored correctly: got %q", signer.opts.TSAUrl)
+	}
+}
+
+func TestNewKeySigner_WithTSAUrl(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	modelDir := filepath.Join(tmpDir, "model")
+	if err := os.MkdirAll(modelDir, 0755); err != nil {
+		t.Fatalf("Failed to create model directory: %v", err)
+	}
+
+	keyFile := filepath.Join(tmpDir, "key.pem")
+	if err := os.WriteFile(keyFile, []byte("dummy"), 0644); err != nil {
+		t.Fatalf("Failed to create key file: %v", err)
+	}
+
+	opts := KeySignerOptions{
+		ModelPath:      modelDir,
+		SignaturePath:  filepath.Join(tmpDir, "sig.json"),
+		PrivateKeyPath: keyFile,
+		TSAUrl:         "https://freetsa.org/tsr",
+	}
+
+	signer, err := NewKeySigner(opts)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	if signer.opts.TSAUrl != "https://freetsa.org/tsr" {
+		t.Errorf("TSAUrl: got %q, want %q", signer.opts.TSAUrl, "https://freetsa.org/tsr")
+	}
+}
+
+func TestNewKeySigner_EmptyTSAUrl(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	modelDir := filepath.Join(tmpDir, "model")
+	if err := os.MkdirAll(modelDir, 0755); err != nil {
+		t.Fatalf("Failed to create model directory: %v", err)
+	}
+
+	keyFile := filepath.Join(tmpDir, "key.pem")
+	if err := os.WriteFile(keyFile, []byte("dummy"), 0644); err != nil {
+		t.Fatalf("Failed to create key file: %v", err)
+	}
+
+	opts := KeySignerOptions{
+		ModelPath:      modelDir,
+		SignaturePath:  filepath.Join(tmpDir, "sig.json"),
+		PrivateKeyPath: keyFile,
+	}
+
+	signer, err := NewKeySigner(opts)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	if signer.opts.TSAUrl != "" {
+		t.Errorf("TSAUrl: expected empty, got %q", signer.opts.TSAUrl)
 	}
 }

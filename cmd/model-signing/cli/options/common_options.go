@@ -100,3 +100,14 @@ func AddAllFlags(cmd *cobra.Command, flagGroups ...FlagAdder) {
 		fg.AddFlags(cmd)
 	}
 }
+
+// TSAFlags contains flags for RFC 3161 Timestamp Authority support.
+type TSAFlags struct {
+	// TSAUrl is the URL of an RFC 3161 Timestamp Authority.
+	TSAUrl string
+}
+
+// AddFlags adds TSA flags to the cobra command.
+func (o *TSAFlags) AddFlags(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&o.TSAUrl, "tsa-url", "", "URL of an RFC 3161 Timestamp Authority for trusted timestamps.")
+}

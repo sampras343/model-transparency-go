@@ -279,6 +279,27 @@ ensure_pkcs11_deps()
 	return 0
 }
 
+# Check if bundle contains at least one RFC 3161 TSA timestamp
+has_tsa_timestamp()
+{
+	local sigfile="$1"
+	jq -e '.verificationMaterial.timestampVerificationData.rfc3161Timestamps | length > 0' \
+		< "${sigfile}" > /dev/null 2>&1
+}
+
+# Get the number of RFC 3161 TSA timestamps in a bundle
+get_tsa_timestamp_count()
+{
+	local sigfile="$1"
+	if jq -e '.verificationMaterial.timestampVerificationData.rfc3161Timestamps' \
+		< "${sigfile}" > /dev/null 2>&1; then
+		jq '.verificationMaterial.timestampVerificationData.rfc3161Timestamps | length' \
+			< "${sigfile}"
+	else
+		echo "0"
+	fi
+}
+
 # Check if the model-signing binary was built with PKCS#11 support (-tags=pkcs11)
 has_pkcs11_support()
 {
