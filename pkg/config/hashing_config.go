@@ -429,6 +429,14 @@ func (c *HashingConfig) hashFiles(modelPath string, filePaths []string) ([]manif
 			return nil, err
 		}
 
+		info, err := os.Stat(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to stat %s: %w", filePath, err)
+		}
+		if !info.Mode().IsRegular() {
+			continue
+		}
+
 		// Create file hasher
 		hasher, err := c.createFileHasher(filePath)
 		if err != nil {
@@ -477,6 +485,9 @@ func (c *HashingConfig) hashFilesWithShards(modelPath string, filePaths []string
 		fileInfo, err := os.Stat(filePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to stat %s: %w", filePath, err)
+		}
+		if !fileInfo.Mode().IsRegular() {
+			continue
 		}
 		fileSize := fileInfo.Size()
 
