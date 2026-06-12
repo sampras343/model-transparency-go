@@ -77,10 +77,9 @@ func CompareModelWithBundle(verifiedPayload []byte, modelPath string, opts model
 	if ht, ok := params["hash_type"].(string); ok {
 		canonOpts.HashAlgorithm = ht
 	}
-	// allow_symlinks is the verifier's local policy (CLI flag), not a
-	// structural parameter like hash_type or shard_size. The verifier
-	// decides whether to tolerate symlinks during re-canonicalization.
-	canonOpts.AllowSymlinks = opts.AllowSymlinks
+	if as, ok := params["allow_symlinks"].(bool); ok {
+		canonOpts.AllowSymlinks = as
+	}
 	if ss, ok := params["shard_size"]; ok {
 		switch v := ss.(type) {
 		case int64:

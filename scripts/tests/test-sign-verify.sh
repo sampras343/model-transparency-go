@@ -175,12 +175,12 @@ if ${DIR}/model-signing \
 	exit 1
 fi
 
-# Symlinks cause an error when allow_symlinks is false (OMS spec §6.1.1),
-# so we need --allow-symlinks to let the walker proceed, then
-# --ignore-unsigned-files to accept the extra unsigned files.
+# The bundle was signed with allow_symlinks=false. Per spec §6.1.1 and §8.4,
+# the verifier uses the bundle's allow_symlinks value, so the CLI flag cannot
+# override it. Verification should still fail with symlinks present.
 echo
-echo "Pass signature verification by ignoring any unsigned files or symlinks"
-if ! ${DIR}/model-signing \
+echo "Verify still fails because bundle's allow_symlinks=false overrides CLI flag"
+if ${DIR}/model-signing \
 	verify certificate \
 	--signature "$(basename "${sigfile}")" \
 	--certificate-chain "${DIR}/keys/certificate/ca-cert.pem" \
@@ -188,7 +188,7 @@ if ! ${DIR}/model-signing \
 	--allow-symlinks \
 	--ignore-unsigned-files \
 	. ; then
-	echo "Error: 'verify certificate' failed with --allow-symlinks --ignore-unsigned-files"
+	echo "Error: 'verify certificate' should fail: bundle's allow_symlinks=false rejects symlinks"
 	exit 1
 fi
 

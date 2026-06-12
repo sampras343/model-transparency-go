@@ -184,22 +184,15 @@ func TestCompareModelWithBundle_SymlinkAddedAfterSigning(t *testing.T) {
 		t.Skip("symlinks not supported on this platform")
 	}
 
-	// Without AllowSymlinks: should fail (symlink rejected by verifier policy)
-	err := CompareModelWithBundle(payload, modelPath, modelartifact.Options{}, false)
+	// Bundle's allow_symlinks=false is used regardless of caller opts.
+	// Symlink should be rejected even with ignoreUnsigned.
+	err := CompareModelWithBundle(payload, modelPath, modelartifact.Options{}, true)
 	if err == nil {
-		t.Fatal("expected error when symlink present and allow_symlinks=false")
-	}
-
-	// With AllowSymlinks + ignoreUnsigned: verifier policy allows symlinks
-	err = CompareModelWithBundle(payload, modelPath, modelartifact.Options{
-		AllowSymlinks: true,
-	}, true)
-	if err != nil {
-		t.Fatalf("should pass with AllowSymlinks + ignoreUnsigned: %v", err)
+		t.Fatal("expected error: bundle's allow_symlinks=false should reject symlinks")
 	}
 }
 
-func TestCompareModelWithBundle_VerifierPolicyOverridesBundle(t *testing.T) {
+func TestCompareModelWithBundle_BundleAllowSymlinksHonored(t *testing.T) {
 	modelPath := createTestModel(t)
 
 	// Create a symlink before signing
@@ -216,19 +209,11 @@ func TestCompareModelWithBundle_VerifierPolicyOverridesBundle(t *testing.T) {
 		AllowSymlinks: true,
 	})
 
-	// Verify WITHOUT AllowSymlinks: verifier policy rejects symlinks
-	// even though the bundle was signed with allow_symlinks=true
+	// Verify without passing AllowSymlinks in opts — the bundle's
+	// allow_symlinks=true is extracted and used (spec §8.4).
 	err := CompareModelWithBundle(payload, modelPath, modelartifact.Options{}, false)
-	if err == nil {
-		t.Fatal("expected error: verifier policy should reject symlinks regardless of bundle")
-	}
-
-	// Verify WITH AllowSymlinks: should pass
-	err = CompareModelWithBundle(payload, modelPath, modelartifact.Options{
-		AllowSymlinks: true,
-	}, false)
 	if err != nil {
-		t.Fatalf("should pass with AllowSymlinks: %v", err)
+		t.Fatalf("should pass: bundle's allow_symlinks=true should be honored: %v", err)
 	}
 }
 
