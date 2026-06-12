@@ -258,6 +258,14 @@ func unmarshalPayloadV1(dssePayload map[string]interface{}) (*manifest.Manifest,
 		items = append(items, item)
 	}
 
+	// Verify lexicographic sort order of resources (spec §5.2.1)
+	for i := 1; i < len(items); i++ {
+		if items[i].Name() <= items[i-1].Name() {
+			return nil, fmt.Errorf("resources array not sorted lexicographically: %q appears after %q (spec §5.2.1)",
+				items[i].Name(), items[i-1].Name())
+		}
+	}
+
 	// Verify root digest
 	rootDigest, err := memory.ComputeRootDigest(digestList)
 	if err != nil {
