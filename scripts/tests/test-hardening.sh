@@ -887,23 +887,13 @@ if ! ${DIR}/model-signing sign key \
 	exit 1
 fi
 
-# Verify signature that includes symlinks requires --allow-symlinks
-# Without the flag, verification fails because symlink triggers an error
-if ${DIR}/model-signing verify key \
-	--signature "${SIGFILE}" \
-	--public-key "${KEYSDIR}/flags-key-pub.pem" \
-	"${MODELDIR}" >/dev/null 2>&1; then
-	echo "  Error: Verify should fail when symlink present and allow_symlinks is false"
-	exit 1
-fi
-
-# Verify with --allow-symlinks should succeed
+# Verify signature that includes symlinks: the verifier uses the bundle's
+# allow_symlinks=true (spec §6.1.1, §8.4), so no CLI flag is needed.
 if ! ${DIR}/model-signing verify key \
 	--signature "${SIGFILE}" \
 	--public-key "${KEYSDIR}/flags-key-pub.pem" \
-	--allow-symlinks \
 	"${MODELDIR}" >/dev/null 2>&1; then
-	echo "  Error: Verify should succeed with --allow-symlinks"
+	echo "  Error: Verify should succeed using bundle's allow_symlinks=true"
 	exit 1
 fi
 
