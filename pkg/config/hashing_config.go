@@ -425,6 +425,10 @@ func (c *HashingConfig) hashFiles(modelPath string, filePaths []string) ([]manif
 			return nil, fmt.Errorf("%w: %q", ErrInvalidUTF8Path, relPath)
 		}
 
+		if err := utils.ValidateManifestPath(relPath); err != nil {
+			return nil, err
+		}
+
 		// Create file hasher
 		hasher, err := c.createFileHasher(filePath)
 		if err != nil {
@@ -464,6 +468,10 @@ func (c *HashingConfig) hashFilesWithShards(modelPath string, filePaths []string
 
 		if !utf8.ValidString(relPath) {
 			return nil, fmt.Errorf("%w: %q", ErrInvalidUTF8Path, relPath)
+		}
+
+		if err := utils.ValidateManifestPath(relPath); err != nil {
+			return nil, err
 		}
 
 		fileInfo, err := os.Stat(filePath)
