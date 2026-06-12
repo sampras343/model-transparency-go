@@ -15,9 +15,11 @@
 package modelartifact
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -572,4 +574,86 @@ func searchString(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestUnmarshalPayload_UnsortedResourcesRejected(t *testing.T) {
+	payload := map[string]interface{}{
+		"_type":         "https://in-toto.io/Statement/v1",
+		"predicateType": "https://model_signing/signature/v1.0",
+		"subject": []interface{}{
+			map[string]interface{}{
+				"name":   "test-model",
+				"digest": map[string]interface{}{"sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+			},
+		},
+		"predicate": map[string]interface{}{
+			"serialization": map[string]interface{}{"method": "files", "hash_type": "sha256", "allow_symlinks": false},
+			"resources": []interface{}{
+				map[string]interface{}{
+					"name":      "b.txt",
+					"algorithm": "sha256",
+					"digest":    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+				},
+				map[string]interface{}{
+					"name":      "a.txt",
+					"algorithm": "sha256",
+					"digest":    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+				},
+			},
+		},
+	}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("failed to marshal test payload: %v", err)
+	}
+
+	_, err = UnmarshalPayload(data)
+	if err == nil {
+		t.Fatal("expected error for unsorted resources")
+	}
+	if !strings.Contains(err.Error(), "not sorted") {
+		t.Fatalf("expected sort order error, got: %v", err)
+	}
+}
+
+func TestUnmarshalPayload_DuplicateResourceNamesRejected(t *testing.T) {
+	payload := map[string]interface{}{
+		"_type":         "https://in-toto.io/Statement/v1",
+		"predicateType": "https://model_signing/signature/v1.0",
+		"subject": []interface{}{
+			map[string]interface{}{
+				"name":   "test-model",
+				"digest": map[string]interface{}{"sha256": "0000000000000000000000000000000000000000000000000000000000000000"},
+			},
+		},
+		"predicate": map[string]interface{}{
+			"serialization": map[string]interface{}{"method": "files", "hash_type": "sha256", "allow_symlinks": false},
+			"resources": []interface{}{
+				map[string]interface{}{
+					"name":      "a.txt",
+					"algorithm": "sha256",
+					"digest":    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+				},
+				map[string]interface{}{
+					"name":      "a.txt",
+					"algorithm": "sha256",
+					"digest":    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+				},
+			},
+		},
+	}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("failed to marshal test payload: %v", err)
+	}
+
+	_, err = UnmarshalPayload(data)
+	if err == nil {
+		t.Fatal("expected error for duplicate resource names")
+	}
+	if !strings.Contains(err.Error(), "not sorted") {
+		t.Fatalf("expected sort order error, got: %v", err)
+	}
 }
