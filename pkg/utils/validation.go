@@ -15,9 +15,11 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // PathType represents the type of path to validate.
@@ -135,6 +137,23 @@ func ValidateMultipleRelativeTo(fieldName string, paths []string, baseDir string
 		if err := NewPathValidator(fmt.Sprintf("%s[%d]", fieldName, i), resolved, pathType).Validate(); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// ErrPathTraversal is returned when a manifest path contains parent-directory
+// traversal ("../") or is absolute, violating OMS spec §6.1.2.
+var ErrPathTraversal = errors.New("manifest path must be relative without ../ components")
+
+// ValidateManifestPath checks that a relative path conforms to OMS spec §6.1.2:
+// it must not be absolute and must not contain "../" traversal components.
+func ValidateManifestPath(relPath string) error {
+	if filepath.IsAbs(relPath) {
+		return fmt.Errorf("%w: %s", ErrPathTraversal, relPath)
+	}
+	slashed := filepath.ToSlash(relPath)
+	if slashed == ".." || strings.HasPrefix(slashed, "../") {
+		return fmt.Errorf("%w: %s", ErrPathTraversal, relPath)
 	}
 	return nil
 }

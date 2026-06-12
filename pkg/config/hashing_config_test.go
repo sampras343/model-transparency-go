@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"github.com/sigstore/model-signing/pkg/logging"
+	"github.com/sigstore/model-signing/pkg/utils"
 )
 
 type capturingLogger struct {
@@ -898,6 +899,54 @@ func TestHashShards_InvalidUTF8PathRejected(t *testing.T) {
 	}
 	if !errors.Is(err, ErrInvalidUTF8Path) {
 		t.Fatalf("expected ErrInvalidUTF8Path, got: %v", err)
+	}
+}
+
+func TestHashFiles_PathTraversalRejected(t *testing.T) {
+	modelDir := t.TempDir()
+	outsideDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(modelDir, "ok.txt"), []byte("ok"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	escapee := filepath.Join(outsideDir, "secret.txt")
+	if err := os.WriteFile(escapee, []byte("secret"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	hc := NewHashingConfig()
+	hc.UseFileSerialization("sha256", false, nil)
+
+	_, err := hc.Hash(modelDir, []string{escapee})
+	if err == nil {
+		t.Fatal("expected error for path traversal")
+	}
+	if !errors.Is(err, utils.ErrPathTraversal) {
+		t.Fatalf("expected utils.ErrPathTraversal, got: %v", err)
+	}
+}
+
+func TestHashShards_PathTraversalRejected(t *testing.T) {
+	modelDir := t.TempDir()
+	outsideDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(modelDir, "ok.txt"), []byte("ok"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	escapee := filepath.Join(outsideDir, "secret.txt")
+	if err := os.WriteFile(escapee, []byte("secret"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	hc := NewHashingConfig()
+	hc.UseShardSerialization("sha256", 16, false, nil)
+
+	_, err := hc.Hash(modelDir, []string{escapee})
+	if err == nil {
+		t.Fatal("expected error for path traversal")
+	}
+	if !errors.Is(err, utils.ErrPathTraversal) {
+		t.Fatalf("expected utils.ErrPathTraversal, got: %v", err)
 	}
 }
 
