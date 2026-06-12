@@ -950,6 +950,97 @@ func TestHashShards_PathTraversalRejected(t *testing.T) {
 	}
 }
 
+func TestHashFiles_NonRegularFileSkipped(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("FIFOs are not supported on Windows")
+	}
+
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "regular.txt"), []byte("data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	fifoPath := filepath.Join(dir, "myfifo")
+	if err := syscall.Mkfifo(fifoPath, 0644); err != nil {
+		t.Fatalf("failed to create FIFO: %v", err)
+	}
+
+	hc := NewHashingConfig()
+	hc.UseFileSerialization("sha256", false, nil)
+
+	m, err := hc.Hash(dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	for _, item := range m.ResourceDescriptors() {
+		if item.Identifier == "myfifo" {
+			t.Error("FIFO should not appear in manifest")
+		}
+	}
+}
+
+func TestHashShards_NonRegularFileSkipped(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("FIFOs are not supported on Windows")
+	}
+
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "regular.txt"), []byte("data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	fifoPath := filepath.Join(dir, "myfifo")
+	if err := syscall.Mkfifo(fifoPath, 0644); err != nil {
+		t.Fatalf("failed to create FIFO: %v", err)
+	}
+
+	hc := NewHashingConfig()
+	hc.UseShardSerialization("sha256", 16, false, nil)
+
+	m, err := hc.Hash(dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	for _, item := range m.ResourceDescriptors() {
+		if item.Identifier == "myfifo" {
+			t.Error("FIFO should not appear in manifest")
+		}
+	}
+}
+
+func TestHashFiles_NonRegularFileSkippedViaFilesToHash(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("FIFOs are not supported on Windows")
+	}
+
+	dir := t.TempDir()
+	regularPath := filepath.Join(dir, "regular.txt")
+	if err := os.WriteFile(regularPath, []byte("data"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	fifoPath := filepath.Join(dir, "myfifo")
+	if err := syscall.Mkfifo(fifoPath, 0644); err != nil {
+		t.Fatalf("failed to create FIFO: %v", err)
+	}
+
+	hc := NewHashingConfig()
+	hc.UseFileSerialization("sha256", false, nil)
+
+	m, err := hc.Hash(dir, []string{regularPath, fifoPath})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	for _, item := range m.ResourceDescriptors() {
+		if item.Identifier == "myfifo" {
+			t.Error("FIFO passed via filesToHash should not appear in manifest")
+		}
+	}
+	if len(m.ResourceDescriptors()) != 1 {
+		t.Errorf("expected 1 manifest item, got %d", len(m.ResourceDescriptors()))
+	}
+}
+
 func TestHashShards_EmptyFileOmitted(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "data.bin"), []byte("content"), 0644); err != nil {
