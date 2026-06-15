@@ -71,13 +71,12 @@ type HashingConfig struct {
 // PathLike is a type alias for path-like strings.
 type PathLike = string
 
-// gitRelatedPaths defines common git-related paths to ignore during hashing.
+// gitRelatedPaths defines git-related paths excluded by default per spec §6.2.
 var gitRelatedPaths = []string{
 	".git",
 	".gitignore",
 	".gitattributes",
 	".github",
-	".gitmodules",
 }
 
 // NewHashingConfig creates a new hashing configuration with defaults.

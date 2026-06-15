@@ -52,8 +52,8 @@ type Options struct {
 	IgnorePaths []string
 
 	// IgnoreGitPaths is retained for backward compatibility but has no effect.
-	// Git paths (.git, .gitignore, .gitattributes, .github, .gitmodules) are
-	// always excluded per OMS spec §6.2.
+	// Git paths (.git, .gitignore, .gitattributes, .github) are always
+	// excluded per OMS spec §6.2.
 	IgnoreGitPaths bool
 
 	// AllowSymlinks follows symbolic links instead of skipping them.
