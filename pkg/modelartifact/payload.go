@@ -53,6 +53,14 @@ func MarshalPayload(m *manifest.Manifest) ([]byte, error) {
 		resources = append(resources, resource)
 	}
 
+	// Assert lexicographic sort order of resources (spec §5.2.1).
+	for i := 1; i < len(resources); i++ {
+		if resources[i]["name"].(string) <= resources[i-1]["name"].(string) {
+			return nil, fmt.Errorf("resources not sorted lexicographically: %q appears after %q (spec §5.2.1)",
+				resources[i]["name"], resources[i-1]["name"])
+		}
+	}
+
 	// Compute root digest (SHA256 over all individual digests in order)
 	rootDigest, err := memory.ComputeRootDigest(digestList)
 	if err != nil {
