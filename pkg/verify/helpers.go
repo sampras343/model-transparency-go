@@ -15,8 +15,10 @@
 package verify
 
 import (
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -254,7 +256,7 @@ func extractCertChainFromJSON(data []byte) ([]*x509.Certificate, error) {
 // Transforms applied:
 //  1. Add missing tlogEntries (pre-v1.1.0 bundles omit this field)
 //  2. Strip rawBytes/keyDetails from publicKey (v0.3.1-v1.0.1 key format)
-//     and set hint to empty string if missing
+//     and preserve rawBytes as hint when hint is absent (spec §11.2)
 //  3. Convert x509CertificateChain to singular certificate field
 //     (old Python bundles use the v0.2 cert chain format with a v0.3 mediaType)
 func applyBundleCompat(raw map[string]interface{}) {
@@ -269,9 +271,21 @@ func applyBundleCompat(raw map[string]interface{}) {
 	}
 
 	// 2. Handle old publicKey format: strip rawBytes and keyDetails
+	// (sigstore-go's protojson rejects unknown fields). Compute a
+	// fingerprint from rawBytes to use as hint when hint is absent,
+	// matching the Python signer's sha256(PEM).hex() convention.
 	if pk, ok := vm["publicKey"].(map[string]interface{}); ok {
 		if _, hasHint := pk["hint"]; !hasHint {
-			pk["hint"] = ""
+			if raw, ok := pk["rawBytes"].(string); ok {
+				if pemBytes, err := base64.StdEncoding.DecodeString(raw); err == nil {
+					fingerprint := sha256.Sum256(pemBytes)
+					pk["hint"] = hex.EncodeToString(fingerprint[:])
+				} else {
+					pk["hint"] = ""
+				}
+			} else {
+				pk["hint"] = ""
+			}
 		}
 		delete(pk, "rawBytes")
 		delete(pk, "keyDetails")
