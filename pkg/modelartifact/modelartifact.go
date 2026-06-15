@@ -185,18 +185,17 @@ func buildHashingConfig(opts Options) *config.HashingConfig {
 
 	hc := config.NewHashingConfig()
 
+	// Ignore paths (user-provided + git defaults per spec §6.2) are set
+	// once via SetIgnoredPaths; nil is passed to Use*Serialization so
+	// paths are not appended twice.
 	switch {
 	case opts.ShardSize > 0:
-		hc.UseShardSerialization(hashAlgorithm, opts.ShardSize, opts.AllowSymlinks, opts.IgnorePaths)
+		hc.UseShardSerialization(hashAlgorithm, opts.ShardSize, opts.AllowSymlinks, nil)
 	case opts.ShardSize < 0:
-		hc.UseShardSerialization(hashAlgorithm, DefaultShardSize, opts.AllowSymlinks, opts.IgnorePaths)
+		hc.UseShardSerialization(hashAlgorithm, DefaultShardSize, opts.AllowSymlinks, nil)
 	default:
-		hc.UseFileSerialization(hashAlgorithm, opts.AllowSymlinks, opts.IgnorePaths)
+		hc.UseFileSerialization(hashAlgorithm, opts.AllowSymlinks, nil)
 	}
-
-	// Git paths (.git, .gitignore, .gitattributes, .github) are always
-	// excluded per spec §6.2. The IgnoreGitPaths field is kept for
-	// backward compatibility but no longer controls this.
 	hc.SetIgnoredPaths(opts.IgnorePaths, true)
 
 	hc.SetLogger(logging.EnsureLogger(opts.Logger))
