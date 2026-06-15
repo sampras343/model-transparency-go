@@ -109,17 +109,15 @@ func (s *FileSerialization) Method() string {
 // The returned map contains method, hash_type, allow_symlinks, and optionally
 // ignore_paths. Returns a new map with a copy of the ignorePaths slice.
 func (s *FileSerialization) Parameters() map[string]any {
-	params := map[string]any{
+	pathsCopy := make([]string, len(s.ignorePaths))
+	copy(pathsCopy, s.ignorePaths)
+
+	return map[string]any{
 		"method":         s.Method(),
 		"hash_type":      s.hashType,
 		"allow_symlinks": s.allowSymlinks,
+		"ignore_paths":   pathsCopy,
 	}
-	if len(s.ignorePaths) > 0 {
-		pathsCopy := make([]string, len(s.ignorePaths))
-		copy(pathsCopy, s.ignorePaths)
-		params["ignore_paths"] = pathsCopy
-	}
-	return params
 }
 
 // NewItem creates a ManifestItem from a name and digest.
@@ -219,18 +217,16 @@ func (s *ShardSerialization) Method() string {
 // The returned map contains method, hash_type, shard_size, allow_symlinks,
 // and optionally ignore_paths. Returns a new map with a copy of the ignorePaths slice.
 func (s *ShardSerialization) Parameters() map[string]any {
-	params := map[string]any{
+	pathsCopy := make([]string, len(s.ignorePaths))
+	copy(pathsCopy, s.ignorePaths)
+
+	return map[string]any{
 		"method":         s.Method(),
 		"hash_type":      s.hashType,
 		"shard_size":     s.shardSize,
 		"allow_symlinks": s.allowSymlinks,
+		"ignore_paths":   pathsCopy,
 	}
-	if len(s.ignorePaths) > 0 {
-		pathsCopy := make([]string, len(s.ignorePaths))
-		copy(pathsCopy, s.ignorePaths)
-		params["ignore_paths"] = pathsCopy
-	}
-	return params
 }
 
 // NewItem creates a ManifestItem from a name and digest.

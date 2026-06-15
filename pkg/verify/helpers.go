@@ -83,6 +83,10 @@ func CompareModelWithBundle(verifiedPayload []byte, modelPath string, opts model
 		canonOpts.AllowSymlinks = as
 	}
 	if ip, ok := params["ignore_paths"]; ok {
+		// Bundle records explicit ignore paths — use them and disable
+		// independent git-path addition to avoid deviating from the
+		// signer's exclusion rules (spec §8.4 step 6).
+		canonOpts.IgnoreGitPaths = false
 		switch v := ip.(type) {
 		case []string:
 			canonOpts.IgnorePaths = append(canonOpts.IgnorePaths, v...)

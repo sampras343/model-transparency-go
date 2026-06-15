@@ -246,6 +246,31 @@ func TestCompareModelWithBundle_IgnorePathsMerged(t *testing.T) {
 	}
 }
 
+func TestCompareModelWithBundle_BundleIgnoreGitPathsDerived(t *testing.T) {
+	modelPath := createTestModel(t)
+
+	// Add a git-related file
+	if err := os.WriteFile(filepath.Join(modelPath, ".gitignore"), []byte("*.log"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Sign WITHOUT ignoring git paths — .gitignore is included in manifest
+	payload := signAndMarshal(t, modelPath, modelartifact.Options{
+		HashAlgorithm:  "sha256",
+		IgnoreGitPaths: false,
+	})
+
+	// Verify with IgnoreGitPaths: true (CLI default) — should still pass
+	// because the bundle's ignore_paths does not contain git paths, so
+	// CompareModelWithBundle sets IgnoreGitPaths=false (spec §8.4 step 6).
+	err := CompareModelWithBundle(payload, modelPath, modelartifact.Options{
+		IgnoreGitPaths: true,
+	}, false)
+	if err != nil {
+		t.Fatalf("should pass: verifier should derive git-path exclusion from bundle: %v", err)
+	}
+}
+
 func TestCompareModelWithBundle_SymlinkAddedAfterSigning(t *testing.T) {
 	modelPath := createTestModel(t)
 
