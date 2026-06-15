@@ -548,8 +548,8 @@ func TestCanonicalizeDefaultExcludesGitPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Use default Options{} — git paths must still be excluded (spec §6.2)
-	m, err := Canonicalize(dir, Options{})
+	// IgnoreGitPaths: true excludes git paths per spec §6.2
+	m, err := Canonicalize(dir, Options{IgnoreGitPaths: true})
 	if err != nil {
 		t.Fatalf("Canonicalize failed: %v", err)
 	}

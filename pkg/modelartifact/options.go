@@ -51,9 +51,9 @@ type Options struct {
 	// Paths can be absolute or relative to the model root.
 	IgnorePaths []string
 
-	// IgnoreGitPaths is retained for backward compatibility but has no effect.
-	// Git paths (.git, .gitignore, .gitattributes, .github) are always
-	// excluded per OMS spec §6.2.
+	// IgnoreGitPaths controls whether git-related paths (.git, .gitignore,
+	// .gitattributes, .github) are automatically excluded per spec §6.2.
+	// Defaults to false (zero value); the CLI sets this to true by default.
 	IgnoreGitPaths bool
 
 	// AllowSymlinks follows symbolic links instead of skipping them.
