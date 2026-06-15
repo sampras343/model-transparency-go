@@ -237,7 +237,7 @@ func TestSetIgnoredPaths_StoresInManifest(t *testing.T) {
 func TestAddIgnoredPaths(t *testing.T) {
 	config := NewHashingConfig()
 	modelPath := "/test/model"
-	newPaths := []string{"relative/path", "/absolute/path"}
+	newPaths := []string{"relative/path", "/test/model/subdir/file"}
 
 	config.AddIgnoredPaths(modelPath, newPaths)
 
@@ -245,29 +245,28 @@ func TestAddIgnoredPaths(t *testing.T) {
 		t.Errorf("Expected 2 ignoredPaths, got %d", len(config.ignoredPaths))
 	}
 
-	// Relative path should be converted to absolute
-	expectedRelative := filepath.Join(modelPath, "relative/path")
+	// Relative path should stay relative with forward slashes
 	found := false
 	for _, p := range config.ignoredPaths {
-		if p == expectedRelative {
+		if p == "relative/path" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("Expected relative path to be converted to '%s'", expectedRelative)
+		t.Errorf("Expected relative path 'relative/path', got %v", config.ignoredPaths)
 	}
 
-	// Absolute path should remain absolute
+	// Absolute path should be converted to relative POSIX path
 	found = false
 	for _, p := range config.ignoredPaths {
-		if p == "/absolute/path" {
+		if p == "subdir/file" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Error("Expected absolute path to remain unchanged")
+		t.Errorf("Expected absolute path converted to 'subdir/file', got %v", config.ignoredPaths)
 	}
 }
 

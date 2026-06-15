@@ -164,23 +164,29 @@ func (c *HashingConfig) SetIgnoredPaths(paths []string, ignoreGitPaths bool) *Ha
 
 // AddIgnoredPaths adds additional paths to the ignore list.
 //
-// The paths are interpreted relative to modelPath.
+// Absolute paths are converted to relative paths using modelPath as
+// the base. All paths are stored as forward-slash POSIX paths per
+// spec §6.2.1 so they are portable across machines and OSes.
 //
 // Parameters:
-//   - modelPath: Base path for resolving relative paths
+//   - modelPath: Base path for resolving absolute paths to relative
 //   - paths: Paths to add to the ignore list (can be absolute or relative)
 //
 // Returns the HashingConfig for method chaining.
 func (c *HashingConfig) AddIgnoredPaths(modelPath string, paths []string) *HashingConfig {
 	for _, p := range paths {
-		// Make path absolute relative to model path if not already absolute
-		var absPath string
+		var relPath string
 		if filepath.IsAbs(p) {
-			absPath = p
+			rel, err := filepath.Rel(modelPath, p)
+			if err != nil {
+				relPath = filepath.ToSlash(p)
+			} else {
+				relPath = filepath.ToSlash(rel)
+			}
 		} else {
-			absPath = filepath.Join(modelPath, p)
+			relPath = filepath.ToSlash(p)
 		}
-		c.ignoredPaths = append(c.ignoredPaths, absPath)
+		c.ignoredPaths = append(c.ignoredPaths, relPath)
 	}
 	return c
 }
