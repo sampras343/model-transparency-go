@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"encoding/json"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -116,6 +117,35 @@ func TestCompareModelWithBundle_Blake2bShardRoundTrip(t *testing.T) {
 	err := CompareModelWithBundle(payload, modelPath, modelartifact.Options{}, false)
 	if err != nil {
 		t.Fatalf("blake2b+shard round-trip failed: %v", err)
+	}
+}
+
+func TestCompareModelWithBundle_ShardMethodMissingSizeRejects(t *testing.T) {
+	modelPath := createTestModel(t)
+
+	// Sign with shards to get a valid shard payload
+	payload := signAndMarshal(t, modelPath, modelartifact.Options{
+		HashAlgorithm: "sha256",
+		ShardSize:     16,
+	})
+
+	// Tamper: remove shard_size from serialization params so method
+	// says "shards" but shard_size is absent (spec §8.4 step 1).
+	var raw map[string]interface{}
+	if err := json.Unmarshal(payload, &raw); err != nil {
+		t.Fatal(err)
+	}
+	predicate := raw["predicate"].(map[string]interface{})
+	serialization := predicate["serialization"].(map[string]interface{})
+	delete(serialization, "shard_size")
+	tampered, err := json.Marshal(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = CompareModelWithBundle(tampered, modelPath, modelartifact.Options{}, false)
+	if err == nil {
+		t.Fatal("expected error for shard method without shard_size")
 	}
 }
 

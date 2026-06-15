@@ -102,6 +102,12 @@ func CompareModelWithBundle(verifiedPayload []byte, modelPath string, opts model
 			canonOpts.ShardSize = int64(v)
 		}
 	}
+	// Validate method per spec §8.4 step 1.
+	if method, ok := params["method"].(string); ok {
+		if method == "shards" && canonOpts.ShardSize == 0 {
+			return fmt.Errorf("bundle specifies shard serialization but shard_size is missing or zero")
+		}
+	}
 
 	// Step 3: Re-canonicalize the model to get the actual manifest
 	actualManifest, err := modelartifact.Canonicalize(modelPath, canonOpts)
