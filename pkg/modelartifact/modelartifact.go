@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/sigstore/model-signing/pkg/config"
+	"github.com/sigstore/model-signing/pkg/logging"
 	"github.com/sigstore/model-signing/pkg/manifest"
 	"github.com/sigstore/model-signing/pkg/oci"
 	"github.com/sigstore/model-signing/pkg/utils"
@@ -198,9 +199,7 @@ func buildHashingConfig(opts Options) *config.HashingConfig {
 	// kept for backward compatibility but no longer controls this.
 	hc.SetIgnoredPaths(opts.IgnorePaths, true)
 
-	if opts.Logger != nil {
-		hc.SetLogger(opts.Logger)
-	}
+	hc.SetLogger(logging.EnsureLogger(opts.Logger))
 
 	return hc
 }
