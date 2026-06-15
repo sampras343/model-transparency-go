@@ -818,6 +818,34 @@ echo "  --ignore-paths: PASSED"
 
 rm "${MODELDIR}/should-ignore.txt"
 
+# --- Test ignore_paths from signed bundle (spec §8.4, issue #161) ---
+echo "[Flags] Testing ignore_paths honored from signed bundle..."
+SIGFILE="${TMPDIR}/ignore-paths-bundle.sig"
+
+# Add a file and sign WITH --ignore-paths so it's recorded in the bundle
+echo "bundle-ignored" > "${MODELDIR}/bundle-ignored.txt"
+if ! ${DIR}/model-signing sign key \
+	--signature "${SIGFILE}" \
+	--private-key "${KEYSDIR}/flags-key.pem" \
+	--ignore-paths "bundle-ignored.txt" \
+	"${MODELDIR}" >/dev/null 2>&1; then
+	echo "  Error: Sign with --ignore-paths failed"
+	exit 1
+fi
+
+# Verify WITHOUT --ignore-paths should succeed because the bundle
+# records ignore_paths=["bundle-ignored.txt"] (spec §8.4)
+if ! ${DIR}/model-signing verify key \
+	--signature "${SIGFILE}" \
+	--public-key "${KEYSDIR}/flags-key-pub.pem" \
+	"${MODELDIR}" >/dev/null 2>&1; then
+	echo "  Error: Verification should pass using bundle's ignore_paths"
+	exit 1
+fi
+echo "  ignore_paths from bundle: PASSED"
+
+rm "${MODELDIR}/bundle-ignored.txt"
+
 # --- Test --ignore-unsigned-files ---
 echo "[Flags] Testing --ignore-unsigned-files..."
 SIGFILE="${TMPDIR}/ignore-unsigned.sig"

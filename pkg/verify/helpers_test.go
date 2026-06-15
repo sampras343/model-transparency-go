@@ -168,6 +168,54 @@ func TestCompareModelWithBundle_IgnorePathsFromCaller(t *testing.T) {
 	}
 }
 
+func TestCompareModelWithBundle_BundleIgnorePathsHonored(t *testing.T) {
+	modelPath := createTestModel(t)
+
+	// Add a file that will be ignored during signing
+	if err := os.WriteFile(filepath.Join(modelPath, "extra.dat"), []byte("extra"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Sign WITH ignore_paths (bundle records ignore_paths=["extra.dat"])
+	payload := signAndMarshal(t, modelPath, modelartifact.Options{
+		HashAlgorithm: "sha256",
+		IgnorePaths:   []string{"extra.dat"},
+	})
+
+	// Verify without passing IgnorePaths in opts — the bundle's
+	// ignore_paths=["extra.dat"] is extracted and used (spec §8.4).
+	err := CompareModelWithBundle(payload, modelPath, modelartifact.Options{}, false)
+	if err != nil {
+		t.Fatalf("should pass: bundle's ignore_paths should be honored: %v", err)
+	}
+}
+
+func TestCompareModelWithBundle_IgnorePathsMerged(t *testing.T) {
+	modelPath := createTestModel(t)
+
+	// Sign with bundle ignoring one file
+	payload := signAndMarshal(t, modelPath, modelartifact.Options{
+		HashAlgorithm: "sha256",
+		IgnorePaths:   []string{"bundle-ignored.dat"},
+	})
+
+	// Add two extra files after signing
+	if err := os.WriteFile(filepath.Join(modelPath, "bundle-ignored.dat"), []byte("b"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(modelPath, "caller-ignored.dat"), []byte("c"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify with caller ignoring the other file — both should be excluded
+	err := CompareModelWithBundle(payload, modelPath, modelartifact.Options{
+		IgnorePaths: []string{"caller-ignored.dat"},
+	}, false)
+	if err != nil {
+		t.Fatalf("should pass with merged ignore paths: %v", err)
+	}
+}
+
 func TestCompareModelWithBundle_SymlinkAddedAfterSigning(t *testing.T) {
 	modelPath := createTestModel(t)
 

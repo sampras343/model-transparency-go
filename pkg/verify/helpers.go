@@ -50,7 +50,7 @@ func LoadBundle(path string) (*bundle.Bundle, error) {
 // DSSE payload, re-canonicalizes the model, and compares the two manifests.
 //
 // Per OMS spec §8.4, the verifier MUST use the serialization parameters
-// (hash_type, method, shard_size, allow_symlinks) from the signed bundle
+// (hash_type, method, shard_size, allow_symlinks, ignore_paths) from the signed bundle
 // when recomputing file digests — not the caller-provided defaults.
 //
 // The verifiedPayload should be the raw in-toto JSON bytes extracted from
@@ -79,6 +79,18 @@ func CompareModelWithBundle(verifiedPayload []byte, modelPath string, opts model
 	}
 	if as, ok := params["allow_symlinks"].(bool); ok {
 		canonOpts.AllowSymlinks = as
+	}
+	if ip, ok := params["ignore_paths"]; ok {
+		switch v := ip.(type) {
+		case []string:
+			canonOpts.IgnorePaths = append(canonOpts.IgnorePaths, v...)
+		case []any:
+			for _, elem := range v {
+				if s, ok := elem.(string); ok {
+					canonOpts.IgnorePaths = append(canonOpts.IgnorePaths, s)
+				}
+			}
+		}
 	}
 	if ss, ok := params["shard_size"]; ok {
 		switch v := ss.(type) {
@@ -131,13 +143,13 @@ func ExtractAndCompareModel(bndl *bundle.Bundle, modelPath, signaturePath string
 	compareOpts := modelartifact.Options{
 		IgnorePaths:    ignorePaths,
 		IgnoreGitPaths: opts.IgnoreGitPaths,
-		AllowSymlinks:  opts.AllowSymlinks,
 		Logger:         logger,
-		// HashAlgorithm and ShardSize are intentionally omitted:
-		// CompareModelWithBundle extracts these from the signed
-		// bundle's serialization parameters (spec §8.4).
-		// AllowSymlinks is passed through so the caller can
-		// override the bundle's value permissively.
+		// HashAlgorithm, ShardSize, AllowSymlinks, and IgnorePaths
+		// are intentionally omitted: CompareModelWithBundle
+		// extracts these from the signed bundle's serialization
+		// parameters (spec §8.4). Caller-provided IgnorePaths
+		// (including the signature file appended above) are
+		// merged with the bundle's ignore_paths.
 	}
 	return CompareModelWithBundle(payloadBytes, modelPath, compareOpts, ignoreUnsignedFiles)
 }
