@@ -64,6 +64,11 @@ type Options struct {
 	// is hashed as a single unit. When set to -1, DefaultShardSize (1 GB)
 	// is used per OMS spec §6.3.2. When > 0, files are split into
 	// fixed-size shards and each shard is hashed separately.
+	//
+	// Values above 2^53 are not supported: the in-toto payload uses
+	// JSON numbers (IEEE 754 float64) which have 53 bits of integer
+	// precision. In practice this is not a limitation since 2^53 bytes
+	// is approximately 9 PB.
 	ShardSize int64
 
 	// Logger is an optional logger for debug output.
