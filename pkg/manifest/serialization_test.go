@@ -184,6 +184,34 @@ func TestSerializationParametersDefensiveCopy(t *testing.T) {
 	}
 }
 
+func TestShardSerializationFromArgsRejectsZeroShardSize(t *testing.T) {
+	args := map[string]any{
+		"method":         shardMethod,
+		"hash_type":      "sha256",
+		"shard_size":     0,
+		"allow_symlinks": false,
+	}
+
+	_, err := SerializationTypeFromArgs(args)
+	if err == nil {
+		t.Fatal("expected error for shard_size=0, got nil")
+	}
+}
+
+func TestShardSerializationFromArgsRejectsNegativeShardSize(t *testing.T) {
+	args := map[string]any{
+		"method":         shardMethod,
+		"hash_type":      "sha256",
+		"shard_size":     int64(-1),
+		"allow_symlinks": false,
+	}
+
+	_, err := SerializationTypeFromArgs(args)
+	if err == nil {
+		t.Fatal("expected error for negative shard_size, got nil")
+	}
+}
+
 func TestFileSerializationRejectsSpuriousShardSize(t *testing.T) {
 	args := map[string]any{
 		"method":         fileMethod,
