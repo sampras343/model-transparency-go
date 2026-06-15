@@ -276,6 +276,10 @@ func shardSerializationFromArgs(args map[string]any) (*ShardSerialization, error
 		return nil, fmt.Errorf("shard serialization `shard_size` must be numeric, got %T", rawShardSize)
 	}
 
+	if shardSize <= 0 {
+		return nil, fmt.Errorf("shard serialization `shard_size` must be a positive integer (spec §6.3.2), got %d", shardSize)
+	}
+
 	rawAllowSymlinks, ok := args["allow_symlinks"]
 	if !ok {
 		return nil, fmt.Errorf("shard serialization args missing `allow_symlinks`")
