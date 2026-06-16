@@ -475,3 +475,25 @@ func TestGetTimestampFromBundle_MultipleTimestamps_SelectsEarliest(t *testing.T)
 		t.Errorf("expected earliest timestamp %v, got %v", earlierTime, got)
 	}
 }
+
+func FuzzLoadBundleWithCompat(f *testing.F) {
+	f.Add([]byte(`{"mediaType":"application/vnd.dev.sigstore.bundle.v0.3+json","verificationMaterial":{}}`))
+	f.Add([]byte(`{"verificationMaterial":{"publicKey":{"rawBytes":"dGVzdA==","keyDetails":"EC_SIGN_P256_SHA256"}}}`))
+	f.Add([]byte(`{}`))
+	f.Add([]byte(`[]`))
+	f.Add([]byte(``))
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		_, _ = loadBundleWithCompat(data)
+	})
+}
+
+func FuzzExtractCertChainFromJSON(f *testing.F) {
+	f.Add([]byte(`{"verificationMaterial":{"x509CertificateChain":{"certificates":[{"rawBytes":"dGVzdA=="}]}}}`))
+	f.Add([]byte(`{}`))
+	f.Add([]byte(``))
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		_, _ = extractCertChainFromJSON(data)
+	})
+}
