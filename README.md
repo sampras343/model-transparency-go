@@ -1,5 +1,13 @@
 # Model Transparency Go
 
+[![Build](https://github.com/sampras343/model-transparency-go/actions/workflows/build.yml/badge.svg)](https://github.com/sampras343/model-transparency-go/actions/workflows/build.yml)
+[![Unit Tests](https://github.com/sampras343/model-transparency-go/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/sampras343/model-transparency-go/actions/workflows/unit-tests.yml)
+[![Lint](https://github.com/sampras343/model-transparency-go/actions/workflows/lint.yml/badge.svg)](https://github.com/sampras343/model-transparency-go/actions/workflows/lint.yml)
+[![Conformance](https://github.com/sampras343/model-transparency-go/actions/workflows/conformance.yml/badge.svg)](https://github.com/sampras343/model-transparency-go/actions/workflows/conformance.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/sigstore/model-signing)](https://goreportcard.com/report/github.com/sigstore/model-signing)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/sampras343/model-transparency-go/badge)](https://securityscorecards.dev/viewer/?uri=github.com/sampras343/model-transparency-go)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 <!-- markdown-toc --bullets="-" -i README.md -->
 
 <!-- toc -->
