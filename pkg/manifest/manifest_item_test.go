@@ -206,3 +206,17 @@ func TestShardedFileManifestItemPathNormalization(t *testing.T) {
 		}
 	}
 }
+
+func FuzzParseShardName(f *testing.F) {
+	f.Add("file.bin:0:1024")
+	f.Add("dir/file.bin:100:200")
+	f.Add("path:with:colons:0:10")
+	f.Add(":0:10")
+	f.Add("file:0:")
+	f.Add("")
+	f.Add("no-colons")
+
+	f.Fuzz(func(t *testing.T, name string) {
+		_, _, _, _ = parseShardName(name)
+	})
+}

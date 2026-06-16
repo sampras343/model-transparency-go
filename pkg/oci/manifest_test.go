@@ -549,3 +549,40 @@ func TestCompareManifests(t *testing.T) {
 		t.Error("CompareManifests() expected error for different manifests, got nil")
 	}
 }
+
+func FuzzParseManifest(f *testing.F) {
+	f.Add([]byte(`{"schemaVersion":2,"config":{"digest":"sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","size":0},"layers":[{"digest":"sha256:abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234","size":100,"annotations":{"org.opencontainers.image.title":"model.bin"}}]}`))
+	f.Add([]byte(`{}`))
+	f.Add([]byte(``))
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		m, err := ParseManifest(data)
+		if err != nil {
+			return
+		}
+		_ = m.Validate()
+	})
+}
+
+func FuzzValidateDigestFormat(f *testing.F) {
+	f.Add("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+	f.Add("sha512:abcdef")
+	f.Add("invalid")
+	f.Add(":")
+	f.Add("")
+
+	f.Fuzz(func(t *testing.T, digest string) {
+		_ = validateDigestFormat(digest)
+	})
+}
+
+func FuzzParseDigestString(f *testing.F) {
+	f.Add("sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+	f.Add("abcdef1234")
+	f.Add("")
+	f.Add(":")
+
+	f.Fuzz(func(t *testing.T, digest string) {
+		_, _ = parseDigestString(digest)
+	})
+}

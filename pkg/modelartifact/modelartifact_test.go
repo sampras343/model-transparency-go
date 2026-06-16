@@ -617,6 +617,30 @@ func TestUnmarshalPayload_UnsortedResourcesRejected(t *testing.T) {
 	}
 }
 
+func FuzzUnmarshalPayload(f *testing.F) {
+	f.Add([]byte(`{"_type":"https://in-toto.io/Statement/v1","predicateType":"https://model_signing/signature/v1.0","subject":[{"name":"test","digest":{"sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}}],"predicate":{"serialization":{"method":"files","hash_type":"sha256","allow_symlinks":false,"ignore_paths":[]},"resources":[]}}`))
+	f.Add([]byte(`{"_type":"https://in-toto.io/Statement/v0.1","predicateType":"https://model_signing/Digests/v0.1","subject":[]}`))
+	f.Add([]byte(`{}`))
+	f.Add([]byte(``))
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		_, _ = UnmarshalPayload(data)
+	})
+}
+
+func FuzzValidateIgnorePaths(f *testing.F) {
+	f.Add("cache/tmp")
+	f.Add("/absolute/path")
+	f.Add("../escape")
+	f.Add("glob*pattern")
+	f.Add("path\\backslash")
+	f.Add("")
+
+	f.Fuzz(func(t *testing.T, path string) {
+		_ = validateIgnorePaths([]string{path})
+	})
+}
+
 func TestUnmarshalPayload_DuplicateResourceNamesRejected(t *testing.T) {
 	payload := map[string]interface{}{
 		"_type":         "https://in-toto.io/Statement/v1",

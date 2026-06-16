@@ -15,6 +15,7 @@
 package manifest
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -210,6 +211,22 @@ func TestShardSerializationFromArgsRejectsNegativeShardSize(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for negative shard_size, got nil")
 	}
+}
+
+func FuzzSerializationTypeFromArgs(f *testing.F) {
+	f.Add([]byte(`{"method":"files","hash_type":"sha256","allow_symlinks":false,"ignore_paths":[]}`))
+	f.Add([]byte(`{"method":"shards","hash_type":"sha256","shard_size":1024,"allow_symlinks":false}`))
+	f.Add([]byte(`{"method":"unknown"}`))
+	f.Add([]byte(`{}`))
+	f.Add([]byte(``))
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var args map[string]any
+		if json.Unmarshal(data, &args) != nil {
+			return
+		}
+		_, _ = SerializationTypeFromArgs(args)
+	})
 }
 
 func TestFileSerializationRejectsSpuriousShardSize(t *testing.T) {
