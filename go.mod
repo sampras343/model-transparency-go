@@ -4,8 +4,8 @@ go 1.26.3
 
 require (
 	github.com/ThalesGroup/crypto11 v1.6.1
-	github.com/coreos/go-oidc/v3 v3.18.0
-	github.com/google/go-containerregistry v0.21.6
+	github.com/coreos/go-oidc/v3 v3.19.0
+	github.com/google/go-containerregistry v0.21.7
 	github.com/in-toto/attestation v1.2.0
 	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/moby/term v0.5.2
@@ -95,7 +95,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.44.0 // optional
 	go.opentelemetry.io/otel/trace v1.44.0
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/mod v0.36.0 // indirect
+	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
