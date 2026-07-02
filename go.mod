@@ -3,7 +3,7 @@ module github.com/sigstore/model-signing
 go 1.26.3
 
 require (
-	github.com/ThalesGroup/crypto11 v1.6.1
+	github.com/ThalesGroup/crypto11 v1.6.2
 	github.com/coreos/go-oidc/v3 v3.19.0
 	github.com/google/go-containerregistry v0.21.7
 	github.com/in-toto/attestation v1.2.0
