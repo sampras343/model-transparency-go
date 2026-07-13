@@ -38,6 +38,9 @@ const JSONModelPathKey = "model"
 // ErrUnknownJSONFlagKey means --json contained a key that is not a defined flag for this command.
 var ErrUnknownJSONFlagKey = errors.New("unknown JSON key: not a defined flag for this command")
 
+// ErrDuplicateJSONFlagKey means --json contained multiple keys that normalize to the same flag name.
+var ErrDuplicateJSONFlagKey = errors.New("duplicate JSON key: multiple keys normalize to the same flag")
+
 // errJSONObjectPayloadRequired: --json payload must be a JSON object (not key=value).
 var errJSONObjectPayloadRequired = errors.New(`--json: must be a JSON object (e.g. {"flag":"value"}), ` + stdinJSONArg + ` to read from stdin, or a path to a file whose contents are a JSON object`)
 
@@ -63,7 +66,7 @@ func NewJSONFlags() *JSONFlags {
 // AddPersistentFlags registers persistent --json on cmd.
 func (o *JSONFlags) AddPersistentFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringArrayVar(&o.jsonInputs, "json", nil,
-		fmt.Sprintf(`Set flags from a JSON object (repeat --json to merge). Value may be inline JSON starting with '{', %q to read from stdin, or a path to a regular file (any readable extension; max %d MiB) whose contents are a JSON object. Only regular files are accepted. Keys must name this command's flags, plus reserved key %q for the model path when MODEL_PATH is omitted (positional wins if both are set). File paths and JSON contents are trusted input: they can set any flag the command allows. Not the same as --log-format json. CLI flags override --json.`, stdinJSONArg, maxJSONConfigFileBytes/(1<<20), JSONModelPathKey))
+		`Options as JSON object and/or key=value (repeat flag to merge). Keys must name flags valid for the command (hyphens or underscores, matching other flags). Explicit flags override --json.`)
 	_ = cmd.MarkFlagFilename("json", "json", "JSON", "txt")
 }
 
@@ -191,9 +194,12 @@ func materializeJSONArg(rawIn string, stdin io.Reader, stdinConsumed *bool) (str
 		if *stdinConsumed {
 			return "", fmt.Errorf("only one --json %s can read stdin", stdinJSONArg)
 		}
-		b, err := io.ReadAll(stdin)
+		b, err := io.ReadAll(io.LimitReader(stdin, maxJSONConfigFileBytes+1))
 		if err != nil {
 			return "", fmt.Errorf("read stdin for --json %s: %w", stdinJSONArg, err)
+		}
+		if int64(len(b)) > maxJSONConfigFileBytes {
+			return "", fmt.Errorf("--json %s: stdin exceeds maximum size (%d bytes)", stdinJSONArg, maxJSONConfigFileBytes)
 		}
 		s := strings.TrimSpace(string(b))
 		if s == "" {
@@ -223,21 +229,19 @@ func readJSONConfigFile(userPath string) ([]byte, error) {
 		return nil, errJSONConfigFileUnreadable
 	}
 	path := filepath.Clean(userPath)
-	fi, err := os.Stat(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, errJSONConfigFileUnreadable
 	}
-	if !fi.Mode().IsRegular() {
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil || !fi.Mode().IsRegular() {
 		return nil, errJSONConfigFileUnreadable
 	}
 	if fi.Size() > maxJSONConfigFileBytes {
 		return nil, fmt.Errorf("--json: configuration file exceeds maximum size (%d bytes)", maxJSONConfigFileBytes)
 	}
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return nil, errJSONConfigFileUnreadable
-	}
-	return b, nil
+	return io.ReadAll(f)
 }
 
 func ensureJSONMergeKeyAllowed(nk, key string, allowed map[string]struct{}) error {
@@ -258,8 +262,13 @@ func mergeJSONObject(cmd *cobra.Command, dst map[string]string, allowed map[stri
 	if obj == nil {
 		return fmt.Errorf("invalid JSON for --json: must be a JSON object")
 	}
+	seen := make(map[string]string, len(obj))
 	for key, rawMsg := range obj {
 		nk := normalizeFlagKey(cmd, key)
+		if prev, dup := seen[nk]; dup && prev != key {
+			return fmt.Errorf("%w: %q and %q both normalize to %q", ErrDuplicateJSONFlagKey, prev, key, nk)
+		}
+		seen[nk] = key
 		if err := ensureJSONMergeKeyAllowed(nk, key, allowed); err != nil {
 			return err
 		}
@@ -279,14 +288,14 @@ func stringifyJSONValue(raw json.RawMessage) (string, error) {
 	}
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.UseNumber()
-	var v interface{}
+	var v any
 	if err := dec.Decode(&v); err != nil {
 		return "", err
 	}
 	return stringifyInterface(v)
 }
 
-func stringifyInterface(v interface{}) (string, error) {
+func stringifyInterface(v any) (string, error) {
 	switch v := v.(type) {
 	case string:
 		return v, nil
@@ -294,6 +303,16 @@ func stringifyInterface(v interface{}) (string, error) {
 		return v.String(), nil
 	case bool:
 		return strconv.FormatBool(v), nil
+	case []any:
+		parts := make([]string, len(v))
+		for i, elem := range v {
+			s, err := stringifyInterface(elem)
+			if err != nil {
+				return "", fmt.Errorf("array element [%d]: %w", i, err)
+			}
+			parts[i] = s
+		}
+		return strings.Join(parts, ","), nil
 	case nil:
 		return "", nil
 	default:

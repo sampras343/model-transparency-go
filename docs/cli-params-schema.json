@@ -1,8 +1,8 @@
 {
   "$id": "https://github.com/sigstore/model-signing/raw/main/docs/cli-params-schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "JSON object merged by repeated global --json (or stdin with --json \"-\"). Keys must be long flag names for the subcommand you run, plus the reserved key \"model\" for the model path when MODEL_PATH is omitted. CLI flags override --json. Values may be JSON strings, numbers, booleans, or null (see per-flag types). Pick the oneOf branch whose title matches your command invocation. Branches with identical flag sets are merged in the title. The repository schema is generated with -tags=pkcs11 (see Makefile) so PKCS#11 flags are included.",
-  "oneOf": [
+  "description": "JSON object merged by repeated global --json (or stdin with --json \"-\"). Keys must be long flag names for the subcommand you run, plus the reserved key \"model\" for the model path when MODEL_PATH is omitted. CLI flags override --json. Values may be JSON strings, numbers, booleans, or null (see per-flag types). Pick the anyOf branch whose title matches your command invocation. Branches with identical flag sets are merged in the title. The repository schema is generated with -tags=pkcs11 (see Makefile) so PKCS#11 flags are included.",
+  "anyOf": [
     {
       "additionalProperties": false,
       "properties": {
@@ -36,8 +36,11 @@
           ]
         },
         "ignore-paths": {
-          "description": "File paths to ignore when signing or verifying. For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
-          "type": "string"
+          "description": "File paths to ignore when signing or verifying. Pass a JSON array of strings or a single comma-separated string.",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
         },
         "log-format": {
           "description": "set the log output format (text, json)",
@@ -70,6 +73,10 @@
         "timeout": {
           "description": "timeout for commands. Go duration string (e.g. 3m, 1h30m).",
           "type": "string"
+        },
+        "tsa-url": {
+          "description": "URL of an RFC 3161 Timestamp Authority for trusted timestamps.",
+          "type": "string"
         }
       },
       "title": "model-signing sign certificate",
@@ -93,8 +100,11 @@
           ]
         },
         "ignore-paths": {
-          "description": "File paths to ignore when signing or verifying. For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
-          "type": "string"
+          "description": "File paths to ignore when signing or verifying. Pass a JSON array of strings or a single comma-separated string.",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
         },
         "log-format": {
           "description": "set the log output format (text, json)",
@@ -127,6 +137,10 @@
         "timeout": {
           "description": "timeout for commands. Go duration string (e.g. 3m, 1h30m).",
           "type": "string"
+        },
+        "tsa-url": {
+          "description": "URL of an RFC 3161 Timestamp Authority for trusted timestamps.",
+          "type": "string"
         }
       },
       "title": "model-signing sign key",
@@ -155,8 +169,11 @@
           ]
         },
         "ignore-paths": {
-          "description": "File paths to ignore when signing or verifying. For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
-          "type": "string"
+          "description": "File paths to ignore when signing or verifying. Pass a JSON array of strings or a single comma-separated string.",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
         },
         "log-format": {
           "description": "set the log output format (text, json)",
@@ -193,6 +210,10 @@
         "timeout": {
           "description": "timeout for commands. Go duration string (e.g. 3m, 1h30m).",
           "type": "string"
+        },
+        "tsa-url": {
+          "description": "URL of an RFC 3161 Timestamp Authority for trusted timestamps.",
+          "type": "string"
         }
       },
       "title": "model-signing sign pkcs11-certificate",
@@ -217,8 +238,11 @@
           ]
         },
         "ignore-paths": {
-          "description": "File paths to ignore when signing or verifying. For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
-          "type": "string"
+          "description": "File paths to ignore when signing or verifying. Pass a JSON array of strings or a single comma-separated string.",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
         },
         "log-format": {
           "description": "set the log output format (text, json)",
@@ -250,6 +274,10 @@
         },
         "timeout": {
           "description": "timeout for commands. Go duration string (e.g. 3m, 1h30m).",
+          "type": "string"
+        },
+        "tsa-url": {
+          "description": "URL of an RFC 3161 Timestamp Authority for trusted timestamps.",
           "type": "string"
         }
       },
@@ -286,8 +314,11 @@
           ]
         },
         "ignore-paths": {
-          "description": "File paths to ignore when signing or verifying. For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
-          "type": "string"
+          "description": "File paths to ignore when signing or verifying. Pass a JSON array of strings or a single comma-separated string.",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
         },
         "log-format": {
           "description": "set the log output format (text, json)",
@@ -364,8 +395,11 @@
           ]
         },
         "ignore-paths": {
-          "description": "File paths to ignore when signing or verifying. For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
-          "type": "string"
+          "description": "File paths to ignore when signing or verifying. Pass a JSON array of strings or a single comma-separated string.",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
         },
         "ignore-unsigned-files": {
           "description": "Ignore files in model that are not in signature. By default, verification fails if extra files exist.",
@@ -427,8 +461,11 @@
           ]
         },
         "ignore-paths": {
-          "description": "File paths to ignore when signing or verifying. For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
-          "type": "string"
+          "description": "File paths to ignore when signing or verifying. Pass a JSON array of strings or a single comma-separated string.",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
         },
         "ignore-unsigned-files": {
           "description": "Ignore files in model that are not in signature. By default, verification fails if extra files exist.",
@@ -495,8 +532,11 @@
           ]
         },
         "ignore-paths": {
-          "description": "File paths to ignore when signing or verifying. For --json, pass a single string (e.g. comma-separated paths as for the CLI flag).",
-          "type": "string"
+          "description": "File paths to ignore when signing or verifying. Pass a JSON array of strings or a single comma-separated string.",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
         },
         "ignore-unsigned-files": {
           "description": "Ignore files in model that are not in signature. By default, verification fails if extra files exist.",

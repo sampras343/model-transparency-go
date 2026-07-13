@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	flag "github.com/spf13/pflag"
 )
 
 func TestJSONFlags_ResolveModelPath(t *testing.T) {
@@ -113,6 +114,18 @@ func TestMaterializeJSONArg_emptyStdin(t *testing.T) {
 	_, err := materializeJSONArg("-", strings.NewReader("  \n  "), &consumed)
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestMaterializeJSONArg_stdinExceedsMaxSize(t *testing.T) {
+	var consumed bool
+	big := strings.NewReader(strings.Repeat("x", int(maxJSONConfigFileBytes)+1))
+	_, err := materializeJSONArg("-", big, &consumed)
+	if err == nil {
+		t.Fatal("expected error for oversized stdin")
+	}
+	if !strings.Contains(err.Error(), "exceeds maximum size") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -316,5 +329,132 @@ func TestJSONFlags_parseWithStdin_unknownKeyStillFails(t *testing.T) {
 	}
 	if !errors.Is(err, ErrUnknownJSONFlagKey) {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestJSONFlags_parseWithStdin_arrayStringSlice(t *testing.T) {
+	cmd := &cobra.Command{}
+	cmd.Flags().String("ignore-paths", "", "")
+
+	j := &JSONFlags{jsonInputs: []string{`{"ignore-paths":["/tmp/a","/tmp/b"]}`}}
+	data, err := j.parseWithStdin(cmd, strings.NewReader(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if data["ignore-paths"] != "/tmp/a,/tmp/b" {
+		t.Fatalf("expected comma-joined array, got %q", data["ignore-paths"])
+	}
+}
+
+func TestJSONFlags_parseWithStdin_arrayNonStringFails(t *testing.T) {
+	cmd := &cobra.Command{}
+	cmd.Flags().String("ignore-paths", "", "")
+
+	j := &JSONFlags{jsonInputs: []string{`{"ignore-paths":[1, {}]}`}}
+	_, err := j.parseWithStdin(cmd, strings.NewReader(""))
+	if err == nil {
+		t.Fatal("expected error for array with non-string element")
+	}
+}
+
+func TestApplyJSONToFlag_CLIFlagWins(t *testing.T) {
+	cmd := &cobra.Command{}
+	cmd.Flags().String("signature", "default.sig", "sig path")
+	// Simulate the user passing --signature on the CLI
+	if err := cmd.Flags().Set("signature", "cli.sig"); err != nil {
+		t.Fatal(err)
+	}
+
+	// applyJSONToFlag should not overwrite the CLI-set value
+	if err := applyJSONToFlag(cmd, "signature", "json.sig"); err != nil {
+		t.Fatal(err)
+	}
+	val, _ := cmd.Flags().GetString("signature")
+	if val != "cli.sig" {
+		t.Fatalf("expected CLI value %q to win, got %q", "cli.sig", val)
+	}
+}
+
+func TestApplyJSONToFlag_JSONAppliesWhenNoExplicitCLI(t *testing.T) {
+	cmd := &cobra.Command{}
+	cmd.Flags().String("signature", "default.sig", "sig path")
+
+	if err := applyJSONToFlag(cmd, "signature", "json.sig"); err != nil {
+		t.Fatal(err)
+	}
+	val, _ := cmd.Flags().GetString("signature")
+	if val != "json.sig" {
+		t.Fatalf("expected JSON value %q, got %q", "json.sig", val)
+	}
+}
+
+func TestNormalizeFlagKey_UnderscoreToHyphen(t *testing.T) {
+	cmd := &cobra.Command{}
+	cmd.SetGlobalNormalizationFunc(func(_ *flag.FlagSet, name string) flag.NormalizedName {
+		return flag.NormalizedName(strings.ReplaceAll(name, "_", "-"))
+	})
+	cmd.Flags().String("ignore-paths", "", "")
+
+	j := &JSONFlags{jsonInputs: []string{`{"ignore_paths":"a,b"}`}}
+	data, err := j.parseWithStdin(cmd, strings.NewReader(""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if data["ignore-paths"] != "a,b" {
+		t.Fatalf("expected underscore key normalized to hyphen, got %v", data)
+	}
+}
+
+func TestStringifyJSONValue_Bool(t *testing.T) {
+	got, err := stringifyJSONValue([]byte(`true`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "true" {
+		t.Fatalf("expected %q, got %q", "true", got)
+	}
+	got, err = stringifyJSONValue([]byte(`false`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "false" {
+		t.Fatalf("expected %q, got %q", "false", got)
+	}
+}
+
+func TestStringifyJSONValue_Null(t *testing.T) {
+	got, err := stringifyJSONValue([]byte(`null`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "" {
+		t.Fatalf("expected empty string for null, got %q", got)
+	}
+}
+
+func TestStringifyJSONValue_UnsupportedType(t *testing.T) {
+	_, err := stringifyJSONValue([]byte(`{"nested": "object"}`))
+	if err == nil {
+		t.Fatal("expected error for unsupported type")
+	}
+	if !strings.Contains(err.Error(), "unsupported JSON value type") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestJSONFlags_parseWithStdin_duplicateNormalizedKeyFails(t *testing.T) {
+	cmd := &cobra.Command{}
+	cmd.SetGlobalNormalizationFunc(func(_ *flag.FlagSet, name string) flag.NormalizedName {
+		return flag.NormalizedName(strings.ReplaceAll(name, "_", "-"))
+	})
+	cmd.Flags().String("ignore-paths", "", "")
+
+	j := &JSONFlags{jsonInputs: []string{`{"ignore_paths":"a","ignore-paths":"b"}`}}
+	_, err := j.parseWithStdin(cmd, strings.NewReader(""))
+	if err == nil {
+		t.Fatal("expected duplicate key error")
+	}
+	if !errors.Is(err, ErrDuplicateJSONFlagKey) {
+		t.Fatalf("expected ErrDuplicateJSONFlagKey, got: %v", err)
 	}
 }
