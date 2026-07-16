@@ -126,7 +126,7 @@ func applyJSONToFlag(cmd *cobra.Command, name, value string) error {
 	return nil
 }
 
-// allowedFlagNames returns visible non-json flag long names for cmd.
+// allowedFlagNames returns visible non-json flag long names; new flags added via AddFlags are automatically accepted as --json keys.
 func allowedFlagNames(cmd *cobra.Command) map[string]struct{} {
 	names := make(map[string]struct{})
 	visit := func(fs *flag.FlagSet) {

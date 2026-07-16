@@ -195,6 +195,64 @@ if [[ ! -f "${sigfile}" ]]; then
 	exit 1
 fi
 
+echo ">>> tsa-url via --json: sign key (flag accepted, fails at TSA contact)"
+tsa_sig="${WORKDIR}/model.sig-tsa"
+if "${BINARY}" sign key \
+	--json "$(jq -n \
+		--arg model "${MODELDIR}" \
+		--arg sig "${tsa_sig}" \
+		--arg pk "${KEYDIR}/signing-key.pem" \
+		--arg ign "${ignorepath}" \
+		'{model: $model, signature: $sig, "private-key": $pk, "ignore-paths": $ign, "tsa-url": "http://localhost:1/tsr"}')" \
+	2>/dev/null; then
+	echo "Error: sign key with unreachable tsa-url should have failed at TSA contact"
+	exit 1
+fi
+# Verify the error is a TSA connection error, not an unknown-flag error
+err=$("${BINARY}" sign key \
+	--json "$(jq -n \
+		--arg model "${MODELDIR}" \
+		--arg sig "${tsa_sig}" \
+		--arg pk "${KEYDIR}/signing-key.pem" \
+		--arg ign "${ignorepath}" \
+		'{model: $model, signature: $sig, "private-key": $pk, "ignore-paths": $ign, "tsa-url": "http://localhost:1/tsr"}')" \
+	2>&1 || true)
+if echo "${err}" | grep -qi "unknown JSON key"; then
+	echo "Error: tsa-url was rejected as unknown key — flag not registered for --json"
+	exit 1
+fi
+echo "  tsa-url via --json accepted (failed at TSA contact as expected): PASSED"
+
+echo ">>> tsa-url via --json: sign certificate (flag accepted)"
+if "${BINARY}" sign certificate \
+	--json "$(jq -n \
+		--arg model "${MODELDIR}" \
+		--arg sig "${tsa_sig}" \
+		--arg pk "${KEYDIR}/signing-key.pem" \
+		--arg sc "${KEYDIR}/signing-key-cert.pem" \
+		--arg cc "${KEYDIR}/int-ca-cert.pem" \
+		--arg ign "${ignorepath}" \
+		'{model: $model, signature: $sig, "private-key": $pk, "signing-certificate": $sc, "certificate-chain": $cc, "ignore-paths": $ign, "tsa-url": "http://localhost:1/tsr"}')" \
+	2>/dev/null; then
+	echo "Error: sign certificate with unreachable tsa-url should have failed at TSA contact"
+	exit 1
+fi
+err=$("${BINARY}" sign certificate \
+	--json "$(jq -n \
+		--arg model "${MODELDIR}" \
+		--arg sig "${tsa_sig}" \
+		--arg pk "${KEYDIR}/signing-key.pem" \
+		--arg sc "${KEYDIR}/signing-key-cert.pem" \
+		--arg cc "${KEYDIR}/int-ca-cert.pem" \
+		--arg ign "${ignorepath}" \
+		'{model: $model, signature: $sig, "private-key": $pk, "signing-certificate": $sc, "certificate-chain": $cc, "ignore-paths": $ign, "tsa-url": "http://localhost:1/tsr"}')" \
+	2>&1 || true)
+if echo "${err}" | grep -qi "unknown JSON key"; then
+	echo "Error: tsa-url was rejected as unknown key for sign certificate"
+	exit 1
+fi
+echo "  tsa-url via --json accepted for sign certificate: PASSED"
+
 echo ">>> expect failure: --json missing file"
 if "${BINARY}" sign key --json "${WORKDIR}/does-not-exist-$$.json" 2>/dev/null; then
 	echo "Error: expected non-zero exit for missing --json file"
