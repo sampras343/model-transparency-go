@@ -34,6 +34,19 @@
 // Demo mode (uses test keys from the repository):
 //
 //	go run ./examples/key/sign/main.go
+//
+// model-signing CLI (--json):
+//
+// Pass the model directory as a positional MODEL_PATH after "sign key", or omit the positional and set the
+// reserved JSON key "model" instead (if both are set, the positional path wins). Other keys must match flags
+// from "model-signing sign key --help" (underscores in keys are normalized to hyphens). Unknown keys are rejected.
+//
+//	model-signing sign key /path/to/model \
+//	    --json '{"private_key":"/path/to/private-key.pem","signature":"/path/to/model.sig","log_level":"info"}'
+//
+//	model-signing sign key --json '{"model":"/path/to/model","private_key":"/path/to/private-key.pem","signature":"/path/to/model.sig","log_level":"info"}'
+//
+// Or: go run ./cmd/model-signing/ sign key --json '{"model":"...","private_key":"..."}'
 package main
 
 import (
