@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions: {}
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: './go.mod'
+          check-latest: true
+
+      - name: Run vet
+        run: go vet ./...
+
+      - name: Run tests
+        run: go test -race ./...
+
+  release:
+    name: Release
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version-file: './go.mod'
+          check-latest: true
+
+      - name: Build binary
+        run: go build -o model-signing ./cmd/model-signing
+
+      - name: Trigger Go module proxy indexing
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          MODULE=$(head -1 go.mod | awk '{print $2}')
+          echo "Triggering proxy indexing for module ${MODULE} at ${TAG}"
+          HTTP_CODE=$(curl -s -o /tmp/proxy-response -w "%{http_code}" \
+            "https://proxy.golang.org/${MODULE}/@v/${TAG}.info")
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "Proxy indexing succeeded (HTTP ${HTTP_CODE})"
+            cat /tmp/proxy-response
+          else
+            echo "::warning::Proxy indexing returned HTTP ${HTTP_CODE} — module may not be indexed yet"
+            cat /tmp/proxy-response
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
+        with:
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref, '-') }}
