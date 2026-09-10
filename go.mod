@@ -4,8 +4,8 @@ go 1.26.3
 
 require (
 	github.com/ThalesGroup/crypto11 v1.6.2
-	github.com/coreos/go-oidc/v3 v3.20.0
-	github.com/google/go-containerregistry v0.22.0
+	github.com/coreos/go-oidc/v3 v3.21.0
+	github.com/google/go-containerregistry v0.22.1
 	github.com/in-toto/attestation v1.2.0
 	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/moby/term v0.5.2
@@ -15,8 +15,8 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/withfig/autocomplete-tools/integrations/cobra v1.2.1
-	golang.org/x/crypto v0.55.0
-	golang.org/x/oauth2 v0.36.0
+	golang.org/x/crypto v0.56.0
+	golang.org/x/oauth2 v0.37.0
 	google.golang.org/protobuf v1.36.12
 	sigs.k8s.io/release-utils v0.12.4
 )
