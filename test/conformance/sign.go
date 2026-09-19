@@ -107,8 +107,12 @@ func signModel(args []string) int {
 
 	case "sigstore":
 		cmd = []string{bin, "sign", "sigstore", "--signature", *outputBundle}
-		if *identityToken != "" {
-			cmd = append(cmd, "--identity-token", *identityToken)
+		token := *identityToken
+		if token == "" {
+			token = readTokenFromEnv()
+		}
+		if token != "" {
+			cmd = append(cmd, "--identity-token", token)
 		}
 		if *useStaging {
 			cmd = append(cmd, "--use-staging")
