@@ -54,6 +54,17 @@ type stringSlice []string
 func (s *stringSlice) String() string     { return strings.Join(*s, ",") }
 func (s *stringSlice) Set(v string) error { *s = append(*s, v); return nil }
 
+func readTokenFromEnv() string {
+	if f := os.Getenv("SIGSTORE_ID_TOKEN_FILE"); f != "" {
+		clean := filepath.Clean(f)
+		data, err := os.ReadFile(clean) // #nosec G304 -- path from trusted env var set by the conformance action
+		if err == nil {
+			return strings.TrimSpace(string(data))
+		}
+	}
+	return os.Getenv("SIGSTORE_ID_TOKEN")
+}
+
 func modelSigningBin() string {
 	if bin := os.Getenv("MODEL_SIGNING_BIN"); bin != "" {
 		return bin
