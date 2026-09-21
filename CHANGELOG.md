@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Added JSON input support to the CLI, including schema validation, stdin support, CLI precedence, and integration coverage.
+
+## [v0.0.3] - 2026-06-16
+
+- Added fuzz testing and hardened model manifest, serialization, path, and verification input handling.
+
 ## [v0.0.2] - 2026-03-03
 
 ### Added
@@ -30,5 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reusable library packages for external integration.
 - Example programs for each signing method.
 
+[v0.0.3]: https://github.com/sampras343/model-transparency-go/releases/tag/v0.0.3
 [v0.0.2]: https://github.com/sampras343/model-transparency-go/releases/tag/v0.0.2
 [v0.0.1]: https://github.com/sampras343/model-transparency-go/releases/tag/v0.0.1

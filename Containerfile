@@ -44,7 +44,7 @@ COPY LICENSE /licenses/license.txt
 ENTRYPOINT ["model-signing"]
 CMD ["--help"]
 
-ARG APP_VERSION="0.0.1"
+ARG APP_VERSION="1.0.0"
 
 LABEL summary="Provides a go library for model transparency." \
       org.opencontainers.image.title="Model Transparency Go Library" \
