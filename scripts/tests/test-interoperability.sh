@@ -68,7 +68,7 @@ python3 -m venv "${VENV}" || exit 1
 source "${VENV}/bin/activate"
 
 # Install model-signing from PyPI with PKCS#11 support (pinned to 1.1.1 for compatibility)
-if ! pip install --quiet 'model-signing[pkcs11]==1.1.1'; then
+if ! pip install --quiet 'model-signing[pkcs11]==1.1.1' pyOpenSSL; then
 	echo "Error: Failed to install model-signing Python package"
 	exit 1
 fi
