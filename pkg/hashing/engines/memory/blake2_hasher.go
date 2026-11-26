@@ -15,6 +15,7 @@
 package memory
 
 import (
+	"crypto/fips140"
 	"hash"
 
 	hashengines "github.com/sigstore/model-signing/pkg/hashing/engines"
@@ -22,6 +23,10 @@ import (
 )
 
 func init() {
+	if fips140.Enabled() {
+		return
+	}
+
 	// Register BLAKE2b hash engine
 	hashengines.MustRegister("blake2b", func() (hashengines.StreamingHashEngine, error) {
 		return NewBLAKE2(nil)
