@@ -18,6 +18,7 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/fips140"
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -25,7 +26,9 @@ import (
 	"encoding/json"
 	"math/big"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -80,12 +83,18 @@ func TestCompareModelWithBundle_SHA256RoundTrip(t *testing.T) {
 func TestCompareModelWithBundle_Blake2bRoundTrip(t *testing.T) {
 	modelPath := createTestModel(t)
 
-	payload := signAndMarshal(t, modelPath, modelartifact.Options{
+	payload := blake2PayloadForRuntime(t, modelPath, modelartifact.Options{
 		HashAlgorithm: "blake2b",
 	})
 
 	// Verify with default opts (would use sha256 if bug is present)
 	err := CompareModelWithBundle(payload, modelPath, modelartifact.Options{}, false)
+	if fips140.Enabled() {
+		if err == nil || !strings.Contains(err.Error(), "unsupported hash algorithm: blake2b") {
+			t.Fatalf("CompareModelWithBundle error = %v, want unsupported BLAKE2b", err)
+		}
+		return
+	}
 	if err != nil {
 		t.Fatalf("blake2b round-trip failed (verifier should use bundle's hash_type): %v", err)
 	}
@@ -109,15 +118,53 @@ func TestCompareModelWithBundle_ShardRoundTrip(t *testing.T) {
 func TestCompareModelWithBundle_Blake2bShardRoundTrip(t *testing.T) {
 	modelPath := createTestModel(t)
 
-	payload := signAndMarshal(t, modelPath, modelartifact.Options{
+	payload := blake2PayloadForRuntime(t, modelPath, modelartifact.Options{
 		HashAlgorithm: "blake2b",
 		ShardSize:     32,
 	})
 
 	err := CompareModelWithBundle(payload, modelPath, modelartifact.Options{}, false)
+	if fips140.Enabled() {
+		if err == nil || !strings.Contains(err.Error(), "unsupported hash algorithm: blake2b") {
+			t.Fatalf("CompareModelWithBundle error = %v, want unsupported BLAKE2b", err)
+		}
+		return
+	}
 	if err != nil {
 		t.Fatalf("blake2b+shard round-trip failed: %v", err)
 	}
+}
+
+func blake2PayloadForRuntime(t *testing.T, modelPath string, opts modelartifact.Options) []byte {
+	t.Helper()
+	const payloadEnv = "MODEL_SIGNING_TEST_BLAKE2_PAYLOAD"
+	if !fips140.Enabled() {
+		payload := signAndMarshal(t, modelPath, opts)
+		if destination := os.Getenv(payloadEnv); destination != "" {
+			if err := os.WriteFile(destination, payload, 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return payload
+	}
+
+	// Construct a genuine BLAKE2b payload in an off-mode process, then check
+	// that the enabled verifier rejects its requested hashing algorithm.
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	destination := filepath.Join(t.TempDir(), "blake2-payload.json")
+	cmd := exec.Command(executable, "-test.run=^"+regexp.QuoteMeta(t.Name())+"$")
+	cmd.Env = append(os.Environ(), "GODEBUG=fips140=off", payloadEnv+"="+destination)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("create off-mode BLAKE2b payload: %v\n%s", err, output)
+	}
+	payload, err := os.ReadFile(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return payload
 }
 
 func TestCompareModelWithBundle_ShardMethodMissingSizeRejects(t *testing.T) {

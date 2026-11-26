@@ -15,6 +15,7 @@
 package engines_test
 
 import (
+	"crypto/fips140"
 	"reflect"
 	"testing"
 
@@ -29,7 +30,7 @@ func TestCreate(t *testing.T) {
 		wantErr   bool
 	}{
 		{"sha256", "sha256", false},
-		{"blake2b", "blake2b", false},
+		{"blake2b", "blake2b", fips140.Enabled()},
 		{"unsupported", "md5", true},
 		{"empty", "", true},
 	}
@@ -43,6 +44,9 @@ func TestCreate(t *testing.T) {
 			}
 			if !tt.wantErr && engine == nil {
 				t.Error("Create() returned nil engine without error")
+			}
+			if tt.wantErr && engine != nil {
+				t.Error("Create() returned an engine with an error")
 			}
 		})
 	}
@@ -140,9 +144,13 @@ func TestSupportedAlgorithms(t *testing.T) {
 
 	algorithms := hashengines.SupportedAlgorithms()
 
-	// Should contain at least the default algorithms
-	if len(algorithms) < 2 {
-		t.Errorf("SupportedAlgorithms() returned %d algorithms, want at least 2", len(algorithms))
+	// BLAKE2b is available only when native Go FIPS mode is disabled.
+	minimumAlgorithms := 2
+	if fips140.Enabled() {
+		minimumAlgorithms = 1
+	}
+	if len(algorithms) < minimumAlgorithms {
+		t.Errorf("SupportedAlgorithms() returned %d algorithms, want at least %d", len(algorithms), minimumAlgorithms)
 	}
 
 	// Check for defaults
@@ -160,8 +168,8 @@ func TestSupportedAlgorithms(t *testing.T) {
 	if !hasShA256 {
 		t.Error("SupportedAlgorithms() missing sha256")
 	}
-	if !hasBlake2b {
-		t.Error("SupportedAlgorithms() missing blake2b")
+	if hasBlake2b == fips140.Enabled() {
+		t.Errorf("BLAKE2b registration = %t, want %t", hasBlake2b, !fips140.Enabled())
 	}
 
 	// Check that list is sorted
@@ -182,7 +190,7 @@ func TestIsSupported(t *testing.T) {
 		want      bool
 	}{
 		{"sha256 supported", "sha256", true},
-		{"blake2b supported", "blake2b", true},
+		{"blake2b supported", "blake2b", !fips140.Enabled()},
 		{"md5 not supported", "md5", false},
 		{"empty not supported", "", false},
 	}

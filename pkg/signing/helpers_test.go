@@ -15,8 +15,10 @@
 package signing
 
 import (
+	"crypto/fips140"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sigstore/model-signing/pkg/logging"
@@ -39,6 +41,15 @@ func TestPreparePayload_ForwardsHashAlgorithm(t *testing.T) {
 	m, payload, err := PreparePayload(modelDir, sigPath, modelartifact.Options{
 		HashAlgorithm: "blake2b",
 	}, logging.EnsureLogger(nil))
+	if fips140.Enabled() {
+		if err == nil || !strings.Contains(err.Error(), "unsupported hash algorithm: blake2b") {
+			t.Fatalf("PreparePayload error = %v, want unsupported BLAKE2b", err)
+		}
+		if m != nil || payload != nil {
+			t.Fatal("expected nil manifest and payload for unsupported BLAKE2b")
+		}
+		return
+	}
 	if err != nil {
 		t.Fatalf("PreparePayload failed: %v", err)
 	}
